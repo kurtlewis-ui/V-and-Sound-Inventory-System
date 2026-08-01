@@ -204,35 +204,35 @@ export class SalesService {
         throw new BadRequestException('Sale is already approved or declined');
       }
 
+      // Check-and-decrement each item as a single atomic conditional UPDATE
+      // (quantity >= needed) instead of a separate read + decrement. Two
+      // different sales approved concurrently (e.g. "Approve All") can both
+      // read the same pre-decrement quantity; only a conditional UPDATE,
+      // whose WHERE clause is re-evaluated against the current row when it
+      // acquires the lock, can't be fooled by that stale read.
       for (const item of sale.items) {
         if (!item.productId) continue;
-        const inv = await tx.inventory.findUnique({
+        const result = await tx.inventory.updateMany({
           where: {
-            productId_branchId: {
-              productId: item.productId,
-              branchId: sale.branchId,
-            },
-          },
-        });
-        const available = inv?.quantity ?? 0;
-        if (available < item.quantity) {
-          throw new BadRequestException(
-            `Insufficient stock for "${item.name}" (need ${item.quantity}, have ${available})`,
-          );
-        }
-      }
-
-      for (const item of sale.items) {
-        if (!item.productId) continue;
-        await tx.inventory.update({
-          where: {
-            productId_branchId: {
-              productId: item.productId,
-              branchId: sale.branchId,
-            },
+            productId: item.productId,
+            branchId: sale.branchId,
+            quantity: { gte: item.quantity },
           },
           data: { quantity: { decrement: item.quantity } },
         });
+        if (result.count === 0) {
+          const inv = await tx.inventory.findUnique({
+            where: {
+              productId_branchId: {
+                productId: item.productId,
+                branchId: sale.branchId,
+              },
+            },
+          });
+          throw new BadRequestException(
+            `Insufficient stock for "${item.name}" (need ${item.quantity}, have ${inv?.quantity ?? 0})`,
+          );
+        }
       }
 
       const updated = await tx.sale.findUnique({

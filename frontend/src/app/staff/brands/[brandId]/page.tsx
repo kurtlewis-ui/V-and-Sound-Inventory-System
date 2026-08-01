@@ -138,14 +138,27 @@ function AddPurchaseModal({
   const [quantity, setQuantity] = useState('1');
   const [error, setError] = useState<string | null>(null);
   const addItem = useDraftStore((s) => s.addItem);
+  const draftItems = useDraftStore((s) => s.items);
   const createDisposal = useCreateDisposal();
 
+  // Units already sitting in the draft cart for this product don't come off
+  // the server's stock count until the sale is approved, so they must be
+  // subtracted here or staff could draft more than actually exists.
+  const alreadyInCart = draftItems.find((i) => i.productId === product.id)?.quantity ?? 0;
   const stock = product.totalQuantity;
+  const available = Math.max(0, stock - alreadyInCart);
 
   function validQty(): number | null {
     const qty = Number(quantity);
     if (!qty || qty < 1) { setError('Enter a quantity of at least 1.'); return null; }
-    if (qty > stock) { setError(`Only ${stock} in stock at your shop.`); return null; }
+    if (qty > available) {
+      setError(
+        alreadyInCart > 0
+          ? `Only ${available} more available (${alreadyInCart} already in your draft order).`
+          : `Only ${available} in stock at your shop.`,
+      );
+      return null;
+    }
     return qty;
   }
 
@@ -199,7 +212,10 @@ function AddPurchaseModal({
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-text-primary">{product.name}</p>
             <p className="text-sm font-bold text-accent-purple-light">{peso(product.sellingPrice)}</p>
-            <p className={`text-xs ${stock <= 0 ? 'text-accent-red' : 'text-text-muted'}`}>Stock/s: {stock}</p>
+            <p className={`text-xs ${available <= 0 ? 'text-accent-red' : 'text-text-muted'}`}>
+              Stock/s: {stock}
+              {alreadyInCart > 0 && ` (${alreadyInCart} in draft order, ${available} available)`}
+            </p>
           </div>
         </div>
 
@@ -208,7 +224,7 @@ function AddPurchaseModal({
           <input
             type="number"
             min="1"
-            max={stock}
+            max={available}
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
             className="w-full rounded border border-input-border bg-input-bg px-3 py-2 text-sm focus:outline-none focus:border-input-focus"
@@ -220,14 +236,14 @@ function AddPurchaseModal({
         <div className="flex flex-col items-end gap-2">
           <button
             onClick={handleSaveRecords}
-            disabled={stock <= 0 || createDisposal.isPending}
+            disabled={available <= 0 || createDisposal.isPending}
             className="rounded-lg bg-btn-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition disabled:opacity-50"
           >
             Save Records
           </button>
           <button
             onClick={handleDispose}
-            disabled={stock <= 0 || createDisposal.isPending}
+            disabled={available <= 0 || createDisposal.isPending}
             className="rounded-lg bg-accent-red px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition disabled:opacity-50"
           >
             {createDisposal.isPending ? 'Submitting…' : 'Dispose'}

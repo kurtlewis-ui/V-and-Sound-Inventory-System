@@ -15,6 +15,12 @@ const ENTITY_CATEGORY: Record<string, string> = {
   User: 'Users',
 };
 
+// Login/session actions are logged with entityType 'User' (there's no
+// separate 'Auth'/'Session' entityType in practice), so they need to be
+// pulled into "Authentications" by action name rather than entityType alone
+// - otherwise that tab can never match anything.
+const AUTH_ACTIONS = new Set(['LOGIN', 'LOGOUT', 'LOGIN_FAILED', 'PASSWORD_CHANGED']);
+
 @Injectable()
 export class ActivityLogsService {
   constructor(private prisma: PrismaService) {}
@@ -25,7 +31,13 @@ export class ActivityLogsService {
 
     const where: Prisma.AuditLogWhereInput = {};
 
-    if (category && category !== 'All') {
+    if (category === 'Authentications') {
+      where.entityType = 'User';
+      where.action = { in: [...AUTH_ACTIONS] };
+    } else if (category === 'Users') {
+      where.entityType = 'User';
+      where.action = { notIn: [...AUTH_ACTIONS] };
+    } else if (category && category !== 'All') {
       const entityTypes = Object.entries(ENTITY_CATEGORY)
         .filter(([, cat]) => cat === category)
         .map(([entity]) => entity);
@@ -83,7 +95,10 @@ export class ActivityLogsService {
   }
 
   private serialize(log: any) {
-    const category = ENTITY_CATEGORY[log.entityType] ?? 'Accounts';
+    const category =
+      log.entityType === 'User' && AUTH_ACTIONS.has(log.action)
+        ? 'Authentications'
+        : (ENTITY_CATEGORY[log.entityType] ?? 'Accounts');
     const action = this.humanizeAction(log.action);
     return {
       id: log.id,

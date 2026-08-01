@@ -1,5 +1,13 @@
 import axios from 'axios';
 import { useAuthStore } from './store';
+import { useDraftStore } from './draft';
+
+// Clears both the auth session and the staff draft cart. Devices in a shop
+// are often shared between staff, so a stale draft must not survive logout.
+function logoutAndClearDraft(): void {
+  useAuthStore.getState().logout();
+  useDraftStore.getState().clear();
+}
 
 /**
  * Pre-configured axios instance pointed at the NestJS backend.
@@ -85,13 +93,13 @@ api.interceptors.response.use(
         config.headers.Authorization = `Bearer ${accessToken}`;
         return api(config);
       } catch {
-        useAuthStore.getState().logout();
+        logoutAndClearDraft();
         return Promise.reject(error);
       }
     }
 
     if (status === 401) {
-      useAuthStore.getState().logout();
+      logoutAndClearDraft();
     }
     return Promise.reject(error);
   },

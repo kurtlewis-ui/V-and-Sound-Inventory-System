@@ -53,7 +53,7 @@ docker-compose exec backend npm run db:seed
 - **API Documentation:** http://localhost:4000/api/docs
 
 **Default Login:**
-- Email: `owner@vapeshop.com`
+- Email: `admin@vapeshop.com`
 - Password: `ChangeMe123!`
 
 ---
@@ -187,12 +187,12 @@ npm run dev
 
 ## Default User
 
-The database seeds a single **Owner** account to bootstrap login. Create
-shops, staff and admins from inside the app afterwards.
+The database seeds a single **Admin** account to bootstrap login. Create
+shops, staff and additional admins from inside the app afterwards.
 
 | Role | Email | Password | Access Level |
 |------|-------|----------|--------------|
-| **Owner** | owner@vapeshop.com | ChangeMe123! | Full system access |
+| **Admin** | admin@vapeshop.com | ChangeMe123! | Full system access |
 
 ⚠️ **IMPORTANT:** Change this password immediately after first login.
 
@@ -230,7 +230,7 @@ Should open Prisma Studio in your browser showing all tables with data.
 ### 3. Test Login
 
 1. Go to http://localhost:3000
-2. Enter credentials: `owner@vapeshop.com` / `ChangeMe123!`
+2. Enter credentials: `admin@vapeshop.com` / `ChangeMe123!`
 3. You should see the dashboard
 
 ---

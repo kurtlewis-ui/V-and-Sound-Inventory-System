@@ -52,6 +52,10 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
 
   function handleLogout() {
     logout();
+    // Clear the draft cart too — it's a separate localStorage key that would
+    // otherwise survive logout and show up for the next person to sign in on
+    // this (often shared, POS-style) device.
+    useDraftStore.getState().clear();
     router.replace('/login');
   }
 
