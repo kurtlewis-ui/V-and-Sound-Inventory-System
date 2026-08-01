@@ -367,6 +367,9 @@ export default function SalesPendingPage() {
                   <td className="px-4 py-3 text-sm text-text-primary font-medium">
                     {d.items.length > 0 && <p>{peso(d.total)}</p>}
                     {d.expenses.length > 0 && <p className="text-xs text-accent-red">-{peso(d.expensesTotal)}</p>}
+                    {d.items.length > 0 && d.expenses.length > 0 && (
+                      <p className="text-xs font-semibold text-accent-purple-light">Net: {peso(d.total - d.expensesTotal)}</p>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(d.updatedAt)}</td>
                   <td className="px-4 py-3">
