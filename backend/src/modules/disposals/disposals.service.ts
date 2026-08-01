@@ -82,23 +82,28 @@ export class DisposalsService {
       }
 
       if (disposal.productId) {
-        const inv = await tx.inventory.findUnique({
+        // Single atomic conditional UPDATE (quantity >= needed) instead of a
+        // separate read + decrement — see sales.service.ts's approve() for
+        // why a plain read-then-decrement can be fooled by a concurrent
+        // approval (e.g. another disposal or sale) on the same product.
+        const result = await tx.inventory.updateMany({
           where: {
-            productId_branchId: { productId: disposal.productId, branchId: disposal.branchId },
-          },
-        });
-        const available = inv?.quantity ?? 0;
-        if (available < disposal.quantity) {
-          throw new BadRequestException(
-            `Insufficient stock to dispose (need ${disposal.quantity}, have ${available})`,
-          );
-        }
-        await tx.inventory.update({
-          where: {
-            productId_branchId: { productId: disposal.productId, branchId: disposal.branchId },
+            productId: disposal.productId,
+            branchId: disposal.branchId,
+            quantity: { gte: disposal.quantity },
           },
           data: { quantity: { decrement: disposal.quantity } },
         });
+        if (result.count === 0) {
+          const inv = await tx.inventory.findUnique({
+            where: {
+              productId_branchId: { productId: disposal.productId, branchId: disposal.branchId },
+            },
+          });
+          throw new BadRequestException(
+            `Insufficient stock to dispose (need ${disposal.quantity}, have ${inv?.quantity ?? 0})`,
+          );
+        }
       }
 
       const updated = await tx.disposal.findUnique({
