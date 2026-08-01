@@ -35,19 +35,6 @@ function paymentDotColor(pm: PaymentMethod) {
   return pm === 'Cash' ? 'bg-accent-green' : pm === 'Gcash' ? 'bg-accent-blue' : 'bg-accent-purple-light';
 }
 
-// Small pulsing dot + label shown next to sections that auto-refresh.
-function LiveIndicator() {
-  return (
-    <span className="flex items-center gap-1.5 text-xs font-medium text-accent-green">
-      <span className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-green opacity-75" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-green" />
-      </span>
-      Live
-    </span>
-  );
-}
-
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -299,10 +286,7 @@ export default function SalesPendingPage() {
             <ShoppingBag size={18} /> Staff Drafts
             {drafts.length > 0 && <span className="badge badge-neutral">{drafts.length}</span>}
           </h2>
-          <div className="flex items-center gap-3">
-            <LiveIndicator />
-            <p className="text-xs text-text-muted">Carts staff are currently building — not yet submitted for approval.</p>
-          </div>
+          <p className="text-xs text-text-muted">Carts staff are currently building — not yet submitted for approval.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -397,7 +381,6 @@ export default function SalesPendingPage() {
             {disposals.length > 0 && <span className="badge badge-neutral">{disposals.length}</span>}
           </h2>
           <div className="flex items-center gap-3">
-            <LiveIndicator />
             <button
               onClick={() => { const n = disposals.length; if (!n) return; runSafe(async () => { await Promise.all(disposals.map((d) => approveDisposal.mutateAsync(d.id))); setActionStatus(`✓ All ${n} disposal${n === 1 ? '' : 's'} approved (stock deducted).`); }); }}
               disabled={disposals.length === 0}
@@ -465,7 +448,6 @@ export default function SalesPendingPage() {
             {expenses.length > 0 && <span className="badge badge-neutral">{expenses.length}</span>}
           </h2>
           <div className="flex items-center gap-3">
-            <LiveIndicator />
             <button
               onClick={() => { const n = expenses.length; if (!n) return; runSafe(async () => { await Promise.all(expenses.map((e) => approveExpense.mutateAsync(e.id))); setActionStatus(`✓ All ${n} expense${n === 1 ? '' : 's'} approved.`); }); }}
               disabled={expenses.length === 0}

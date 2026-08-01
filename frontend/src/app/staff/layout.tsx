@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { useDraftStore } from '@/lib/draft';
-import { useSaveDraft, useClearDraftSync, useSaveMyDraft } from '@/lib/hooks';
+import { useSaveDraft, useClearDraftSync, useSaveMyDraft, useMyDraftExists } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import {
   Home,
@@ -185,6 +185,7 @@ function DraftBag() {
   const saveDraft = useSaveDraft();
   const clearDraftSync = useClearDraftSync();
   const saveMyDraft = useSaveMyDraft();
+  const { data: myDraftExists } = useMyDraftExists();
 
   useEffect(() => setMounted(true), []);
 
@@ -194,7 +195,9 @@ function DraftBag() {
   // Pending Sales before it's ever submitted. Skips the initial mount so an
   // empty cart on page load doesn't fire a pointless clear.
   const didMount = useRef(false);
+  const lastLocalEditAt = useRef(0);
   useEffect(() => {
+    lastLocalEditAt.current = Date.now();
     if (!didMount.current) {
       didMount.current = true;
       return;
@@ -216,6 +219,19 @@ function DraftBag() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, disposalItems, expenses, paymentMethod, bankNote, customerName]);
+
+  // If the server-side draft disappeared while we weren't actively editing
+  // (nothing changed locally in the last few seconds), it wasn't us — an
+  // admin must have submitted it on our behalf via "Save Draft". Clear the
+  // stale local copy so we don't resubmit those same items as duplicates.
+  useEffect(() => {
+    if (!myDraftExists || myDraftExists.exists || isEmpty) return;
+    if (Date.now() - lastLocalEditAt.current < 3000) return;
+    clear();
+    setSuccess("Your draft was submitted by an admin — it's no longer pending here.");
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myDraftExists]);
 
   const itemsTotal = useMemo(
     () => items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0),

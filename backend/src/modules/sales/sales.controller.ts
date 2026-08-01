@@ -54,6 +54,13 @@ export class SalesController {
     return { success: true, data };
   }
 
+  @Get('draft')
+  @ApiOperation({ summary: 'Whether a draft still exists server-side for you (detects admin Save Draft)' })
+  async myDraftExists(@CurrentUser() user: RequestUser) {
+    const data = await this.draftsService.existsForMine(user);
+    return { success: true, data };
+  }
+
   @Put('draft')
   @ApiOperation({ summary: 'Save/replace your own in-progress draft cart' })
   async saveDraft(@Body() dto: UpsertDraftDto, @CurrentUser() user: RequestUser) {

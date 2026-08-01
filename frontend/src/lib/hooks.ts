@@ -501,6 +501,19 @@ export function useSaveMyDraft() {
   });
 }
 
+// Staff: poll whether a draft still exists server-side for them. Used to
+// detect an admin submitting their draft on their behalf (via the admin's
+// "Save Draft" button) so the local cart can be cleared to match — otherwise
+// the staff's device would still show the already-submitted items and could
+// resubmit them as duplicates.
+export function useMyDraftExists() {
+  return useQuery({
+    queryKey: ['my-draft-exists'],
+    queryFn: () => getData<{ exists: boolean }>('/sales/draft'),
+    refetchInterval: 4000,
+  });
+}
+
 // Admin: poll every staff member's current draft cart, optionally scoped to
 // a branch. Short interval so it feels close to live on the Pending Sales page.
 export function useStaffDrafts(branchId?: string) {
