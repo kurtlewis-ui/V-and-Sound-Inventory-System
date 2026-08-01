@@ -155,6 +155,26 @@ export interface SalesSummary {
   count: number;
 }
 
+// A staff member's current in-progress (not-yet-submitted) cart, as seen by
+// an Admin on the Pending Sales page.
+export interface StaffDraft {
+  id: string;
+  staff: { id: string; name: string; email: string };
+  branch: { id: string; name: string } | null;
+  items: {
+    productId: string;
+    name: string;
+    brandName: string;
+    unitPrice: number;
+    quantity: number;
+    image?: string | null;
+  }[];
+  paymentMethod: PaymentMethod;
+  customerName: string | null;
+  total: number;
+  updatedAt: string;
+}
+
 export interface ActivityLog {
   id: string;
   userName: string;

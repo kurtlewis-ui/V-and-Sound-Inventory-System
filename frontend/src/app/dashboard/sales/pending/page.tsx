@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useState } from 'react';
-import { Search, Pencil, Trash2, X, CheckCircle, XCircle, Plus, Loader2, Recycle } from 'lucide-react';
+import { Search, Pencil, Trash2, X, CheckCircle, XCircle, Plus, Loader2, Recycle, ShoppingBag } from 'lucide-react';
 import {
   useSalesPending,
   useBranches,
@@ -13,6 +13,7 @@ import {
   useDisposalsPending,
   useApproveDisposal,
   useDeclineDisposal,
+  useStaffDrafts,
 } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import type { Sale } from '@/lib/types';
@@ -75,6 +76,10 @@ export default function SalesPendingPage() {
   const disposals = disposalData?.data ?? [];
   const approveDisposal = useApproveDisposal();
   const declineDisposal = useDeclineDisposal();
+
+  // Staff draft carts (not yet submitted) — read-only visibility for admins.
+  const { data: draftsData, isLoading: draftsLoading } = useStaffDrafts(selectedShop || undefined);
+  const drafts = draftsData ?? [];
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
@@ -217,6 +222,61 @@ export default function SalesPendingPage() {
             <p className="text-sm text-text-primary"><span className="font-medium">Total for Gcash:</span> {peso(summary.gcash)}</p>
             <p className="text-sm text-text-primary font-bold">Total for All Pending: {peso(summary.total)}</p>
           </div>
+        </div>
+      </div>
+
+      {/* Staff Drafts (in-progress carts, not yet submitted) */}
+      <div className="bg-card-bg rounded-xl border border-card-border shadow-sm mt-6">
+        <div className="p-4 border-b border-card-border flex items-center justify-between flex-wrap gap-2">
+          <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
+            <ShoppingBag size={18} /> Staff Drafts
+            {drafts.length > 0 && <span className="badge badge-neutral">{drafts.length}</span>}
+          </h2>
+          <p className="text-xs text-text-muted">Live view of carts staff are currently building — not yet submitted for approval.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-table-header text-table-header-text">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Staff</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Shop</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Items</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Payment</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Total</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Last Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {draftsLoading ? (
+                <tr><td colSpan={6} className="text-center py-6 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading…</td></tr>
+              ) : drafts.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-6 text-text-muted">No staff currently building an order.</td></tr>
+              ) : drafts.map((d) => (
+                <tr key={d.id} className="border-b border-card-border hover:bg-white/5 transition align-top">
+                  <td className="px-4 py-3">
+                    <p className="text-sm font-medium text-text-primary">{d.staff.name}</p>
+                    <p className="text-xs text-text-muted">{d.staff.email}</p>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{d.branch?.name ?? '—'}</td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">
+                    <ul className="space-y-0.5">
+                      {d.items.map((item) => (
+                        <li key={item.productId}>{item.quantity}× {item.name}</li>
+                      ))}
+                    </ul>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="badge badge-neutral">
+                      <span className={`badge-dot ${d.paymentMethod === 'Cash' ? 'bg-accent-green' : 'bg-accent-blue'}`} />
+                      {d.paymentMethod}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-primary font-medium">{peso(d.total)}</td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(d.updatedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 

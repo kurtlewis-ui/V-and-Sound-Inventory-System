@@ -22,6 +22,7 @@ import type {
   Sale,
   SalesOverviewPoint,
   SalesSummary,
+  StaffDraft,
   TopProduct,
 } from './types';
 
@@ -432,6 +433,47 @@ export function useDeleteSale() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/sales/${id}`).then((r) => r.data.data),
     onSuccess: () => invalidate(['sales'], ['stats']),
+  });
+}
+
+// ===========================================================================
+// STAFF DRAFT CARTS
+// ===========================================================================
+
+// Staff: push their current draft cart to the server so an Admin can see it.
+export interface DraftSyncInput {
+  items: {
+    productId: string;
+    name: string;
+    brandName: string;
+    unitPrice: number;
+    quantity: number;
+    image?: string | null;
+  }[];
+  paymentMethod: 'Cash' | 'Gcash';
+  customerName?: string;
+}
+
+export function useSaveDraft() {
+  return useMutation({
+    mutationFn: (body: DraftSyncInput) => api.put('/sales/draft', body).then((r) => r.data.data),
+  });
+}
+
+export function useClearDraftSync() {
+  return useMutation({
+    mutationFn: () => api.delete('/sales/draft').then((r) => r.data.data),
+  });
+}
+
+// Admin: poll every staff member's current draft cart, optionally scoped to
+// a branch. Short interval since this is meant to feel close to live on the
+// Pending Sales page.
+export function useStaffDrafts(branchId?: string) {
+  return useQuery({
+    queryKey: ['staff-drafts', { branchId }],
+    queryFn: () => getData<StaffDraft[]>('/sales/drafts', { branchId: branchId || undefined }),
+    refetchInterval: 10_000,
   });
 }
 
