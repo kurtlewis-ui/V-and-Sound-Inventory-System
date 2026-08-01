@@ -10,7 +10,17 @@ function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 function paymentDotColor(pm: PaymentMethod) {
-  return pm === 'Cash' ? 'bg-accent-green' : pm === 'Gcash' ? 'bg-accent-blue' : 'bg-accent-purple-light';
+  switch (pm) {
+    case 'Cash': return 'bg-accent-green';
+    case 'Gcash': return 'bg-accent-blue';
+    case 'BankTransfer': return 'bg-accent-purple-light';
+    case 'Cashless': return 'bg-accent-orange';
+    default: return 'bg-text-muted';
+  }
+}
+function itemPaymentLabel(item: { paymentMethod: PaymentMethod; bankNote?: string | null }) {
+  if (item.paymentMethod === 'BankTransfer') return `Bank Transfer${item.bankNote ? ` (${item.bankNote})` : ''}`;
+  return item.paymentMethod;
 }
 
 function formatDate(iso: string) {
@@ -36,7 +46,7 @@ export default function SalesRecordsPage() {
   });
 
   const sales = data?.data ?? [];
-  const summary = data?.summary ?? { cash: 0, gcash: 0, bankTransfer: 0, total: 0, count: 0 };
+  const summary = data?.summary ?? { cash: 0, gcash: 0, bankTransfer: 0, cashless: 0, total: 0, count: 0 };
 
   const clearFilters = () => {
     setSelectedShop('');
@@ -109,8 +119,8 @@ export default function SalesRecordsPage() {
                       <td className="px-4 py-3 text-sm text-text-primary font-medium">{peso(item.subTotal)}</td>
                       <td className="px-4 py-3">
                         <span className="badge badge-neutral">
-                          <span className={`badge-dot ${paymentDotColor(sale.paymentMethod)}`} />
-                          {sale.paymentMethod === 'BankTransfer' ? `Bank Transfer${sale.bankNote ? ` (${sale.bankNote})` : ''}` : sale.paymentMethod}
+                          <span className={`badge-dot ${paymentDotColor(item.paymentMethod)}`} />
+                          {itemPaymentLabel(item)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{sale.staff?.name ?? '—'}</td>
@@ -134,6 +144,7 @@ export default function SalesRecordsPage() {
             <p className="text-sm text-text-primary"><span className="font-medium">Total for Cash:</span> {peso(summary.cash)}</p>
             <p className="text-sm text-text-primary"><span className="font-medium">Total for Gcash:</span> {peso(summary.gcash)}</p>
             <p className="text-sm text-text-primary"><span className="font-medium">Total for Bank Transfer:</span> {peso(summary.bankTransfer)}</p>
+            <p className="text-sm text-text-primary"><span className="font-medium">Total for Cashless:</span> {peso(summary.cashless)}</p>
             <p className="text-sm text-text-primary font-bold">Total for All Sales: {peso(summary.total)}</p>
           </div>
         </div>

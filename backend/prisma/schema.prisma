@@ -221,6 +221,14 @@ enum PaymentMethod {
   Cash
   Gcash
   BankTransfer
+  // Generic "paid digitally, unspecified" bucket.
+  Cashless
+  // Item-level only: paid across more than one of the above (see
+  // SaleItem.paymentSplit for the breakdown).
+  Split
+  // Sale-level only: a rollup shown when a sale's items don't all share the
+  // same paymentMethod.
+  Mixed
 
   @@map("payment_method")
 }
@@ -240,9 +248,10 @@ model Sale {
   branchId      String        @map("branch_id") @db.Uuid
   staffId       String        @map("staff_id") @db.Uuid
   customerName  String?       @map("customer_name") @db.VarChar(150)
+  // Rollup of the items' paymentMethod: the shared value if every item used
+  // the same one, otherwise Mixed. Not the source of truth for totals — see
+  // SaleItem.paymentMethod / paymentSplit for that.
   paymentMethod PaymentMethod @default(Cash) @map("payment_method")
-  // Which bank, when paymentMethod is BankTransfer (e.g. "BDO", "BPI").
-  bankNote      String?       @map("bank_note") @db.VarChar(100)
   status        SaleStatus    @default(PENDING)
   total         Decimal       @default(0) @db.Decimal(12, 2)
   decidedById   String?       @map("decided_by_id") @db.Uuid
@@ -274,6 +283,16 @@ model SaleItem {
   unitPrice Decimal @map("unit_price") @db.Decimal(10, 2)
   subTotal  Decimal @map("sub_total") @db.Decimal(12, 2)
 
+  // How this specific item was paid for.
+  paymentMethod PaymentMethod @default(Cash) @map("payment_method")
+  // Which bank, when paymentMethod is BankTransfer (or included in a split).
+  bankNote      String?       @map("bank_note") @db.VarChar(100)
+  // Free-text reminder/note for this item.
+  note          String?       @map("note") @db.VarChar(255)
+  // { cash, gcash, bankTransfer, cashless } amounts, only when paymentMethod
+  // is Split — must sum to subTotal.
+  paymentSplit  Json?         @map("payment_split") @db.JsonB
+
   // Relations
   sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
@@ -297,8 +316,6 @@ model DraftOrder {
   disposalItems Json          @default("[]") @map("disposal_items") @db.JsonB
   // Staged expense entries ({ amount, note }[]), submitted alongside the sale.
   expenses      Json          @default("[]") @db.JsonB
-  paymentMethod PaymentMethod @default(Cash) @map("payment_method")
-  bankNote      String?       @map("bank_note") @db.VarChar(100)
   customerName  String?       @map("customer_name") @db.VarChar(150)
   createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamp(6)

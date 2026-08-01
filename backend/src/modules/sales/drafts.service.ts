@@ -36,8 +36,6 @@ export class DraftsService {
       items: dto.items as unknown as Prisma.InputJsonValue,
       disposalItems: disposalItems as unknown as Prisma.InputJsonValue,
       expenses: expenses as unknown as Prisma.InputJsonValue,
-      paymentMethod: dto.paymentMethod ?? 'Cash',
-      bankNote: dto.paymentMethod === 'BankTransfer' ? dto.bankNote?.trim() || null : null,
       customerName: dto.customerName?.trim() || null,
     };
 
@@ -120,9 +118,14 @@ export class DraftsService {
           {
             branchId: draft.branchId,
             customerName: draft.customerName ?? undefined,
-            paymentMethod: draft.paymentMethod,
-            bankNote: draft.bankNote ?? undefined,
-            items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+            items: items.map((i) => ({
+              productId: i.productId,
+              quantity: i.quantity,
+              paymentMethod: i.paymentMethod,
+              bankNote: i.bankNote ?? undefined,
+              note: i.note ?? undefined,
+              paymentSplit: i.paymentSplit ?? undefined,
+            })),
           },
           staffActor,
         );
@@ -219,8 +222,6 @@ export class DraftsService {
       items: Prisma.JsonValue;
       disposalItems: Prisma.JsonValue;
       expenses: Prisma.JsonValue;
-      paymentMethod: string;
-      bankNote: string | null;
       customerName: string | null;
       updatedAt: Date;
     },
@@ -242,8 +243,6 @@ export class DraftsService {
       items,
       disposalItems,
       expenses,
-      paymentMethod: draft.paymentMethod,
-      bankNote: draft.bankNote,
       customerName: draft.customerName,
       total,
       expensesTotal,

@@ -126,6 +126,8 @@ export default function BrandProductsPage() {
   );
 }
 
+type ItemPaymentMethod = 'Cash' | 'Gcash' | 'BankTransfer' | 'Cashless' | 'Split';
+
 function AddPurchaseModal({
   product,
   onClose,
@@ -136,6 +138,12 @@ function AddPurchaseModal({
   onSaved: (message: string) => void;
 }) {
   const [quantity, setQuantity] = useState('1');
+  const [paymentMethod, setPaymentMethod] = useState<ItemPaymentMethod>('Cash');
+  const [bankNote, setBankNote] = useState('');
+  const [note, setNote] = useState('');
+  const [splitCash, setSplitCash] = useState('');
+  const [splitGcash, setSplitGcash] = useState('');
+  const [splitBankTransfer, setSplitBankTransfer] = useState('');
   const [error, setError] = useState<string | null>(null);
   const addItem = useDraftStore((s) => s.addItem);
   const addDisposalItem = useDraftStore((s) => s.addDisposalItem);
@@ -151,6 +159,12 @@ function AddPurchaseModal({
     (draftDisposalItems.find((i) => i.productId === product.id)?.quantity ?? 0);
   const stock = product.totalQuantity;
   const available = Math.max(0, stock - alreadyInCart);
+
+  const qtyNumber = Number(quantity) || 0;
+  const lineTotal = product.sellingPrice * qtyNumber;
+  const allocated = (Number(splitCash) || 0) + (Number(splitGcash) || 0) + (Number(splitBankTransfer) || 0);
+  const splitCashless = Math.max(0, lineTotal - allocated);
+  const splitOverAllocated = allocated > lineTotal + 0.001;
 
   function validQty(): number | null {
     const qty = Number(quantity);
@@ -170,6 +184,10 @@ function AddPurchaseModal({
     setError(null);
     const qty = validQty();
     if (qty === null) return;
+    if (paymentMethod === 'Split' && splitOverAllocated) {
+      setError('Split amounts add up to more than the item total.');
+      return;
+    }
     addItem(
       {
         productId: product.id,
@@ -177,6 +195,18 @@ function AddPurchaseModal({
         brandName: product.brand?.name ?? '',
         unitPrice: product.sellingPrice,
         image: product.image,
+        paymentMethod,
+        bankNote: paymentMethod === 'BankTransfer' || paymentMethod === 'Split' ? bankNote.trim() || null : null,
+        note: note.trim() || null,
+        paymentSplit:
+          paymentMethod === 'Split'
+            ? {
+                cash: Number(splitCash) || 0,
+                gcash: Number(splitGcash) || 0,
+                bankTransfer: Number(splitBankTransfer) || 0,
+                cashless: splitCashless,
+              }
+            : null,
       },
       qty,
     );
@@ -236,6 +266,61 @@ function AddPurchaseModal({
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
             className="w-full rounded border border-input-border bg-input-bg px-3 py-2 text-sm focus:outline-none focus:border-input-focus"
+          />
+        </div>
+
+        <div className="mb-4 space-y-2 rounded-lg border border-card-border p-3">
+          <label className="block text-xs font-semibold uppercase tracking-wide text-text-muted">Payment (if selling)</label>
+          <select
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value as ItemPaymentMethod)}
+            className="w-full rounded border border-input-border bg-input-bg px-2 py-1.5 text-sm"
+          >
+            <option value="Cash">Cash</option>
+            <option value="Gcash">Gcash</option>
+            <option value="BankTransfer">Bank Transfer</option>
+            <option value="Cashless">Cashless (other)</option>
+            <option value="Split">Split Payment</option>
+          </select>
+
+          {(paymentMethod === 'BankTransfer' || paymentMethod === 'Split') && (
+            <input
+              type="text"
+              value={bankNote}
+              onChange={(e) => setBankNote(e.target.value)}
+              placeholder="Which bank? e.g. BDO, BPI"
+              className="w-full rounded border border-input-border bg-input-bg px-2 py-1.5 text-sm"
+            />
+          )}
+
+          {paymentMethod === 'Split' && (
+            <div className="space-y-1.5 rounded border border-card-border p-2">
+              <div className="grid grid-cols-3 gap-1.5">
+                <div>
+                  <label className="block text-[11px] text-text-muted mb-0.5">Cash</label>
+                  <input type="number" min="0" step="0.01" value={splitCash} onChange={(e) => setSplitCash(e.target.value)} placeholder="0" className="w-full rounded border border-input-border bg-input-bg px-2 py-1 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-text-muted mb-0.5">Gcash</label>
+                  <input type="number" min="0" step="0.01" value={splitGcash} onChange={(e) => setSplitGcash(e.target.value)} placeholder="0" className="w-full rounded border border-input-border bg-input-bg px-2 py-1 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-text-muted mb-0.5">Bank Transfer</label>
+                  <input type="number" min="0" step="0.01" value={splitBankTransfer} onChange={(e) => setSplitBankTransfer(e.target.value)} placeholder="0" className="w-full rounded border border-input-border bg-input-bg px-2 py-1 text-sm" />
+                </div>
+              </div>
+              <p className={`text-xs ${splitOverAllocated ? 'text-accent-red' : 'text-text-secondary'}`}>
+                Cashless (remainder): {peso(splitCashless)} {splitOverAllocated && '— exceeds item total'}
+              </p>
+            </div>
+          )}
+
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Note / reminder (optional)"
+            className="w-full rounded border border-input-border bg-input-bg px-2 py-1.5 text-sm"
           />
         </div>
 

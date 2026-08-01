@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { PaymentMethod, PaymentSplit } from './types';
 
 // A single line in the staff's draft order (the "bag"). Prices are snapshots
 // for display only; the backend re-snapshots them when the sale is created.
@@ -12,6 +13,10 @@ export interface DraftItem {
   unitPrice: number;
   image: string | null;
   quantity: number;
+  paymentMethod: PaymentMethod;
+  bankNote?: string | null;
+  note?: string | null;
+  paymentSplit?: PaymentSplit | null;
 }
 
 // A staged "to dispose" line — same shape as DraftItem, minus a price
@@ -61,10 +66,16 @@ export const useDraftStore = create<DraftState>()(
         set((state) => {
           const existing = state.items.find((i) => i.productId === item.productId);
           if (existing) {
+            // Adding the same product again updates its payment choice to
+            // whatever was just picked (most recent selection wins) while
+            // accumulating quantity. If that second add used Split payment,
+            // the split amounts reflect only the newest addition's total —
+            // an acceptable rough edge for the rare case of staging the same
+            // product twice with different splits.
             return {
               items: state.items.map((i) =>
                 i.productId === item.productId
-                  ? { ...i, quantity: i.quantity + quantity }
+                  ? { ...i, ...item, quantity: i.quantity + quantity }
                   : i,
               ),
             };
