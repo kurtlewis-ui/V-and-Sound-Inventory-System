@@ -160,6 +160,7 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
 type PaymentMethod = 'Cash' | 'Gcash' | 'BankTransfer';
 
 function DraftBag() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const {
@@ -268,10 +269,14 @@ function DraftBag() {
       setBankNote('');
       if (result.errors.length > 0) {
         // Whatever succeeded is already submitted; only the failed part (if
-        // any) is still sitting in the server-side draft for a retry later.
+        // any) is still sitting in the server-side draft for a retry later —
+        // stay put so the staff can see what failed instead of navigating
+        // away from it.
         setError(`Some items couldn't be submitted: ${result.errors.join('; ')}`);
       } else {
         setSuccess('Order submitted! It now awaits admin approval.');
+        setOpen(false);
+        router.push('/staff/reports');
       }
     } catch (e) {
       setError(getApiErrorMessage(e));
@@ -357,7 +362,7 @@ function DraftBag() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-text-primary">{item.name}</p>
                           <p className="truncate text-xs text-text-muted">{item.brandName}</p>
-                          <p className="text-xs text-text-secondary">{peso(item.unitPrice)} each</p>
+                          <p className="text-xs text-text-secondary">{peso(item.unitPrice)} each &middot; {peso(item.unitPrice * item.quantity)} total</p>
                         </div>
                         <div className="flex items-center gap-1">
                           <button onClick={() => setQuantity(item.productId, item.quantity - 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Decrease"><Minus size={14} /></button>
