@@ -700,11 +700,15 @@ export function useDeclineExpense() {
 
 // Today's approved Total Sales / Total Expenses / Net for a branch. Used on
 // both the admin Pending Sales page and the staff Daily Report page.
-export function useBranchSummary(branchId?: string) {
+export function useBranchSummary(branchId?: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['stats', 'branch-summary', { branchId }],
     queryFn: () => getData<BranchSummary>('/stats/branch-summary', { branchId: branchId || undefined }),
     refetchInterval: LIVE_POLL_MS,
+    // Admin/Owner must pass a specific branch — skip the query entirely
+    // when none is selected (e.g. "All Shops" on the Sales Records page)
+    // instead of firing a request that's guaranteed to 400.
+    enabled: options?.enabled ?? true,
   });
 }
 

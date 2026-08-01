@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from 'react';
 import { Search, Loader2 } from 'lucide-react';
-import { useSalesRecords, useBranches } from '@/lib/hooks';
+import { useSalesRecords, useBranches, useBranchSummary } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import type { PaymentMethod } from '@/lib/types';
 
@@ -48,6 +48,12 @@ export default function SalesRecordsPage() {
   const sales = data?.data ?? [];
   const summary = data?.summary ?? { cash: 0, gcash: 0, bankTransfer: 0, cashless: 0, total: 0, count: 0 };
 
+  // Today's approved Total Sales / Total Expenses / Net for the selected
+  // shop — always about today, independent of whatever date range the
+  // table above is filtered to. Only meaningful for one shop at a time, so
+  // it's skipped entirely while "All Shops" is selected.
+  const { data: branchSummary } = useBranchSummary(selectedShop || undefined, { enabled: !!selectedShop });
+
   const clearFilters = () => {
     setSelectedShop('');
     setStartDate('');
@@ -75,6 +81,34 @@ export default function SalesRecordsPage() {
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus" />
         </div>
       </div>
+
+      {/* Today's net for the selected shop — approved sales minus approved
+          expenses, automatically deducted. Independent of the date filters
+          above (which apply to the table), so only shown for one shop. */}
+      {branchSummary && (
+        <div className="bg-card-bg rounded-xl border border-card-border shadow-sm mb-4">
+          <div className="p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Today (Approved)</p>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-xs text-text-secondary">Total Sales</p>
+                <p className="text-lg font-bold text-accent-green">{peso(branchSummary.totalSales)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-text-secondary">Total Expenses</p>
+                <p className="text-lg font-bold text-accent-red">{peso(branchSummary.totalExpenses)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-text-secondary">Net</p>
+                <p className="text-lg font-bold text-text-primary">{peso(branchSummary.net)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {!selectedShop && (
+        <p className="mb-4 text-xs text-text-muted">Select a shop above to see today&apos;s sales total automatically netted against expenses.</p>
+      )}
 
       {/* Table */}
       <div className="bg-card-bg rounded-xl border border-card-border shadow-sm">

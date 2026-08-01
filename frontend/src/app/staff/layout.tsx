@@ -576,6 +576,12 @@ function DraftBag() {
                       <span className="font-medium text-text-primary">{peso(expensesTotal)}</span>
                     </div>
                   )}
+                  {items.length > 0 && expenses.length > 0 && (
+                    <div className="flex items-center justify-between border-t border-card-border pt-1">
+                      <span className="font-semibold text-text-primary">Net (this order)</span>
+                      <span className="font-bold text-text-primary">{peso(itemsTotal - expensesTotal)}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleClear} disabled={isSaving} className="flex-1 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-text-primary hover:bg-white/15 transition disabled:opacity-60">Clear</button>
