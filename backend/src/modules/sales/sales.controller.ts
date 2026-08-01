@@ -60,8 +60,11 @@ export class SalesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a sale by ID' })
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
-    const data = await this.salesService.findOne(id);
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const data = await this.salesService.findOne(id, user);
     return { success: true, data };
   }
 

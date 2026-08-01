@@ -67,6 +67,20 @@ export class DisposalsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // Atomically claim the disposal so concurrent approve() calls can't
+      // both pass the earlier PENDING check and both deduct stock.
+      const claim = await tx.disposal.updateMany({
+        where: { id, status: DisposalStatus.PENDING },
+        data: {
+          status: DisposalStatus.APPROVED,
+          decidedById: actor.userId,
+          decidedAt: new Date(),
+        },
+      });
+      if (claim.count === 0) {
+        throw new BadRequestException('Disposal is already approved or declined');
+      }
+
       if (disposal.productId) {
         const inv = await tx.inventory.findUnique({
           where: {
@@ -87,13 +101,8 @@ export class DisposalsService {
         });
       }
 
-      const updated = await tx.disposal.update({
+      const updated = await tx.disposal.findUnique({
         where: { id },
-        data: {
-          status: DisposalStatus.APPROVED,
-          decidedById: actor.userId,
-          decidedAt: new Date(),
-        },
         include: this.includeFull(),
       });
 
@@ -107,7 +116,7 @@ export class DisposalsService {
         },
       });
 
-      return this.serialize(updated);
+      return this.serialize(updated!);
     });
   }
 
