@@ -15,8 +15,9 @@ export class DisposalsService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Request a disposal. It starts as PENDING and does NOT change stock yet —
-   * an Admin approves or declines it. Stock is only deducted on approval.
+   * Request a disposal. It starts as PENDING and stock is reserved (deducted)
+   * immediately, same timing as Sale.create() — not at approval. Restored if
+   * declined while still pending.
    */
   async create(dto: CreateDisposalDto, actor: RequestUser) {
     const branchId = await this.resolveBranchForActor(actor, dto.branchId);
@@ -32,31 +33,45 @@ export class DisposalsService {
     const unitPrice = new Prisma.Decimal(product.sellingPrice);
     const value = unitPrice.mul(dto.quantity);
 
-    const disposal = await this.prisma.disposal.create({
-      data: {
-        branchId,
-        productId: product.id,
-        productName: product.name,
-        brandName: product.brand.name,
-        quantity: dto.quantity,
-        unitPrice,
-        value,
-        reason: dto.reason?.trim() || null,
-        status: DisposalStatus.PENDING,
-        createdById: actor.userId,
-      },
-      include: this.includeFull(),
-    });
+    const disposal = await this.prisma.$transaction(async (tx) => {
+      await this.reserveStock(tx, branchId, product.id, product.name, dto.quantity);
 
-    await this.audit(actor.userId, 'DISPOSAL_REQUESTED', disposal.id, {
-      product: product.name,
-      quantity: dto.quantity,
+      const created = await tx.disposal.create({
+        data: {
+          branchId,
+          productId: product.id,
+          productName: product.name,
+          brandName: product.brand.name,
+          quantity: dto.quantity,
+          unitPrice,
+          value,
+          reason: dto.reason?.trim() || null,
+          status: DisposalStatus.PENDING,
+          createdById: actor.userId,
+        },
+        include: this.includeFull(),
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: actor.userId,
+          action: 'DISPOSAL_REQUESTED',
+          entityType: 'Disposal',
+          entityId: created.id,
+          newValues: { product: product.name, quantity: dto.quantity },
+        },
+      });
+
+      return created;
     });
 
     return this.serialize(disposal);
   }
 
-  /** Approve a pending disposal: validates + deducts stock at the branch. */
+  /**
+   * Approve a pending disposal. Stock was already reserved at creation, so
+   * this just flips the status.
+   */
   async approve(id: string, actor: RequestUser) {
     const disposal = await this.prisma.disposal.findUnique({ where: { id } });
     if (!disposal) {
@@ -68,7 +83,7 @@ export class DisposalsService {
 
     return this.prisma.$transaction(async (tx) => {
       // Atomically claim the disposal so concurrent approve() calls can't
-      // both pass the earlier PENDING check and both deduct stock.
+      // both succeed.
       const claim = await tx.disposal.updateMany({
         where: { id, status: DisposalStatus.PENDING },
         data: {
@@ -79,31 +94,6 @@ export class DisposalsService {
       });
       if (claim.count === 0) {
         throw new BadRequestException('Disposal is already approved or declined');
-      }
-
-      if (disposal.productId) {
-        // Single atomic conditional UPDATE (quantity >= needed) instead of a
-        // separate read + decrement — see sales.service.ts's approve() for
-        // why a plain read-then-decrement can be fooled by a concurrent
-        // approval (e.g. another disposal or sale) on the same product.
-        const result = await tx.inventory.updateMany({
-          where: {
-            productId: disposal.productId,
-            branchId: disposal.branchId,
-            quantity: { gte: disposal.quantity },
-          },
-          data: { quantity: { decrement: disposal.quantity } },
-        });
-        if (result.count === 0) {
-          const inv = await tx.inventory.findUnique({
-            where: {
-              productId_branchId: { productId: disposal.productId, branchId: disposal.branchId },
-            },
-          });
-          throw new BadRequestException(
-            `Insufficient stock to dispose (need ${disposal.quantity}, have ${inv?.quantity ?? 0})`,
-          );
-        }
       }
 
       const updated = await tx.disposal.findUnique({
@@ -125,7 +115,7 @@ export class DisposalsService {
     });
   }
 
-  /** Decline a pending disposal (no stock change). */
+  /** Decline a pending disposal and restore the stock reserved at request time. */
   async decline(id: string, actor: RequestUser) {
     const disposal = await this.prisma.disposal.findUnique({ where: { id } });
     if (!disposal) {
@@ -135,21 +125,62 @@ export class DisposalsService {
       throw new BadRequestException(`Disposal is already ${disposal.status.toLowerCase()}`);
     }
 
-    const updated = await this.prisma.disposal.update({
-      where: { id },
-      data: {
-        status: DisposalStatus.DECLINED,
-        decidedById: actor.userId,
-        decidedAt: new Date(),
-      },
-      include: this.includeFull(),
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const claim = await tx.disposal.updateMany({
+        where: { id, status: DisposalStatus.PENDING },
+        data: {
+          status: DisposalStatus.DECLINED,
+          decidedById: actor.userId,
+          decidedAt: new Date(),
+        },
+      });
+      if (claim.count === 0) {
+        throw new BadRequestException('Disposal is already approved or declined');
+      }
 
-    await this.audit(actor.userId, 'DISPOSAL_DECLINED', id, {
-      product: disposal.productName,
-    });
+      if (disposal.productId) {
+        await tx.inventory.updateMany({
+          where: { productId: disposal.productId, branchId: disposal.branchId },
+          data: { quantity: { increment: disposal.quantity } },
+        });
+      }
 
-    return this.serialize(updated);
+      const updated = await tx.disposal.findUnique({ where: { id }, include: this.includeFull() });
+
+      await tx.auditLog.create({
+        data: {
+          userId: actor.userId,
+          action: 'DISPOSAL_DECLINED',
+          entityType: 'Disposal',
+          entityId: id,
+          newValues: { product: disposal.productName },
+        },
+      });
+
+      return this.serialize(updated!);
+    });
+  }
+
+  /** Same atomic conditional-UPDATE reservation pattern as SalesService. */
+  private async reserveStock(
+    tx: Prisma.TransactionClient,
+    branchId: string,
+    productId: string,
+    productName: string,
+    quantity: number,
+  ) {
+    const result = await tx.inventory.updateMany({
+      where: { productId, branchId, quantity: { gte: quantity } },
+      data: { quantity: { decrement: quantity } },
+    });
+    if (result.count === 0) {
+      const inv = await tx.inventory.findUnique({
+        where: { productId_branchId: { productId, branchId } },
+      });
+      throw new BadRequestException(
+        `Insufficient stock to dispose "${productName}" (need ${quantity}, have ${inv?.quantity ?? 0})`,
+      );
+    }
   }
 
   async findAll(query: QueryDisposalDto, actor: RequestUser, status?: DisposalStatus) {
@@ -270,17 +301,5 @@ export class DisposalsService {
       decidedAt: d.decidedAt,
       createdAt: d.createdAt,
     };
-  }
-
-  private audit(userId: string, action: string, entityId: string, newValues: any) {
-    return this.prisma.auditLog.create({
-      data: {
-        userId,
-        action,
-        entityType: 'Disposal',
-        entityId,
-        newValues: newValues ?? undefined,
-      },
-    });
   }
 }

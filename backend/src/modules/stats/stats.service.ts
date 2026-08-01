@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { SaleStatus } from '@prisma/client';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { SaleStatus, ExpenseStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RequestUser } from '../../common/interfaces/request-user.interface';
 
 @Injectable()
 export class StatsService {
@@ -97,5 +98,60 @@ export class StatsService {
       quantity: i._sum.quantity ?? 0,
       revenue: Number(i._sum.subTotal ?? 0),
     }));
+  }
+
+  /**
+   * Today's approved Total Sales / Total Expenses / Net for one branch.
+   * Based on `decidedAt` (when each was actually approved), not `createdAt`,
+   * and only counts APPROVED records — pending items could still be
+   * declined, so they'd make this a moving, unreliable number.
+   */
+  async branchSummary(branchId: string | undefined, actor: RequestUser) {
+    const resolvedBranchId = await this.resolveBranchForActor(actor, branchId);
+
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    const [salesAgg, expensesAgg] = await Promise.all([
+      this.prisma.sale.aggregate({
+        where: { branchId: resolvedBranchId, status: SaleStatus.APPROVED, decidedAt: { gte: start } },
+        _sum: { total: true },
+      }),
+      this.prisma.expense.aggregate({
+        where: {
+          branchId: resolvedBranchId,
+          status: ExpenseStatus.APPROVED,
+          decidedAt: { gte: start },
+        },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const totalSales = Number(salesAgg._sum.total ?? 0);
+    const totalExpenses = Number(expensesAgg._sum.amount ?? 0);
+
+    return {
+      branchId: resolvedBranchId,
+      totalSales,
+      totalExpenses,
+      net: totalSales - totalExpenses,
+    };
+  }
+
+  private async resolveBranchForActor(actor: RequestUser, branchId?: string) {
+    if (actor.role === 'Staff') {
+      const me = await this.prisma.user.findUnique({
+        where: { id: actor.userId },
+        select: { branchId: true },
+      });
+      if (!me?.branchId) {
+        throw new BadRequestException('Your account is not assigned to a branch.');
+      }
+      return me.branchId;
+    }
+    if (!branchId) {
+      throw new BadRequestException('branchId is required');
+    }
+    return branchId;
   }
 }

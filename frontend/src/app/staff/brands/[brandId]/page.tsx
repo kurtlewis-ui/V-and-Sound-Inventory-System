@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Loader2, X, CheckCircle2 } from 'lucide-react';
-import { useBrands, useProducts, useCreateDisposal } from '@/lib/hooks';
+import { useBrands, useProducts } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/store';
 import { useDraftStore } from '@/lib/draft';
 import { getApiErrorMessage } from '@/lib/api';
@@ -138,13 +138,17 @@ function AddPurchaseModal({
   const [quantity, setQuantity] = useState('1');
   const [error, setError] = useState<string | null>(null);
   const addItem = useDraftStore((s) => s.addItem);
+  const addDisposalItem = useDraftStore((s) => s.addDisposalItem);
   const draftItems = useDraftStore((s) => s.items);
-  const createDisposal = useCreateDisposal();
+  const draftDisposalItems = useDraftStore((s) => s.disposalItems);
 
-  // Units already sitting in the draft cart for this product don't come off
-  // the server's stock count until the sale is approved, so they must be
-  // subtracted here or staff could draft more than actually exists.
-  const alreadyInCart = draftItems.find((i) => i.productId === product.id)?.quantity ?? 0;
+  // Units already staged in the draft — whether to sell or to dispose —
+  // don't come off the server's stock count until the draft is actually
+  // submitted, so both must be subtracted here or staff could stage more
+  // than actually exists.
+  const alreadyInCart =
+    (draftItems.find((i) => i.productId === product.id)?.quantity ?? 0) +
+    (draftDisposalItems.find((i) => i.productId === product.id)?.quantity ?? 0);
   const stock = product.totalQuantity;
   const available = Math.max(0, stock - alreadyInCart);
 
@@ -179,16 +183,20 @@ function AddPurchaseModal({
     onSaved(`Added ${qty}× ${product.name} to your draft order.`);
   }
 
-  async function handleDispose() {
+  function handleDispose() {
     setError(null);
     const qty = validQty();
     if (qty === null) return;
-    try {
-      await createDisposal.mutateAsync({ productId: product.id, quantity: qty });
-      onSaved(`Disposal request for ${qty}× ${product.name} sent for approval.`);
-    } catch (e) {
-      setError(getApiErrorMessage(e));
-    }
+    addDisposalItem(
+      {
+        productId: product.id,
+        name: product.name,
+        brandName: product.brand?.name ?? '',
+        image: product.image,
+      },
+      qty,
+    );
+    onSaved(`Added ${qty}× ${product.name} to your draft order's Dispose list.`);
   }
 
   return (
@@ -236,17 +244,17 @@ function AddPurchaseModal({
         <div className="flex flex-col items-end gap-2">
           <button
             onClick={handleSaveRecords}
-            disabled={available <= 0 || createDisposal.isPending}
+            disabled={available <= 0}
             className="rounded-lg bg-btn-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition disabled:opacity-50"
           >
             Save Records
           </button>
           <button
             onClick={handleDispose}
-            disabled={available <= 0 || createDisposal.isPending}
+            disabled={available <= 0}
             className="rounded-lg bg-accent-red px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition disabled:opacity-50"
           >
-            {createDisposal.isPending ? 'Submitting…' : 'Dispose'}
+            Dispose
           </button>
         </div>
       </div>

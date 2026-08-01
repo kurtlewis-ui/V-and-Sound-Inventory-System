@@ -12,6 +12,7 @@ import { BrandsModule } from './modules/brands/brands.module';
 import { ProductsModule } from './modules/products/products.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { DisposalsModule } from './modules/disposals/disposals.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 import { ActivityLogsModule } from './modules/activity-logs/activity-logs.module';
 import { StatsModule } from './modules/stats/stats.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
@@ -43,6 +44,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
     ProductsModule,
     SalesModule,
     DisposalsModule,
+    ExpensesModule,
     ActivityLogsModule,
     StatsModule,
   ],

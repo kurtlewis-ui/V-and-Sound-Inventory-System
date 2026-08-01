@@ -4,9 +4,13 @@ import { Fragment, useState } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { useSalesRecords, useBranches } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
+import type { PaymentMethod } from '@/lib/types';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+function paymentDotColor(pm: PaymentMethod) {
+  return pm === 'Cash' ? 'bg-accent-green' : pm === 'Gcash' ? 'bg-accent-blue' : 'bg-accent-purple-light';
 }
 
 function formatDate(iso: string) {
@@ -32,7 +36,7 @@ export default function SalesRecordsPage() {
   });
 
   const sales = data?.data ?? [];
-  const summary = data?.summary ?? { cash: 0, gcash: 0, total: 0, count: 0 };
+  const summary = data?.summary ?? { cash: 0, gcash: 0, bankTransfer: 0, total: 0, count: 0 };
 
   const clearFilters = () => {
     setSelectedShop('');
@@ -105,8 +109,8 @@ export default function SalesRecordsPage() {
                       <td className="px-4 py-3 text-sm text-text-primary font-medium">{peso(item.subTotal)}</td>
                       <td className="px-4 py-3">
                         <span className="badge badge-neutral">
-                          <span className={`badge-dot ${sale.paymentMethod === 'Cash' ? 'bg-accent-green' : 'bg-accent-blue'}`} />
-                          {sale.paymentMethod}
+                          <span className={`badge-dot ${paymentDotColor(sale.paymentMethod)}`} />
+                          {sale.paymentMethod === 'BankTransfer' ? `Bank Transfer${sale.bankNote ? ` (${sale.bankNote})` : ''}` : sale.paymentMethod}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{sale.staff?.name ?? '—'}</td>
@@ -129,6 +133,7 @@ export default function SalesRecordsPage() {
           <div className="border-l-4 border-accent-blue pl-4 space-y-1">
             <p className="text-sm text-text-primary"><span className="font-medium">Total for Cash:</span> {peso(summary.cash)}</p>
             <p className="text-sm text-text-primary"><span className="font-medium">Total for Gcash:</span> {peso(summary.gcash)}</p>
+            <p className="text-sm text-text-primary"><span className="font-medium">Total for Bank Transfer:</span> {peso(summary.bankTransfer)}</p>
             <p className="text-sm text-text-primary font-bold">Total for All Sales: {peso(summary.total)}</p>
           </div>
         </div>

@@ -15,6 +15,12 @@ import { RequestUser } from '../../common/interfaces/request-user.interface';
 export class SalesService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Create a sale. Stock is reserved (decremented) immediately, at creation —
+   * not at approval — so two pending sales for the same product can't both
+   * "look valid" only to have the second approval mysteriously fail later.
+   * If declined or deleted while still pending, the reservation is restored.
+   */
   async create(dto: CreateSaleDto, actor: RequestUser) {
     const branchId = await this.resolveBranchForActor(actor, dto.branchId);
 
@@ -49,22 +55,34 @@ export class SalesService {
       new Prisma.Decimal(0),
     );
 
-    const sale = await this.prisma.sale.create({
-      data: {
-        branchId,
-        staffId: actor.userId,
-        customerName: dto.customerName?.trim() || null,
-        paymentMethod: dto.paymentMethod,
-        status: SaleStatus.PENDING,
-        total,
-        items: { create: items },
-      },
-      include: this.includeFull(),
-    });
+    const sale = await this.prisma.$transaction(async (tx) => {
+      await this.reserveStock(tx, branchId, items);
 
-    await this.audit(actor.userId, 'SALE_CREATED', sale.id, {
-      number: sale.number,
-      total: total.toString(),
+      const created = await tx.sale.create({
+        data: {
+          branchId,
+          staffId: actor.userId,
+          customerName: dto.customerName?.trim() || null,
+          paymentMethod: dto.paymentMethod,
+          bankNote: dto.paymentMethod === 'BankTransfer' ? dto.bankNote?.trim() || null : null,
+          status: SaleStatus.PENDING,
+          total,
+          items: { create: items },
+        },
+        include: this.includeFull(),
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: actor.userId,
+          action: 'SALE_CREATED',
+          entityType: 'Sale',
+          entityId: created.id,
+          newValues: { number: created.number, total: total.toString() },
+        },
+      });
+
+      return created;
     });
 
     return this.serialize(sale);
@@ -136,12 +154,16 @@ export class SalesService {
       where,
       _sum: { total: true },
     });
-    const cash = grouped.find((g) => g.paymentMethod === 'Cash')?._sum.total;
-    const gcash = grouped.find((g) => g.paymentMethod === 'Gcash')?._sum.total;
+    const cash = Number(grouped.find((g) => g.paymentMethod === 'Cash')?._sum.total ?? 0);
+    const gcash = Number(grouped.find((g) => g.paymentMethod === 'Gcash')?._sum.total ?? 0);
+    const bankTransfer = Number(
+      grouped.find((g) => g.paymentMethod === 'BankTransfer')?._sum.total ?? 0,
+    );
     const summary = {
-      cash: Number(cash ?? 0),
-      gcash: Number(gcash ?? 0),
-      total: Number(cash ?? 0) + Number(gcash ?? 0),
+      cash,
+      gcash,
+      bankTransfer,
+      total: cash + gcash + bankTransfer,
       count: total,
     };
 
@@ -173,14 +195,11 @@ export class SalesService {
   }
 
   /**
-   * Approve a pending sale: validates stock, deducts inventory at the sale's
-   * branch, and marks the sale APPROVED. Runs in a transaction.
+   * Approve a pending sale. Stock was already reserved at creation, so this
+   * just flips the status — nothing to check or deduct here anymore.
    */
   async approve(id: string, actor: RequestUser) {
-    const sale = await this.prisma.sale.findUnique({
-      where: { id },
-      include: { items: true },
-    });
+    const sale = await this.prisma.sale.findUnique({ where: { id } });
     if (!sale) {
       throw new NotFoundException('Sale not found');
     }
@@ -191,7 +210,7 @@ export class SalesService {
     return this.prisma.$transaction(async (tx) => {
       // Atomically claim the sale: only one concurrent approve() call can win
       // this conditional update, so a double-click or two admins approving at
-      // once can't both pass the earlier PENDING check and both deduct stock.
+      // once can't both succeed.
       const claim = await tx.sale.updateMany({
         where: { id, status: SaleStatus.PENDING },
         data: {
@@ -202,37 +221,6 @@ export class SalesService {
       });
       if (claim.count === 0) {
         throw new BadRequestException('Sale is already approved or declined');
-      }
-
-      // Check-and-decrement each item as a single atomic conditional UPDATE
-      // (quantity >= needed) instead of a separate read + decrement. Two
-      // different sales approved concurrently (e.g. "Approve All") can both
-      // read the same pre-decrement quantity; only a conditional UPDATE,
-      // whose WHERE clause is re-evaluated against the current row when it
-      // acquires the lock, can't be fooled by that stale read.
-      for (const item of sale.items) {
-        if (!item.productId) continue;
-        const result = await tx.inventory.updateMany({
-          where: {
-            productId: item.productId,
-            branchId: sale.branchId,
-            quantity: { gte: item.quantity },
-          },
-          data: { quantity: { decrement: item.quantity } },
-        });
-        if (result.count === 0) {
-          const inv = await tx.inventory.findUnique({
-            where: {
-              productId_branchId: {
-                productId: item.productId,
-                branchId: sale.branchId,
-              },
-            },
-          });
-          throw new BadRequestException(
-            `Insufficient stock for "${item.name}" (need ${item.quantity}, have ${inv?.quantity ?? 0})`,
-          );
-        }
       }
 
       const updated = await tx.sale.findUnique({
@@ -257,10 +245,15 @@ export class SalesService {
   /**
    * Edit a PENDING sale. Replaces line items (with fresh price snapshots) when
    * `items` is provided, and recomputes the total. Approved/declined sales are
-   * immutable. Staff may only edit their own sales.
+   * immutable. Staff may only edit their own sales. Since stock is reserved
+   * at creation, changing quantities means releasing the old reservation and
+   * reserving the new one.
    */
   async update(id: string, dto: UpdateSaleDto, actor: RequestUser) {
-    const sale = await this.prisma.sale.findUnique({ where: { id } });
+    const sale = await this.prisma.sale.findUnique({
+      where: { id },
+      include: { items: true },
+    });
     if (!sale) {
       throw new NotFoundException('Sale not found');
     }
@@ -277,8 +270,12 @@ export class SalesService {
     }
     if (dto.paymentMethod !== undefined) {
       data.paymentMethod = dto.paymentMethod;
+      data.bankNote = dto.paymentMethod === 'BankTransfer' ? dto.bankNote?.trim() || null : null;
+    } else if (dto.bankNote !== undefined) {
+      data.bankNote = dto.bankNote?.trim() || null;
     }
 
+    let newItems: { productId: string; name: string; brandName: string; quantity: number; unitPrice: Prisma.Decimal; subTotal: Prisma.Decimal }[] | null = null;
     if (dto.items?.length) {
       const productIds = [...new Set(dto.items.map((i) => i.productId))];
       const products = await this.prisma.product.findMany({
@@ -290,7 +287,7 @@ export class SalesService {
       }
       const productMap = new Map(products.map((p) => [p.id, p]));
 
-      const newItems = dto.items.map((item) => {
+      newItems = dto.items.map((item) => {
         const product = productMap.get(item.productId)!;
         const unitPrice = new Prisma.Decimal(product.sellingPrice);
         return {
@@ -310,21 +307,39 @@ export class SalesService {
       data.items = { deleteMany: {}, create: newItems };
     }
 
-    const updated = await this.prisma.sale.update({
-      where: { id },
-      data,
-      include: this.includeFull(),
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (newItems) {
+        await this.restoreStock(tx, sale.branchId, sale.items);
+        await this.reserveStock(tx, sale.branchId, newItems);
+      }
 
-    await this.audit(actor.userId, 'SALE_UPDATED', id, {
-      number: sale.number,
+      const result = await tx.sale.update({
+        where: { id },
+        data,
+        include: this.includeFull(),
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: actor.userId,
+          action: 'SALE_UPDATED',
+          entityType: 'Sale',
+          entityId: id,
+          newValues: { number: sale.number },
+        },
+      });
+
+      return result;
     });
 
     return this.serialize(updated);
   }
 
   async decline(id: string, actor: RequestUser) {
-    const sale = await this.prisma.sale.findUnique({ where: { id } });
+    const sale = await this.prisma.sale.findUnique({
+      where: { id },
+      include: { items: true },
+    });
     if (!sale) {
       throw new NotFoundException('Sale not found');
     }
@@ -332,23 +347,43 @@ export class SalesService {
       throw new BadRequestException(`Sale is already ${sale.status.toLowerCase()}`);
     }
 
-    const updated = await this.prisma.sale.update({
-      where: { id },
-      data: {
-        status: SaleStatus.DECLINED,
-        decidedById: actor.userId,
-        decidedAt: new Date(),
-      },
-      include: this.includeFull(),
+    return this.prisma.$transaction(async (tx) => {
+      const claim = await tx.sale.updateMany({
+        where: { id, status: SaleStatus.PENDING },
+        data: {
+          status: SaleStatus.DECLINED,
+          decidedById: actor.userId,
+          decidedAt: new Date(),
+        },
+      });
+      if (claim.count === 0) {
+        throw new BadRequestException('Sale is already approved or declined');
+      }
+
+      // Release the stock that was reserved when this sale was created.
+      await this.restoreStock(tx, sale.branchId, sale.items);
+
+      const updated = await tx.sale.findUnique({ where: { id }, include: this.includeFull() });
+
+      await tx.auditLog.create({
+        data: {
+          userId: actor.userId,
+          action: 'SALE_DECLINED',
+          entityType: 'Sale',
+          entityId: id,
+          newValues: { number: sale.number },
+        },
+      });
+
+      return this.serialize(updated!);
     });
-
-    await this.audit(actor.userId, 'SALE_DECLINED', id, { number: sale.number });
-
-    return this.serialize(updated);
   }
 
   async remove(id: string, actor: RequestUser) {
-    const sale = await this.prisma.sale.findUnique({ where: { id } });
+    const sale = await this.prisma.sale.findUnique({
+      where: { id },
+      include: { items: true },
+    });
     if (!sale) {
       throw new NotFoundException('Sale not found');
     }
@@ -359,10 +394,75 @@ export class SalesService {
       throw new ForbiddenException('You can only delete your own sales');
     }
 
-    await this.prisma.sale.delete({ where: { id } });
-    await this.audit(actor.userId, 'SALE_DELETED', id, { number: sale.number });
+    await this.prisma.$transaction(async (tx) => {
+      // Only PENDING sales still have their reservation in effect — a
+      // DECLINED sale already had its stock restored when it was declined,
+      // so restoring again here would double-credit the inventory.
+      if (sale.status === SaleStatus.PENDING) {
+        await this.restoreStock(tx, sale.branchId, sale.items);
+      }
+      await tx.sale.delete({ where: { id } });
+      await tx.auditLog.create({
+        data: {
+          userId: actor.userId,
+          action: 'SALE_DELETED',
+          entityType: 'Sale',
+          entityId: id,
+          newValues: { number: sale.number },
+        },
+      });
+    });
 
     return { message: 'Sale deleted successfully' };
+  }
+
+  /**
+   * Atomically reserve (decrement) stock for each item as a single
+   * conditional UPDATE (quantity >= needed), throwing if any item can't be
+   * fully reserved. A conditional UPDATE's WHERE clause is re-evaluated
+   * against the current row when it acquires the lock, so — unlike a plain
+   * read-then-decrement — it can't be fooled by a stale read when multiple
+   * reservations for the same product happen concurrently.
+   */
+  private async reserveStock(
+    tx: Prisma.TransactionClient,
+    branchId: string,
+    items: { productId: string | null; name: string; quantity: number }[],
+  ) {
+    for (const item of items) {
+      if (!item.productId) continue;
+      const result = await tx.inventory.updateMany({
+        where: {
+          productId: item.productId,
+          branchId,
+          quantity: { gte: item.quantity },
+        },
+        data: { quantity: { decrement: item.quantity } },
+      });
+      if (result.count === 0) {
+        const inv = await tx.inventory.findUnique({
+          where: { productId_branchId: { productId: item.productId, branchId } },
+        });
+        throw new BadRequestException(
+          `Insufficient stock for "${item.name}" (need ${item.quantity}, have ${inv?.quantity ?? 0})`,
+        );
+      }
+    }
+  }
+
+  /** Restore (increment) previously-reserved stock for each item. */
+  private async restoreStock(
+    tx: Prisma.TransactionClient,
+    branchId: string,
+    items: { productId: string | null; quantity: number }[],
+  ) {
+    for (const item of items) {
+      if (!item.productId) continue;
+      await tx.inventory.updateMany({
+        where: { productId: item.productId, branchId },
+        data: { quantity: { increment: item.quantity } },
+      });
+    }
   }
 
   private async resolveBranchForActor(actor: RequestUser, branchId?: string) {
@@ -415,6 +515,7 @@ export class SalesService {
           }
         : null,
       paymentMethod: sale.paymentMethod,
+      bankNote: sale.bankNote ?? null,
       status: sale.status,
       total: Number(sale.total),
       items: (sale.items ?? []).map((i: any) => ({
@@ -440,17 +541,5 @@ export class SalesService {
       hasNext: page * limit < total,
       hasPrev: page > 1,
     };
-  }
-
-  private audit(userId: string, action: string, entityId: string, newValues: any) {
-    return this.prisma.auditLog.create({
-      data: {
-        userId,
-        action,
-        entityType: 'Sale',
-        entityId,
-        newValues: newValues ?? undefined,
-      },
-    });
   }
 }

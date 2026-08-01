@@ -14,23 +14,49 @@ export interface DraftItem {
   quantity: number;
 }
 
+// A staged "to dispose" line — same shape as DraftItem, minus a price
+// (disposals are valued at the product's current selling price server-side).
+export interface DraftDisposalItem {
+  productId: string;
+  name: string;
+  brandName: string;
+  image: string | null;
+  quantity: number;
+}
+
+// A staged expense entry (e.g. ₱300, "Water bill").
+export interface DraftExpense {
+  amount: number;
+  note: string;
+}
+
 interface DraftState {
   items: DraftItem[];
+  disposalItems: DraftDisposalItem[];
+  expenses: DraftExpense[];
   addItem: (item: Omit<DraftItem, 'quantity'>, quantity?: number) => void;
   setQuantity: (productId: string, quantity: number) => void;
   removeItem: (productId: string) => void;
+  addDisposalItem: (item: Omit<DraftDisposalItem, 'quantity'>, quantity?: number) => void;
+  setDisposalQuantity: (productId: string, quantity: number) => void;
+  removeDisposalItem: (productId: string) => void;
+  addExpense: (expense: DraftExpense) => void;
+  removeExpense: (index: number) => void;
   clear: () => void;
 }
 
 /**
- * Client-side draft order for staff. Persisted to localStorage so an accidental
- * refresh doesn't lose an in-progress order. Submitting it creates a PENDING
- * sale (which the admin approves), after which the draft is cleared.
+ * Client-side draft order for staff — items to sell, items to write off, and
+ * expenses to log, all staged here before a single "Save Order" submits
+ * everything together. Persisted to localStorage so an accidental refresh
+ * doesn't lose an in-progress order.
  */
 export const useDraftStore = create<DraftState>()(
   persist(
     (set) => ({
       items: [],
+      disposalItems: [],
+      expenses: [],
       addItem: (item, quantity = 1) =>
         set((state) => {
           const existing = state.items.find((i) => i.productId === item.productId);
@@ -53,7 +79,37 @@ export const useDraftStore = create<DraftState>()(
         })),
       removeItem: (productId) =>
         set((state) => ({ items: state.items.filter((i) => i.productId !== productId) })),
-      clear: () => set({ items: [] }),
+
+      addDisposalItem: (item, quantity = 1) =>
+        set((state) => {
+          const existing = state.disposalItems.find((i) => i.productId === item.productId);
+          if (existing) {
+            return {
+              disposalItems: state.disposalItems.map((i) =>
+                i.productId === item.productId
+                  ? { ...i, quantity: i.quantity + quantity }
+                  : i,
+              ),
+            };
+          }
+          return { disposalItems: [...state.disposalItems, { ...item, quantity }] };
+        }),
+      setDisposalQuantity: (productId, quantity) =>
+        set((state) => ({
+          disposalItems: state.disposalItems.map((i) =>
+            i.productId === productId ? { ...i, quantity: Math.max(1, quantity) } : i,
+          ),
+        })),
+      removeDisposalItem: (productId) =>
+        set((state) => ({
+          disposalItems: state.disposalItems.filter((i) => i.productId !== productId),
+        })),
+
+      addExpense: (expense) => set((state) => ({ expenses: [...state.expenses, expense] })),
+      removeExpense: (index) =>
+        set((state) => ({ expenses: state.expenses.filter((_, i) => i !== index) })),
+
+      clear: () => set({ items: [], disposalItems: [], expenses: [] }),
     }),
     { name: 'vape-shop-draft' },
   ),

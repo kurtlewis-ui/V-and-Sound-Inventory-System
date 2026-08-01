@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useState } from 'react';
-import { Search, Pencil, Trash2, X, CheckCircle, XCircle, Plus, Loader2, Recycle, ShoppingBag } from 'lucide-react';
+import { Search, Pencil, Trash2, X, CheckCircle, XCircle, Plus, Loader2, Recycle, ShoppingBag, Receipt, Send } from 'lucide-react';
 import {
   useSalesPending,
   useBranches,
@@ -14,9 +14,14 @@ import {
   useApproveDisposal,
   useDeclineDisposal,
   useStaffDrafts,
+  useSaveDraftForStaff,
+  useExpensesPending,
+  useApproveExpense,
+  useDeclineExpense,
+  useBranchSummary,
 } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
-import type { Sale } from '@/lib/types';
+import type { Sale, PaymentMethod } from '@/lib/types';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -25,6 +30,22 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
+}
+function paymentDotColor(pm: PaymentMethod) {
+  return pm === 'Cash' ? 'bg-accent-green' : pm === 'Gcash' ? 'bg-accent-blue' : 'bg-accent-purple-light';
+}
+
+// Small pulsing dot + label shown next to sections that auto-refresh.
+function LiveIndicator() {
+  return (
+    <span className="flex items-center gap-1.5 text-xs font-medium text-accent-green">
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-green opacity-75" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-green" />
+      </span>
+      Live
+    </span>
+  );
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -56,19 +77,27 @@ export default function SalesPendingPage() {
   const { data: productData } = useProducts();
   const products = productData?.data ?? [];
 
+  // No "All Shops" — always scoped to one branch, auto-selecting the first
+  // once branches have loaded.
+  useEffect(() => {
+    if (!selectedShop && branches.length > 0) {
+      setSelectedShop(branches[0].id);
+    }
+  }, [branches, selectedShop]);
+
   const { data, isLoading, isError, error } = useSalesPending({
     search,
     branchId: selectedShop || undefined,
   });
   const sales = data?.data ?? [];
-  const summary = data?.summary ?? { cash: 0, gcash: 0, total: 0, count: 0 };
+  const summary = data?.summary ?? { cash: 0, gcash: 0, bankTransfer: 0, total: 0, count: 0 };
 
   const approveSale = useApproveSale();
   const declineSale = useDeclineSale();
   const deleteSale = useDeleteSale();
   const updateSale = useUpdateSale();
 
-  // Pending disposals (admin approves/declines these too)
+  // Pending disposals (admin approves/declines these too) — live.
   const { data: disposalData, isLoading: dispLoading } = useDisposalsPending({
     search,
     branchId: selectedShop || undefined,
@@ -77,9 +106,22 @@ export default function SalesPendingPage() {
   const approveDisposal = useApproveDisposal();
   const declineDisposal = useDeclineDisposal();
 
-  // Staff draft carts (not yet submitted) — read-only visibility for admins.
+  // Pending expenses — live.
+  const { data: expenseData, isLoading: expLoading } = useExpensesPending({
+    search,
+    branchId: selectedShop || undefined,
+  });
+  const expenses = expenseData?.data ?? [];
+  const approveExpense = useApproveExpense();
+  const declineExpense = useDeclineExpense();
+
+  // Staff draft carts (not yet submitted) — live view for admins.
   const { data: draftsData, isLoading: draftsLoading } = useStaffDrafts(selectedShop || undefined);
   const drafts = draftsData ?? [];
+  const saveDraftForStaff = useSaveDraftForStaff();
+
+  // Today's approved Total Sales / Total Expenses / Net for the selected branch.
+  const { data: branchSummary } = useBranchSummary(selectedShop || undefined);
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
@@ -136,11 +178,35 @@ export default function SalesPendingPage() {
       <div className="bg-card-bg rounded-xl border border-card-border shadow-sm mb-4">
         <div className="p-4 flex flex-wrap items-center gap-3">
           <select value={selectedShop} onChange={(e) => setSelectedShop(e.target.value)} className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus">
-            <option value="">All Shops</option>
+            {branches.length === 0 && <option value="">No shops yet</option>}
             {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
       </div>
+
+      {/* Today's net for this branch — approved sales minus approved expenses,
+          so an admin sees the real impact before approving anything pending. */}
+      {branchSummary && (
+        <div className="bg-card-bg rounded-xl border border-card-border shadow-sm mb-4">
+          <div className="p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Today (Approved)</p>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-xs text-text-secondary">Total Sales</p>
+                <p className="text-lg font-bold text-accent-green">{peso(branchSummary.totalSales)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-text-secondary">Total Expenses</p>
+                <p className="text-lg font-bold text-accent-red">{peso(branchSummary.totalExpenses)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-text-secondary">Net</p>
+                <p className="text-lg font-bold text-text-primary">{peso(branchSummary.net)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-card-bg rounded-xl border border-card-border shadow-sm">
@@ -186,8 +252,8 @@ export default function SalesPendingPage() {
                       <td className="px-4 py-3 text-sm text-text-primary font-medium">{peso(item.subTotal)}</td>
                       <td className="px-4 py-3">
                         <span className="badge badge-neutral">
-                          <span className={`badge-dot ${sale.paymentMethod === 'Cash' ? 'bg-accent-green' : 'bg-accent-blue'}`} />
-                          {sale.paymentMethod}
+                          <span className={`badge-dot ${paymentDotColor(sale.paymentMethod)}`} />
+                          {sale.paymentMethod === 'BankTransfer' ? `Bank Transfer${sale.bankNote ? ` (${sale.bankNote})` : ''}` : sale.paymentMethod}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{sale.staff?.name ?? '—'}</td>
@@ -220,6 +286,7 @@ export default function SalesPendingPage() {
           <div className="border-l-4 border-accent-blue pl-4 space-y-1">
             <p className="text-sm text-text-primary"><span className="font-medium">Total for Cash:</span> {peso(summary.cash)}</p>
             <p className="text-sm text-text-primary"><span className="font-medium">Total for Gcash:</span> {peso(summary.gcash)}</p>
+            <p className="text-sm text-text-primary"><span className="font-medium">Total for Bank Transfer:</span> {peso(summary.bankTransfer)}</p>
             <p className="text-sm text-text-primary font-bold">Total for All Pending: {peso(summary.total)}</p>
           </div>
         </div>
@@ -232,7 +299,10 @@ export default function SalesPendingPage() {
             <ShoppingBag size={18} /> Staff Drafts
             {drafts.length > 0 && <span className="badge badge-neutral">{drafts.length}</span>}
           </h2>
-          <p className="text-xs text-text-muted">Live view of carts staff are currently building — not yet submitted for approval.</p>
+          <div className="flex items-center gap-3">
+            <LiveIndicator />
+            <p className="text-xs text-text-muted">Carts staff are currently building — not yet submitted for approval.</p>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -240,17 +310,20 @@ export default function SalesPendingPage() {
               <tr className="bg-table-header text-table-header-text">
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Staff</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Shop</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Items</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">To Sell</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">To Dispose</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Expenses</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Payment</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Total</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Last Updated</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Actions</th>
               </tr>
             </thead>
             <tbody>
               {draftsLoading ? (
-                <tr><td colSpan={6} className="text-center py-6 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading…</td></tr>
+                <tr><td colSpan={9} className="text-center py-6 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading…</td></tr>
               ) : drafts.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-6 text-text-muted">No staff currently building an order.</td></tr>
+                <tr><td colSpan={9} className="text-center py-6 text-text-muted">No staff currently building an order.</td></tr>
               ) : drafts.map((d) => (
                 <tr key={d.id} className="border-b border-card-border hover:bg-white/5 transition align-top">
                   <td className="px-4 py-3">
@@ -259,20 +332,56 @@ export default function SalesPendingPage() {
                   </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{d.branch?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">
-                    <ul className="space-y-0.5">
-                      {d.items.map((item) => (
-                        <li key={item.productId}>{item.quantity}× {item.name}</li>
-                      ))}
-                    </ul>
+                    {d.items.length === 0 ? '—' : (
+                      <ul className="space-y-0.5">
+                        {d.items.map((item) => <li key={item.productId}>{item.quantity}× {item.name}</li>)}
+                      </ul>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">
+                    {d.disposalItems.length === 0 ? '—' : (
+                      <ul className="space-y-0.5">
+                        {d.disposalItems.map((item) => <li key={item.productId}>{item.quantity}× {item.name}</li>)}
+                      </ul>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">
+                    {d.expenses.length === 0 ? '—' : (
+                      <ul className="space-y-0.5">
+                        {d.expenses.map((exp, idx) => <li key={idx}>{peso(exp.amount)} — {exp.note}</li>)}
+                      </ul>
+                    )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="badge badge-neutral">
-                      <span className={`badge-dot ${d.paymentMethod === 'Cash' ? 'bg-accent-green' : 'bg-accent-blue'}`} />
-                      {d.paymentMethod}
-                    </span>
+                    {d.items.length > 0 && (
+                      <span className="badge badge-neutral">
+                        <span className={`badge-dot ${paymentDotColor(d.paymentMethod)}`} />
+                        {d.paymentMethod === 'BankTransfer' ? `Bank${d.bankNote ? ` (${d.bankNote})` : ''}` : d.paymentMethod}
+                      </span>
+                    )}
                   </td>
-                  <td className="px-4 py-3 text-sm text-text-primary font-medium">{peso(d.total)}</td>
+                  <td className="px-4 py-3 text-sm text-text-primary font-medium">
+                    {d.items.length > 0 && <p>{peso(d.total)}</p>}
+                    {d.expenses.length > 0 && <p className="text-xs text-accent-red">-{peso(d.expensesTotal)}</p>}
+                  </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(d.updatedAt)}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => runSafe(async () => {
+                        const result = await saveDraftForStaff.mutateAsync(d.staff.id);
+                        setActionStatus(
+                          result.errors.length > 0
+                            ? `Saved ${d.staff.name}'s draft with issues: ${result.errors.join('; ')}`
+                            : `✓ Saved ${d.staff.name}'s draft — now pending approval.`,
+                        );
+                      })}
+                      disabled={saveDraftForStaff.isPending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-primary text-white rounded-lg text-xs font-medium hover:opacity-90 transition disabled:opacity-70"
+                      title="Submit this staff member's draft on their behalf"
+                    >
+                      <Send size={13} /> Save Draft
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -287,7 +396,8 @@ export default function SalesPendingPage() {
             <Recycle size={18} /> Pending Disposals
             {disposals.length > 0 && <span className="badge badge-neutral">{disposals.length}</span>}
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <LiveIndicator />
             <button
               onClick={() => { const n = disposals.length; if (!n) return; runSafe(async () => { await Promise.all(disposals.map((d) => approveDisposal.mutateAsync(d.id))); setActionStatus(`✓ All ${n} disposal${n === 1 ? '' : 's'} approved (stock deducted).`); }); }}
               disabled={disposals.length === 0}
@@ -347,6 +457,68 @@ export default function SalesPendingPage() {
         </div>
       </div>
 
+      {/* Pending Expenses */}
+      <div className="bg-card-bg rounded-xl border border-card-border shadow-sm mt-6">
+        <div className="p-4 border-b border-card-border flex items-center justify-between flex-wrap gap-2">
+          <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
+            <Receipt size={18} /> Pending Expenses
+            {expenses.length > 0 && <span className="badge badge-neutral">{expenses.length}</span>}
+          </h2>
+          <div className="flex items-center gap-3">
+            <LiveIndicator />
+            <button
+              onClick={() => { const n = expenses.length; if (!n) return; runSafe(async () => { await Promise.all(expenses.map((e) => approveExpense.mutateAsync(e.id))); setActionStatus(`✓ All ${n} expense${n === 1 ? '' : 's'} approved.`); }); }}
+              disabled={expenses.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green text-white rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-70"
+            >
+              <CheckCircle size={15} /> Approve All
+            </button>
+            <button
+              onClick={() => { const n = expenses.length; if (!n) return; runSafe(async () => { await Promise.all(expenses.map((e) => declineExpense.mutateAsync(e.id))); setActionStatus(`All ${n} expense${n === 1 ? '' : 's'} declined.`); }); }}
+              disabled={expenses.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red text-white rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-70"
+            >
+              <XCircle size={15} /> Decline All
+            </button>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-table-header text-table-header-text">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Staff</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Shop</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Note</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {expLoading ? (
+                <tr><td colSpan={6} className="text-center py-6 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading…</td></tr>
+              ) : expenses.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-6 text-text-muted">No pending expenses.</td></tr>
+              ) : expenses.map((e) => (
+                <tr key={e.id} className="border-b border-card-border hover:bg-white/5 transition">
+                  <td className="px-4 py-3 text-sm text-text-primary">{e.staff?.name ?? '—'}</td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{e.branch?.name ?? '—'}</td>
+                  <td className="px-4 py-3 text-sm text-text-primary font-medium">{peso(e.amount)}</td>
+                  <td className="px-4 py-3 text-sm text-text-secondary max-w-[220px] truncate">{e.note}</td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(e.createdAt)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => runSafe(async () => { await approveExpense.mutateAsync(e.id); setActionStatus(`✓ Expense "${e.note}" approved.`); })} className="p-1.5 bg-accent-green text-white rounded hover:opacity-90 transition" title="Approve"><CheckCircle size={15} /></button>
+                      <button onClick={() => runSafe(async () => { await declineExpense.mutateAsync(e.id); setActionStatus(`Expense "${e.note}" declined.`); })} className="p-1.5 bg-accent-orange text-white rounded hover:opacity-90 transition" title="Decline"><XCircle size={15} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {editingSale && (
         <EditSaleModal
           sale={editingSale}
@@ -397,10 +569,11 @@ function EditSaleModal({
   products: { id: string; name: string; sellingPrice: number; brand: { name: string } | null }[];
   isSaving: boolean;
   onClose: () => void;
-  onSave: (payload: { paymentMethod: 'Cash' | 'Gcash'; customerName?: string; items: EditRow[] }) => Promise<void>;
+  onSave: (payload: { paymentMethod: PaymentMethod; bankNote?: string; customerName?: string; items: EditRow[] }) => Promise<void>;
 }) {
   const [rows, setRows] = useState<EditRow[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Gcash'>(sale.paymentMethod);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(sale.paymentMethod);
+  const [bankNote, setBankNote] = useState(sale.bankNote ?? '');
   const [customerName, setCustomerName] = useState(sale.customerName ?? '');
   const [err, setErr] = useState<string | null>(null);
 
@@ -433,6 +606,7 @@ function EditSaleModal({
     try {
       await onSave({
         paymentMethod,
+        bankNote: paymentMethod === 'BankTransfer' ? bankNote.trim() || undefined : undefined,
         customerName: customerName.trim() || undefined,
         items: rows.map((r) => ({ productId: r.productId, quantity: r.quantity })),
       });
@@ -447,16 +621,31 @@ function EditSaleModal({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-text-primary mb-1">Payment Method</label>
-            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as 'Cash' | 'Gcash')} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus">
+            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus">
               <option value="Cash">Cash</option>
               <option value="Gcash">Gcash</option>
+              <option value="BankTransfer">Bank Transfer</option>
             </select>
           </div>
+          {paymentMethod === 'BankTransfer' ? (
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">Which bank?</label>
+              <input type="text" value={bankNote} onChange={(e) => setBankNote(e.target.value)} placeholder="e.g. BDO, BPI" className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">Customer (optional)</label>
+              <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
+            </div>
+          )}
+        </div>
+
+        {paymentMethod === 'BankTransfer' && (
           <div>
             <label className="block text-sm font-medium text-text-primary mb-1">Customer (optional)</label>
             <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
           </div>
-        </div>
+        )}
 
         <div>
           <div className="flex items-center justify-between mb-2">

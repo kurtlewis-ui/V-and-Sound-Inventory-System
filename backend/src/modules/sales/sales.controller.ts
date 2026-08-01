@@ -43,10 +43,28 @@ export class SalesController {
     return { success: true, data };
   }
 
+  @Post('drafts/:staffId/save')
+  @Roles('Admin')
+  @ApiOperation({ summary: "Submit a staff member's draft on their behalf (in case they forgot)" })
+  async saveDraftForStaff(
+    @Param('staffId', ParseUUIDPipe) staffId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const data = await this.draftsService.saveForStaff(staffId, user);
+    return { success: true, data };
+  }
+
   @Put('draft')
   @ApiOperation({ summary: 'Save/replace your own in-progress draft cart' })
   async saveDraft(@Body() dto: UpsertDraftDto, @CurrentUser() user: RequestUser) {
     const data = await this.draftsService.upsertMine(dto, user);
+    return { success: true, data };
+  }
+
+  @Post('draft/save')
+  @ApiOperation({ summary: 'Submit your own draft (same as the admin "Save Draft" action)' })
+  async saveMyDraft(@CurrentUser() user: RequestUser) {
+    const data = await this.draftsService.saveForStaff(user.userId, user);
     return { success: true, data };
   }
 
