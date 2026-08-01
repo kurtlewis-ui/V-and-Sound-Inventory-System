@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateDisposalDto } from './dto/create-disposal.dto';
 import { QueryDisposalDto } from './dto/query-disposal.dto';
 import { RequestUser } from '../../common/interfaces/request-user.interface';
+import { restoreToDraft } from '../sales/draft-restore.util';
 
 @Injectable()
 export class DisposalsService {
@@ -142,6 +143,28 @@ export class DisposalsService {
         await tx.inventory.updateMany({
           where: { productId: disposal.productId, branchId: disposal.branchId },
           data: { quantity: { increment: disposal.quantity } },
+        });
+      }
+
+      // Copy it back into the requester's draft cart so they can fix and
+      // resubmit — skipped if there's no requester on file (e.g. legacy
+      // data) since there'd be nowhere to put it.
+      if (disposal.productId && disposal.createdById) {
+        const product = await tx.product.findUnique({
+          where: { id: disposal.productId },
+          select: { image: true },
+        });
+        await restoreToDraft(tx, disposal.createdById, disposal.branchId, {
+          disposalItems: [
+            {
+              productId: disposal.productId,
+              name: disposal.productName,
+              brandName: disposal.brandName,
+              image: product?.image ?? null,
+              quantity: disposal.quantity,
+              reason: disposal.reason,
+            },
+          ],
         });
       }
 

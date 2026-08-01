@@ -7,6 +7,7 @@ import {
   type QueryKey,
 } from '@tanstack/react-query';
 import { api } from './api';
+import type { DraftItem, DraftDisposalItem, DraftExpense } from './draft';
 import type {
   ActivityLog,
   AuthUser,
@@ -393,10 +394,16 @@ export function useSalesRecords(params?: {
         startDate: params?.startDate || undefined,
         endDate: params?.endDate || undefined,
       }),
+    refetchInterval: LIVE_POLL_MS,
   });
 }
 
-export function useSalesPending(params?: { search?: string; branchId?: string }) {
+export function useSalesPending(params?: {
+  search?: string;
+  branchId?: string;
+  startDate?: string;
+  endDate?: string;
+}) {
   return useQuery({
     queryKey: ['sales', 'pending', params ?? {}],
     queryFn: () =>
@@ -404,7 +411,10 @@ export function useSalesPending(params?: { search?: string; branchId?: string })
         limit: 200,
         search: params?.search || undefined,
         branchId: params?.branchId || undefined,
+        startDate: params?.startDate || undefined,
+        endDate: params?.endDate || undefined,
       }),
+    refetchInterval: LIVE_POLL_MS,
   });
 }
 
@@ -514,10 +524,17 @@ export function useSaveMyDraft() {
 // "Save Draft" button) so the local cart can be cleared to match — otherwise
 // the staff's device would still show the already-submitted items and could
 // resubmit them as duplicates.
+export interface MyDraftContent {
+  exists: boolean;
+  items: DraftItem[];
+  disposalItems: DraftDisposalItem[];
+  expenses: DraftExpense[];
+}
+
 export function useMyDraftExists() {
   return useQuery({
     queryKey: ['my-draft-exists'],
-    queryFn: () => getData<{ exists: boolean }>('/sales/draft'),
+    queryFn: () => getData<MyDraftContent>('/sales/draft'),
     refetchInterval: 4000,
   });
 }
@@ -602,6 +619,7 @@ export function useDisposals(params?: { search?: string; branchId?: string; star
         summary: (res.data.summary ?? { totalValue: 0, totalQuantity: 0, count: 0 }) as DisposalSummary,
       };
     },
+    refetchInterval: LIVE_POLL_MS,
   });
 }
 
@@ -659,6 +677,35 @@ export function useCreateExpense() {
     mutationFn: (body: { branchId?: string; amount: number; note: string }) =>
       api.post('/expenses', body).then((r) => r.data.data),
     onSuccess: () => invalidate(['expenses'], ['stats']),
+  });
+}
+
+export function useExpenses(params?: {
+  search?: string;
+  branchId?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+}) {
+  return useQuery({
+    queryKey: ['expenses', params ?? {}],
+    queryFn: async () => {
+      const res = await api.get('/expenses', {
+        params: {
+          limit: 200,
+          search: params?.search || undefined,
+          branchId: params?.branchId || undefined,
+          startDate: params?.startDate || undefined,
+          endDate: params?.endDate || undefined,
+          status: params?.status || undefined,
+        },
+      });
+      return {
+        data: (res.data.data ?? []) as Expense[],
+        summary: (res.data.summary ?? { totalAmount: 0, count: 0 }) as ExpenseSummary,
+      };
+    },
+    refetchInterval: LIVE_POLL_MS,
   });
 }
 

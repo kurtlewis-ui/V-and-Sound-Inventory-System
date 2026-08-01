@@ -53,13 +53,22 @@ export class DraftsService {
    * Lets the staff's own device detect that an admin submitted their draft
    * on their behalf (via saveForStaff) while they still have the old items
    * sitting in local storage, so it can clear them and avoid resubmitting.
+   * Also returns the current content so the device can pull down changes it
+   * didn't make itself — e.g. an item a decline copied back in.
    */
   async existsForMine(actor: RequestUser) {
     const draft = await this.prisma.draftOrder.findUnique({
       where: { staffId: actor.userId },
-      select: { id: true },
     });
-    return { exists: !!draft };
+    if (!draft) {
+      return { exists: false, items: [], disposalItems: [], expenses: [] };
+    }
+    return {
+      exists: true,
+      items: draft.items,
+      disposalItems: draft.disposalItems,
+      expenses: draft.expenses,
+    };
   }
 
   /** Clear the current staff member's draft (e.g. on submit/logout). */

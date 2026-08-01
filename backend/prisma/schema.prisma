@@ -243,8 +243,11 @@ enum SaleStatus {
 
 model Sale {
   id            String        @id @default(uuid()) @db.Uuid
-  // Human-friendly incrementing reference shown in the UI (e.g. #1001).
-  number        Int           @unique @default(autoincrement())
+  // Human-friendly reference shown in the UI (e.g. #3) — resets to 1 each
+  // day, independently per branch (see DailySaleCounter). Not globally
+  // unique: two branches, or the same branch on different days, can and
+  // will reuse the same number.
+  number        Int           @default(0)
   branchId      String        @map("branch_id") @db.Uuid
   staffId       String        @map("staff_id") @db.Uuid
   customerName  String?       @map("customer_name") @db.VarChar(150)
@@ -270,6 +273,18 @@ model Sale {
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@map("sales")
+}
+
+// Backs Sale.number: one row per (branch, day), atomically incremented so
+// each branch's sale numbering starts back at 1 every day.
+model DailySaleCounter {
+  id       String   @id @default(uuid()) @db.Uuid
+  branchId String   @map("branch_id") @db.Uuid
+  date     DateTime @db.Date
+  count    Int      @default(0)
+
+  @@unique([branchId, date])
+  @@map("daily_sale_counters")
 }
 
 model SaleItem {

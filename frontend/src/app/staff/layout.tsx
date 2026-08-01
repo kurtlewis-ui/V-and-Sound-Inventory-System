@@ -182,6 +182,7 @@ function DraftBag() {
     addExpense,
     removeExpense,
     clear,
+    replaceAll,
   } = useDraftStore();
   const [customerName, setCustomerName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -198,20 +199,49 @@ function DraftBag() {
 
   const isEmpty = items.length === 0 && disposalItems.length === 0 && expenses.length === 0;
 
+  // Mirrors the latest poll result into a ref so the debounced timer below
+  // can check it at *fire* time rather than the stale value captured when
+  // the timer was scheduled.
+  const myDraftExistsRef = useRef(myDraftExists);
+  useEffect(() => {
+    myDraftExistsRef.current = myDraftExists;
+  }, [myDraftExists]);
+
   // Push the cart to the server (debounced) so Admins can see it live on
   // Pending Sales before it's ever submitted. Skips the initial mount so an
   // empty cart on page load doesn't fire a pointless clear.
   const didMount = useRef(false);
   const lastLocalEditAt = useRef(0);
+  // Set right before a clear() that already told the server directly
+  // (handleSave's saveMyDraft, handleClear's clearDraftSync, or the
+  // "admin submitted my draft" cleanup below) — skips this effect's own
+  // redundant follow-up sync for that change.
+  const suppressNextSync = useRef(false);
   useEffect(() => {
     lastLocalEditAt.current = Date.now();
     if (!didMount.current) {
       didMount.current = true;
       return;
     }
+    if (suppressNextSync.current) {
+      suppressNextSync.current = false;
+      return;
+    }
     const timer = setTimeout(() => {
       if (isEmpty) {
-        clearDraftSync.mutate();
+        // Check the *freshest* known server state, not what it was when
+        // this timer was scheduled. If the server currently holds content
+        // we haven't reconciled down yet (e.g. a decline landed on a fresh
+        // mount/rehydration before the reconcile effect got its first
+        // look), don't blindly delete it out from under the staff member —
+        // let the reconcile effect adopt it instead.
+        const server = myDraftExistsRef.current;
+        const serverHasContent =
+          !!server?.exists &&
+          (server.items.length > 0 || server.disposalItems.length > 0 || server.expenses.length > 0);
+        if (!serverHasContent) {
+          clearDraftSync.mutate();
+        }
       } else {
         saveDraft.mutate({
           items,
@@ -232,8 +262,35 @@ function DraftBag() {
   useEffect(() => {
     if (!myDraftExists || myDraftExists.exists || isEmpty) return;
     if (Date.now() - lastLocalEditAt.current < 3000) return;
+    suppressNextSync.current = true;
     clear();
     setSuccess("Your draft was submitted by an admin — it's no longer pending here.");
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myDraftExists]);
+
+  // If the server's draft content differs from what we have locally while
+  // we weren't actively editing, something changed it that wasn't us — most
+  // likely an admin declined an item and it was copied back in here. Adopt
+  // the server's version (it can only add what we don't already know about,
+  // since in the idle case our local copy should already mirror whatever we
+  // last pushed). Skips the very first resolved fetch so a fresh page load
+  // gets one full debounce cycle to push any not-yet-synced local edits up
+  // before we start comparing — otherwise a slow first poll could clobber
+  // them with whatever stale content the server still has.
+  const readyToReconcile = useRef(false);
+  useEffect(() => {
+    if (!myDraftExists?.exists) return;
+    if (!readyToReconcile.current) {
+      readyToReconcile.current = true;
+      return;
+    }
+    if (Date.now() - lastLocalEditAt.current < 3000) return;
+    const serverSig = JSON.stringify([myDraftExists.items, myDraftExists.disposalItems, myDraftExists.expenses]);
+    const localSig = JSON.stringify([items, disposalItems, expenses]);
+    if (serverSig === localSig) return;
+    replaceAll(myDraftExists.items, myDraftExists.disposalItems, myDraftExists.expenses);
+    setSuccess('Your draft was updated — a declined item may have been added back for you to review.');
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myDraftExists]);
@@ -285,6 +342,7 @@ function DraftBag() {
         customerName: customerName.trim() || undefined,
       });
       const result = await saveMyDraft.mutateAsync();
+      suppressNextSync.current = true;
       clear();
       setCustomerName('');
       if (result.errors.length > 0) {
@@ -304,6 +362,7 @@ function DraftBag() {
   }
 
   function handleClear() {
+    suppressNextSync.current = true;
     clear();
     clearDraftSync.mutate();
   }
