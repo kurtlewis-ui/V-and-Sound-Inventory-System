@@ -121,7 +121,7 @@ export interface Product {
   deletedAt: string | null;
 }
 
-export type PaymentMethod = 'Cash' | 'Gcash';
+export type PaymentMethod = 'Cash' | 'Gcash' | 'BankTransfer';
 export type SaleStatus = 'PENDING' | 'APPROVED' | 'DECLINED';
 
 export interface SaleLineItem {
@@ -141,6 +141,7 @@ export interface Sale {
   branch: { id: string; name: string } | null;
   staff: { id: string; name: string; email: string } | null;
   paymentMethod: PaymentMethod;
+  bankNote: string | null;
   status: SaleStatus;
   total: number;
   items: SaleLineItem[];
@@ -151,8 +152,32 @@ export interface Sale {
 export interface SalesSummary {
   cash: number;
   gcash: number;
+  bankTransfer: number;
   total: number;
   count: number;
+}
+
+export interface DraftSaleItem {
+  productId: string;
+  name: string;
+  brandName: string;
+  unitPrice: number;
+  quantity: number;
+  image?: string | null;
+}
+
+export interface DraftDisposalItem {
+  productId: string;
+  name: string;
+  brandName: string;
+  quantity: number;
+  image?: string | null;
+  reason?: string;
+}
+
+export interface DraftExpenseItem {
+  amount: number;
+  note: string;
 }
 
 // A staff member's current in-progress (not-yet-submitted) cart, as seen by
@@ -161,18 +186,42 @@ export interface StaffDraft {
   id: string;
   staff: { id: string; name: string; email: string };
   branch: { id: string; name: string } | null;
-  items: {
-    productId: string;
-    name: string;
-    brandName: string;
-    unitPrice: number;
-    quantity: number;
-    image?: string | null;
-  }[];
+  items: DraftSaleItem[];
+  disposalItems: DraftDisposalItem[];
+  expenses: DraftExpenseItem[];
   paymentMethod: PaymentMethod;
+  bankNote: string | null;
   customerName: string | null;
   total: number;
+  expensesTotal: number;
   updatedAt: string;
+}
+
+export type ExpenseStatus = 'PENDING' | 'APPROVED' | 'DECLINED';
+
+export interface Expense {
+  id: string;
+  branch: { id: string; name: string } | null;
+  staff: { id: string; name: string } | null;
+  amount: number;
+  note: string;
+  status: ExpenseStatus;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
+export interface ExpenseSummary {
+  totalAmount: number;
+  count: number;
+}
+
+// Today's approved Total Sales / Total Expenses / Net for a branch.
+export interface BranchSummary {
+  branchId: string;
+  totalSales: number;
+  totalExpenses: number;
+  net: number;
 }
 
 export interface ActivityLog {

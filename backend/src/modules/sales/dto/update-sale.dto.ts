@@ -28,6 +28,12 @@ export class UpdateSaleDto {
   @IsEnum(PaymentMethod)
   paymentMethod?: PaymentMethod;
 
+  @ApiProperty({ required: false, example: 'BDO' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  bankNote?: string;
+
   @ApiProperty({ type: [SaleItemInputDto], required: false })
   @IsOptional()
   @IsArray()

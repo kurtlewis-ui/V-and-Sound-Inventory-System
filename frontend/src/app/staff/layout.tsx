@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { useDraftStore } from '@/lib/draft';
-import { useCreateSale, useSaveDraft, useClearDraftSync } from '@/lib/hooks';
+import { useSaveDraft, useClearDraftSync, useSaveMyDraft } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import {
   Home,
@@ -18,11 +18,13 @@ import {
   Minus,
   Trash2,
   CheckCircle2,
+  Recycle,
+  Receipt,
   Settings as SettingsIcon,
 } from 'lucide-react';
 
 function peso(n: number) {
-  return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 const navItems = [
@@ -150,26 +152,47 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
 }
 
 // ---------------------------------------------------------------------------
-// Draft order "bag": floating button + slide-in panel. Submitting creates a
-// PENDING sale for the staff's branch (backend assigns the branch).
+// Draft order "bag": floating button + slide-in panel with three sections —
+// items to sell, items to dispose, and expenses to log. A single "Save
+// Order" submits everything together (creates the sale + disposal(s) +
+// expense(s), all PENDING, awaiting admin approval).
 // ---------------------------------------------------------------------------
+type PaymentMethod = 'Cash' | 'Gcash' | 'BankTransfer';
+
 function DraftBag() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { items, setQuantity, removeItem, clear } = useDraftStore();
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Gcash'>('Cash');
+  const {
+    items,
+    setQuantity,
+    removeItem,
+    disposalItems,
+    setDisposalQuantity,
+    removeDisposalItem,
+    expenses,
+    addExpense,
+    removeExpense,
+    clear,
+  } = useDraftStore();
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
+  const [bankNote, setBankNote] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const createSale = useCreateSale();
+  const [addingExpense, setAddingExpense] = useState(false);
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseNote, setExpenseNote] = useState('');
   const saveDraft = useSaveDraft();
   const clearDraftSync = useClearDraftSync();
+  const saveMyDraft = useSaveMyDraft();
 
   useEffect(() => setMounted(true), []);
 
-  // Push the cart to the server (debounced) so Admins can see it on Pending
-  // Sales before it's ever submitted. Skips the initial mount so an empty
-  // cart on page load doesn't fire a pointless clear.
+  const isEmpty = items.length === 0 && disposalItems.length === 0 && expenses.length === 0;
+
+  // Push the cart to the server (debounced) so Admins can see it live on
+  // Pending Sales before it's ever submitted. Skips the initial mount so an
+  // empty cart on page load doesn't fire a pointless clear.
   const didMount = useRef(false);
   useEffect(() => {
     if (!didMount.current) {
@@ -177,36 +200,63 @@ function DraftBag() {
       return;
     }
     const timer = setTimeout(() => {
-      if (items.length === 0) {
+      if (isEmpty) {
         clearDraftSync.mutate();
       } else {
-        saveDraft.mutate({ items, paymentMethod, customerName: customerName.trim() || undefined });
+        saveDraft.mutate({
+          items,
+          disposalItems,
+          expenses,
+          paymentMethod,
+          bankNote: paymentMethod === 'BankTransfer' ? bankNote.trim() || undefined : undefined,
+          customerName: customerName.trim() || undefined,
+        });
       }
     }, 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, paymentMethod, customerName]);
+  }, [items, disposalItems, expenses, paymentMethod, bankNote, customerName]);
 
-  const total = useMemo(
+  const itemsTotal = useMemo(
     () => items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0),
     [items],
   );
-  const count = items.reduce((sum, i) => sum + i.quantity, 0);
+  const expensesTotal = useMemo(
+    () => expenses.reduce((sum, e) => sum + e.amount, 0),
+    [expenses],
+  );
+  const count =
+    items.reduce((sum, i) => sum + i.quantity, 0) +
+    disposalItems.reduce((sum, i) => sum + i.quantity, 0) +
+    expenses.length;
 
   async function handleSave() {
-    if (items.length === 0) return;
+    if (isEmpty) return;
     setError(null);
     setSuccess(null);
     try {
-      await createSale.mutateAsync({
+      // Flush the very latest state to the server first — the debounced sync
+      // above may not have fired yet if the staff edited and immediately hit
+      // Save — then ask the server to submit whatever it has on file.
+      await saveDraft.mutateAsync({
+        items,
+        disposalItems,
+        expenses,
         paymentMethod,
+        bankNote: paymentMethod === 'BankTransfer' ? bankNote.trim() || undefined : undefined,
         customerName: customerName.trim() || undefined,
-        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       });
+      const result = await saveMyDraft.mutateAsync();
       clear();
-      clearDraftSync.mutate();
       setCustomerName('');
-      setSuccess('Order submitted! It now awaits admin approval in Pending Sales.');
+      setBankNote('');
+      if (result.errors.length > 0) {
+        // Whatever succeeded is already submitted; only the failed part (if
+        // any) is still sitting in the server-side draft for a retry later.
+        setError(`Some items couldn't be submitted: ${result.errors.join('; ')}`);
+      } else {
+        setSuccess('Order submitted! It now awaits admin approval.');
+      }
     } catch (e) {
       setError(getApiErrorMessage(e));
     }
@@ -216,6 +266,25 @@ function DraftBag() {
     clear();
     clearDraftSync.mutate();
   }
+
+  function handleAddExpense() {
+    const amount = Number(expenseAmount);
+    if (!amount || amount <= 0) {
+      setError('Enter a valid expense amount.');
+      return;
+    }
+    if (!expenseNote.trim()) {
+      setError('Add a note for the expense (e.g. "Water bill").');
+      return;
+    }
+    setError(null);
+    addExpense({ amount, note: expenseNote.trim() });
+    setExpenseAmount('');
+    setExpenseNote('');
+    setAddingExpense(false);
+  }
+
+  const isSaving = saveDraft.isPending || saveMyDraft.isPending;
 
   return (
     <>
@@ -247,42 +316,171 @@ function DraftBag() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {items.length === 0 ? (
-                <div className="rounded-lg border border-card-border bg-white/5 px-4 py-6 text-center text-sm text-text-muted">
-                  No pending orders.
+            <div className="flex-1 overflow-y-auto p-4 space-y-5">
+              {/* To Sell */}
+              <div>
+                <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  <Briefcase size={13} /> To Sell
+                </h4>
+                {items.length === 0 ? (
+                  <div className="rounded-lg border border-card-border bg-white/5 px-4 py-3 text-center text-sm text-text-muted">
+                    No items yet.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {items.map((item) => (
+                      <div key={item.productId} className="flex items-center gap-3 rounded-lg border border-card-border p-2">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-white/10 flex items-center justify-center">
+                          {item.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-[9px] text-text-muted">No Img</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-text-primary">{item.name}</p>
+                          <p className="truncate text-xs text-text-muted">{item.brandName}</p>
+                          <p className="text-xs text-text-secondary">{peso(item.unitPrice)} each</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setQuantity(item.productId, item.quantity - 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Decrease"><Minus size={14} /></button>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => setQuantity(item.productId, parseInt(e.target.value) || 1)}
+                            className="w-12 rounded border border-input-border bg-input-bg px-1 py-1 text-center text-sm"
+                          />
+                          <button onClick={() => setQuantity(item.productId, item.quantity + 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Increase"><Plus size={14} /></button>
+                        </div>
+                        <button onClick={() => removeItem(item.productId)} className="rounded p-1.5 text-accent-red hover:bg-accent-red/10" title="Remove"><Trash2 size={15} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* To Dispose */}
+              <div>
+                <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  <Recycle size={13} /> To Dispose
+                </h4>
+                {disposalItems.length === 0 ? (
+                  <div className="rounded-lg border border-card-border bg-white/5 px-4 py-3 text-center text-sm text-text-muted">
+                    No items staged for disposal.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {disposalItems.map((item) => (
+                      <div key={item.productId} className="flex items-center gap-3 rounded-lg border border-card-border p-2">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-white/10 flex items-center justify-center">
+                          {item.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-[9px] text-text-muted">No Img</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-text-primary">{item.name}</p>
+                          <p className="truncate text-xs text-text-muted">{item.brandName}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setDisposalQuantity(item.productId, item.quantity - 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Decrease"><Minus size={14} /></button>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => setDisposalQuantity(item.productId, parseInt(e.target.value) || 1)}
+                            className="w-12 rounded border border-input-border bg-input-bg px-1 py-1 text-center text-sm"
+                          />
+                          <button onClick={() => setDisposalQuantity(item.productId, item.quantity + 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Increase"><Plus size={14} /></button>
+                        </div>
+                        <button onClick={() => removeDisposalItem(item.productId)} className="rounded p-1.5 text-accent-red hover:bg-accent-red/10" title="Remove"><Trash2 size={15} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Expenses */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                    <Receipt size={13} /> Expenses
+                  </h4>
+                  {!addingExpense && (
+                    <button
+                      onClick={() => setAddingExpense(true)}
+                      className="flex items-center gap-1 text-xs font-medium text-accent-blue hover:underline"
+                    >
+                      <Plus size={13} /> Add Expense
+                    </button>
+                  )}
                 </div>
-              ) : (
-                items.map((item) => (
-                  <div key={item.productId} className="flex items-center gap-3 rounded-lg border border-card-border p-2">
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-white/10 flex items-center justify-center">
-                      {item.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="text-[9px] text-text-muted">No Img</span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-text-primary">{item.name}</p>
-                      <p className="truncate text-xs text-text-muted">{item.brandName}</p>
-                      <p className="text-xs text-text-secondary">{peso(item.unitPrice)} each</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setQuantity(item.productId, item.quantity - 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Decrease"><Minus size={14} /></button>
+
+                {expenses.length === 0 && !addingExpense && (
+                  <div className="rounded-lg border border-card-border bg-white/5 px-4 py-3 text-center text-sm text-text-muted">
+                    No expenses logged.
+                  </div>
+                )}
+
+                {expenses.length > 0 && (
+                  <div className="space-y-2 mb-2">
+                    {expenses.map((exp, idx) => (
+                      <div key={idx} className="flex items-center justify-between rounded-lg border border-card-border p-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-text-primary">{peso(exp.amount)}</p>
+                          <p className="truncate text-xs text-text-muted">{exp.note}</p>
+                        </div>
+                        <button onClick={() => removeExpense(idx)} className="rounded p-1.5 text-accent-red hover:bg-accent-red/10" title="Remove"><Trash2 size={15} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {addingExpense && (
+                  <div className="rounded-lg border border-card-border p-3 space-y-2">
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">Amount (₱)</label>
                       <input
                         type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => setQuantity(item.productId, parseInt(e.target.value) || 1)}
-                        className="w-12 rounded border border-input-border bg-input-bg px-1 py-1 text-center text-sm"
+                        min="0.01"
+                        step="0.01"
+                        value={expenseAmount}
+                        onChange={(e) => setExpenseAmount(e.target.value)}
+                        placeholder="300"
+                        className="w-full rounded border border-input-border bg-input-bg px-2 py-1.5 text-sm"
                       />
-                      <button onClick={() => setQuantity(item.productId, item.quantity + 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Increase"><Plus size={14} /></button>
                     </div>
-                    <button onClick={() => removeItem(item.productId)} className="rounded p-1.5 text-accent-red hover:bg-accent-red/10" title="Remove (decline) item"><Trash2 size={15} /></button>
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">Note</label>
+                      <input
+                        type="text"
+                        value={expenseNote}
+                        onChange={(e) => setExpenseNote(e.target.value)}
+                        placeholder="Water bill"
+                        className="w-full rounded border border-input-border bg-input-bg px-2 py-1.5 text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setAddingExpense(false); setExpenseAmount(''); setExpenseNote(''); }}
+                        className="flex-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-white/15 transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleAddExpense}
+                        className="flex-1 rounded-lg bg-btn-primary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition"
+                      >
+                        Add
+                      </button>
+                    </div>
                   </div>
-                ))
-              )}
+                )}
+              </div>
 
               {success && (
                 <div className="rounded-lg bg-accent-green/10 border border-accent-green/30 px-3 py-2 text-sm text-accent-green flex items-center gap-2">
@@ -294,29 +492,63 @@ function DraftBag() {
               )}
             </div>
 
-            {items.length > 0 && (
+            {!isEmpty && (
               <div className="border-t border-card-border p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs font-medium text-text-secondary mb-1">Payment</label>
-                    <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as 'Cash' | 'Gcash')} className="w-full border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg">
+                    <select
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                      className="w-full border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg"
+                    >
                       <option value="Cash">Cash</option>
                       <option value="Gcash">Gcash</option>
+                      <option value="BankTransfer">Bank Transfer</option>
                     </select>
                   </div>
+                  {paymentMethod === 'BankTransfer' ? (
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">Which bank?</label>
+                      <input
+                        type="text"
+                        value={bankNote}
+                        onChange={(e) => setBankNote(e.target.value)}
+                        placeholder="e.g. BDO, BPI"
+                        className="w-full border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">Customer (optional)</label>
+                      <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg" />
+                    </div>
+                  )}
+                </div>
+                {paymentMethod === 'BankTransfer' && (
                   <div>
                     <label className="block text-xs font-medium text-text-secondary mb-1">Customer (optional)</label>
                     <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg" />
                   </div>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-text-secondary">Total</span>
-                  <span className="font-bold text-text-primary">{peso(total)}</span>
+                )}
+                <div className="space-y-1 text-sm">
+                  {items.length > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-text-secondary">Items Total</span>
+                      <span className="font-medium text-text-primary">{peso(itemsTotal)}</span>
+                    </div>
+                  )}
+                  {expenses.length > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-text-secondary">Expenses Total</span>
+                      <span className="font-medium text-text-primary">{peso(expensesTotal)}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={handleClear} disabled={createSale.isPending} className="flex-1 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-text-primary hover:bg-white/15 transition disabled:opacity-60">Clear</button>
-                  <button onClick={handleSave} disabled={createSale.isPending} className="flex-[2] btn-grad rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60">
-                    {createSale.isPending ? 'Saving...' : 'Save Order'}
+                  <button onClick={handleClear} disabled={isSaving} className="flex-1 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-text-primary hover:bg-white/15 transition disabled:opacity-60">Clear</button>
+                  <button onClick={handleSave} disabled={isSaving} className="flex-[2] btn-grad rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60">
+                    {isSaving ? 'Saving...' : 'Save Order'}
                   </button>
                 </div>
               </div>

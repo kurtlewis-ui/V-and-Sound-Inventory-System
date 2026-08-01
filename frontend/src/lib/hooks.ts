@@ -11,10 +11,13 @@ import type {
   ActivityLog,
   AuthUser,
   Branch,
+  BranchSummary,
   Brand,
   DashboardStats,
   Disposal,
   DisposalSummary,
+  Expense,
+  ExpenseSummary,
   FullUser,
   Pagination,
   Product,
@@ -25,6 +28,10 @@ import type {
   StaffDraft,
   TopProduct,
 } from './types';
+
+// Staff Drafts / Pending Disposals / Pending Expenses poll this often on the
+// admin's Pending Sales page so it feels close to real-time.
+const LIVE_POLL_MS = 2500;
 
 // Every backend response is wrapped as { success, data, pagination?, summary? }.
 async function getData<T>(url: string, params?: Record<string, unknown>): Promise<T> {
@@ -360,7 +367,8 @@ export interface SaleItemInput {
 export interface SaleCreateInput {
   branchId?: string;
   customerName?: string;
-  paymentMethod: 'Cash' | 'Gcash';
+  paymentMethod: 'Cash' | 'Gcash' | 'BankTransfer';
+  bankNote?: string;
   items: SaleItemInput[];
 }
 
@@ -450,7 +458,16 @@ export interface DraftSyncInput {
     quantity: number;
     image?: string | null;
   }[];
-  paymentMethod: 'Cash' | 'Gcash';
+  disposalItems?: {
+    productId: string;
+    name: string;
+    brandName: string;
+    quantity: number;
+    image?: string | null;
+  }[];
+  expenses?: { amount: number; note: string }[];
+  paymentMethod: 'Cash' | 'Gcash' | 'BankTransfer';
+  bankNote?: string;
   customerName?: string;
 }
 
@@ -466,14 +483,43 @@ export function useClearDraftSync() {
   });
 }
 
+// Staff: submit their own draft (sale + staged disposals + staged expenses)
+// in one call. The server creates each part independently and reports back
+// which (if any) failed, e.g. if stock ran out between staging and submit.
+export interface SaveDraftResult {
+  sale: unknown;
+  disposals: unknown[];
+  expenses: unknown[];
+  errors: string[];
+}
+
+export function useSaveMyDraft() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: () => api.post('/sales/draft/save').then((r) => r.data.data as SaveDraftResult),
+    onSuccess: () => invalidate(['sales'], ['disposals'], ['expenses'], ['stats']),
+  });
+}
+
 // Admin: poll every staff member's current draft cart, optionally scoped to
-// a branch. Short interval since this is meant to feel close to live on the
-// Pending Sales page.
+// a branch. Short interval so it feels close to live on the Pending Sales page.
 export function useStaffDrafts(branchId?: string) {
   return useQuery({
     queryKey: ['staff-drafts', { branchId }],
     queryFn: () => getData<StaffDraft[]>('/sales/drafts', { branchId: branchId || undefined }),
-    refetchInterval: 10_000,
+    refetchInterval: LIVE_POLL_MS,
+  });
+}
+
+// Admin: submit a staff member's draft on their behalf (they forgot to hit
+// Save Order). Creates the real PENDING sale/disposal(s)/expense(s).
+export function useSaveDraftForStaff() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (staffId: string) =>
+      api.post(`/sales/drafts/${staffId}/save`).then((r) => r.data.data),
+    onSuccess: () =>
+      invalidate(['staff-drafts'], ['sales'], ['disposals'], ['expenses'], ['stats']),
   });
 }
 
@@ -563,6 +609,7 @@ export function useDisposalsPending(params?: { search?: string; branchId?: strin
         summary: (res.data.summary ?? { totalValue: 0, totalQuantity: 0, count: 0 }) as DisposalSummary,
       };
     },
+    refetchInterval: LIVE_POLL_MS,
   });
 }
 
@@ -579,6 +626,64 @@ export function useDeclineDisposal() {
   return useMutation({
     mutationFn: (id: string) => api.post(`/disposals/${id}/decline`).then((r) => r.data.data),
     onSuccess: () => invalidate(['disposals']),
+  });
+}
+
+// ===========================================================================
+// EXPENSES
+// ===========================================================================
+export function useCreateExpense() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (body: { branchId?: string; amount: number; note: string }) =>
+      api.post('/expenses', body).then((r) => r.data.data),
+    onSuccess: () => invalidate(['expenses'], ['stats']),
+  });
+}
+
+export function useExpensesPending(params?: { search?: string; branchId?: string }) {
+  return useQuery({
+    queryKey: ['expenses', 'pending', params ?? {}],
+    queryFn: async () => {
+      const res = await api.get('/expenses/pending', {
+        params: {
+          limit: 200,
+          search: params?.search || undefined,
+          branchId: params?.branchId || undefined,
+        },
+      });
+      return {
+        data: (res.data.data ?? []) as Expense[],
+        summary: (res.data.summary ?? { totalAmount: 0, count: 0 }) as ExpenseSummary,
+      };
+    },
+    refetchInterval: LIVE_POLL_MS,
+  });
+}
+
+export function useApproveExpense() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/expenses/${id}/approve`).then((r) => r.data.data),
+    onSuccess: () => invalidate(['expenses'], ['stats']),
+  });
+}
+
+export function useDeclineExpense() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/expenses/${id}/decline`).then((r) => r.data.data),
+    onSuccess: () => invalidate(['expenses']),
+  });
+}
+
+// Today's approved Total Sales / Total Expenses / Net for a branch. Used on
+// both the admin Pending Sales page and the staff Daily Report page.
+export function useBranchSummary(branchId?: string) {
+  return useQuery({
+    queryKey: ['stats', 'branch-summary', { branchId }],
+    queryFn: () => getData<BranchSummary>('/stats/branch-summary', { branchId: branchId || undefined }),
+    refetchInterval: LIVE_POLL_MS,
   });
 }
 

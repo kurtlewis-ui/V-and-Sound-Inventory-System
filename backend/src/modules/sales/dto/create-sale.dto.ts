@@ -45,6 +45,16 @@ export class CreateSaleDto {
   @IsEnum(PaymentMethod)
   paymentMethod: PaymentMethod;
 
+  @ApiProperty({
+    required: false,
+    example: 'BDO',
+    description: 'Which bank, when paymentMethod is BankTransfer',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  bankNote?: string;
+
   @ApiProperty({ type: [SaleItemInputDto] })
   @IsArray()
   @ArrayMinSize(1)

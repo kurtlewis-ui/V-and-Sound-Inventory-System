@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from 'react';
 import { Search, Loader2, X, Recycle } from 'lucide-react';
-import { useSalesRecords, useDisposalsPending } from '@/lib/hooks';
+import { useSalesRecords, useDisposalsPending, useBranchSummary } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/store';
 import { getApiErrorMessage } from '@/lib/api';
 
@@ -26,7 +26,9 @@ export default function StaffDailyReportPage() {
 
   const { data, isLoading, isError, error } = useSalesRecords({ search: search || undefined });
   const sales = data?.data ?? [];
-  const summary = data?.summary ?? { cash: 0, gcash: 0, total: 0, count: 0 };
+  const summary = data?.summary ?? { cash: 0, gcash: 0, bankTransfer: 0, total: 0, count: 0 };
+
+  const { data: branchSummary } = useBranchSummary();
 
   // Aggregate items across sales for "View by Product".
   const productRows = useMemo(() => {
@@ -171,9 +173,31 @@ export default function StaffDailyReportPage() {
         <div className="border-l-4 border-accent-blue pl-4 text-right space-y-1">
           <p className="text-sm text-text-secondary">Total for Cash: <span className="font-medium text-text-primary">{peso(summary.cash)}</span></p>
           <p className="text-sm text-text-secondary">Total for Gcash: <span className="font-medium text-text-primary">{peso(summary.gcash)}</span></p>
+          <p className="text-sm text-text-secondary">Total for Bank Transfer: <span className="font-medium text-text-primary">{peso(summary.bankTransfer)}</span></p>
           <p className="text-sm font-bold text-text-primary">Total for All Sales: {peso(summary.total)}</p>
         </div>
       </div>
+
+      {/* Today's net — approved sales minus approved expenses, live */}
+      {branchSummary && (
+        <div className="mt-4 rounded-xl border border-card-border bg-card-bg p-4 shadow-sm">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Today (Approved)</p>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <p className="text-xs text-text-secondary">Total Sales</p>
+              <p className="text-lg font-bold text-accent-green">{peso(branchSummary.totalSales)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-secondary">Total Expenses</p>
+              <p className="text-lg font-bold text-accent-red">{peso(branchSummary.totalExpenses)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-secondary">Net</p>
+              <p className="text-lg font-bold text-text-primary">{peso(branchSummary.net)}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDisposals && <PendingDisposalsModal onClose={() => setShowDisposals(false)} />}
     </div>
