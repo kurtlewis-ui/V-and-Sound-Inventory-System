@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { QueryExpenseDto } from './dto/query-expense.dto';
 import { RequestUser } from '../../common/interfaces/request-user.interface';
+import { restoreToDraft } from '../sales/draft-restore.util';
 
 @Injectable()
 export class ExpensesService {
@@ -96,6 +97,12 @@ export class ExpensesService {
       if (claim.count === 0) {
         throw new BadRequestException('Expense is already approved or declined');
       }
+
+      // Copy it back into the requester's draft cart so they can fix and
+      // resubmit instead of re-typing it.
+      await restoreToDraft(tx, expense.staffId, expense.branchId, {
+        expenses: [{ amount: Number(expense.amount), note: expense.note }],
+      });
 
       const updated = await tx.expense.findUnique({ where: { id }, include: this.includeFull() });
 

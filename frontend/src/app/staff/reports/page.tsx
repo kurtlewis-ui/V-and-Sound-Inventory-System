@@ -2,12 +2,19 @@
 
 import { Fragment, useMemo, useState } from 'react';
 import { Search, Loader2, X, Recycle } from 'lucide-react';
-import { useSalesRecords, useDisposalsPending, useBranchSummary } from '@/lib/hooks';
+import {
+  useSalesRecords,
+  useSalesPending,
+  useDisposals,
+  useDisposalsPending,
+  useExpenses,
+  useBranchSummary,
+} from '@/lib/hooks';
 import { useAuthStore } from '@/lib/store';
 import { getApiErrorMessage } from '@/lib/api';
 
 function peso(n: number) {
-  return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
@@ -25,6 +32,18 @@ function todayLocalDate() {
   const dd = String(d.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 }
+// A submitted item is visible on the report the instant it's saved — tagged
+// Pending until an admin decides it. Approval just drops the tag (the row
+// stays put); decline removes it from here entirely (and copies it back
+// into the staff's draft cart instead — see the DraftBag).
+function PendingTag({ status }: { status: string }) {
+  if (status !== 'PENDING') return null;
+  return (
+    <span className="ml-2 rounded-full bg-accent-orange/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-orange">
+      Pending
+    </span>
+  );
+}
 
 type ViewMode = 'sale' | 'product';
 
@@ -41,12 +60,37 @@ export default function StaffDailyReportPage() {
     startDate: today,
     endDate: today,
   });
-  const sales = data?.data ?? [];
+  const approvedSales = data?.data ?? [];
   const summary = data?.summary ?? { cash: 0, gcash: 0, bankTransfer: 0, cashless: 0, total: 0, count: 0 };
+
+  const { data: pendingData } = useSalesPending({
+    search: search || undefined,
+    startDate: today,
+    endDate: today,
+  });
+  const pendingSales = pendingData?.data ?? [];
+
+  // Today's full picture: still-pending submissions alongside approved
+  // ones, oldest first (so the day reads top-to-bottom in the order it
+  // happened) — declined ones are excluded (they get copied back into the
+  // draft cart instead of lingering here).
+  const sales = useMemo(
+    () =>
+      [...pendingSales, ...approvedSales].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      ),
+    [pendingSales, approvedSales],
+  );
+
+  const { data: disposalsData } = useDisposals({ startDate: today, endDate: today });
+  const todaysDisposals = (disposalsData?.data ?? []).filter((d) => d.status !== 'DECLINED');
+
+  const { data: expensesData } = useExpenses({ startDate: today, endDate: today });
+  const todaysExpenses = (expensesData?.data ?? []).filter((e) => e.status !== 'DECLINED');
 
   const { data: branchSummary } = useBranchSummary();
 
-  // Aggregate items across sales for "View by Product".
+  // Aggregate items across today's sales (pending + approved) for "View by Product".
   const productRows = useMemo(() => {
     const map = new Map<string, { name: string; brandName: string; quantity: number; total: number }>();
     for (const sale of sales) {
@@ -138,7 +182,14 @@ export default function StaffDailyReportPage() {
                 <Fragment key={sale.id}>
                   {sale.items.map((item, idx) => (
                     <tr key={item.id} className="border-t border-card-border">
-                      <td className="px-4 py-3 text-sm font-medium text-text-primary">{idx === 0 ? `#${sale.number}` : ''}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                        {idx === 0 && (
+                          <>
+                            {`#${sale.number}`}
+                            <PendingTag status={sale.status} />
+                          </>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm text-text-primary">{item.name}</td>
                       <td className="px-4 py-3 text-sm text-text-primary">{item.quantity}</td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{item.brandName}</td>
@@ -190,7 +241,7 @@ export default function StaffDailyReportPage() {
         </div>
       )}
 
-      {/* Summary */}
+      {/* Summary — approved sales only, so it isn't inflated by unconfirmed pending amounts */}
       <div className="mt-4 rounded-xl border border-card-border bg-card-bg p-4 shadow-sm">
         <div className="border-l-4 border-accent-blue pl-4 text-right space-y-1">
           <p className="text-sm text-text-secondary">Total for Cash: <span className="font-medium text-text-primary">{peso(summary.cash)}</span></p>
@@ -199,6 +250,74 @@ export default function StaffDailyReportPage() {
           <p className="text-sm text-text-secondary">Total for Cashless: <span className="font-medium text-text-primary">{peso(summary.cashless)}</span></p>
           <p className="text-sm font-bold text-text-primary">Total for All Sales: {peso(summary.total)}</p>
         </div>
+      </div>
+
+      {/* Today's Disposals — pending (tagged) + approved, declined excluded */}
+      <div className="mt-4 overflow-x-auto rounded-xl border border-card-border bg-card-bg shadow-sm">
+        <div className="border-b border-card-border p-4">
+          <h2 className="text-sm font-bold text-text-primary">Today&apos;s Disposals</h2>
+        </div>
+        {todaysDisposals.length === 0 ? (
+          <p className="p-4 text-sm text-text-muted">No disposals today.</p>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="bg-table-header text-table-header-text">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Product</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Brand</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Qty</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Value</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Reason</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {todaysDisposals.map((d) => (
+                <tr key={d.id} className="border-t border-card-border">
+                  <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                    {d.name}<PendingTag status={d.status} />
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{d.brandName}</td>
+                  <td className="px-4 py-3 text-sm text-text-primary">{d.quantity}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-text-primary">{peso(d.value)}</td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{d.reason ?? '—'}</td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(d.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Today's Expenses — pending (tagged) + approved, declined excluded */}
+      <div className="mt-4 overflow-x-auto rounded-xl border border-card-border bg-card-bg shadow-sm">
+        <div className="border-b border-card-border p-4">
+          <h2 className="text-sm font-bold text-text-primary">Today&apos;s Expenses</h2>
+        </div>
+        {todaysExpenses.length === 0 ? (
+          <p className="p-4 text-sm text-text-muted">No expenses today.</p>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="bg-table-header text-table-header-text">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Note</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {todaysExpenses.map((e) => (
+                <tr key={e.id} className="border-t border-card-border">
+                  <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                    {peso(e.amount)}<PendingTag status={e.status} />
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{e.note}</td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(e.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Today's net — approved sales minus approved expenses, live */}

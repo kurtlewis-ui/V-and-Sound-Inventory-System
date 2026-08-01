@@ -10,6 +10,7 @@ import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { QuerySaleDto } from './dto/query-sale.dto';
 import { RequestUser } from '../../common/interfaces/request-user.interface';
+import { restoreToDraft } from './draft-restore.util';
 
 @Injectable()
 export class SalesService {
@@ -45,10 +46,12 @@ export class SalesService {
 
     const sale = await this.prisma.$transaction(async (tx) => {
       await this.reserveStock(tx, branchId, items);
+      const number = await this.nextDailyNumber(tx, branchId);
 
       const created = await tx.sale.create({
         data: {
           branchId,
+          number,
           staffId: actor.userId,
           customerName: dto.customerName?.trim() || null,
           paymentMethod: this.rollupPaymentMethod(items),
@@ -129,7 +132,7 @@ export class SalesService {
       this.prisma.sale.findMany({
         where,
         include: this.includeFull(),
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: 'asc' },
         skip,
         take: limit,
       }),
@@ -343,6 +346,33 @@ export class SalesService {
       // Release the stock that was reserved when this sale was created.
       await this.restoreStock(tx, sale.branchId, sale.items);
 
+      // Copy the declined items back into the staff's draft cart, merged
+      // with whatever's already staged, so they can fix and resubmit
+      // instead of re-entering everything from scratch.
+      const restorable = sale.items.filter((i) => i.productId);
+      if (restorable.length > 0) {
+        const products = await tx.product.findMany({
+          where: { id: { in: restorable.map((i) => i.productId as string) } },
+          select: { id: true, image: true },
+        });
+        const imageMap = new Map(products.map((p) => [p.id, p.image]));
+        await restoreToDraft(tx, sale.staffId, sale.branchId, {
+          items: restorable.map((i) => ({
+            productId: i.productId as string,
+            name: i.name,
+            brandName: i.brandName,
+            unitPrice: Number(i.unitPrice),
+            image: imageMap.get(i.productId as string) ?? null,
+            quantity: i.quantity,
+            discount: Number(i.discount),
+            paymentMethod: i.paymentMethod,
+            bankNote: i.bankNote,
+            note: i.note,
+            paymentSplit: i.paymentSplit,
+          })),
+        });
+      }
+
       const updated = await tx.sale.findUnique({ where: { id }, include: this.includeFull() });
 
       await tx.auditLog.create({
@@ -527,6 +557,24 @@ export class SalesService {
         data: { quantity: { increment: item.quantity } },
       });
     }
+  }
+
+  /**
+   * Atomically claim the next sale number for this branch today. A plain
+   * upsert-increment on a (branchId, date) row — concurrent creates for the
+   * same branch/day serialize on the row's unique constraint, so two sales
+   * can never be handed the same number, and each branch's numbering starts
+   * back at 1 every day instead of sharing one global, ever-climbing count.
+   */
+  private async nextDailyNumber(tx: Prisma.TransactionClient, branchId: string): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const counter = await tx.dailySaleCounter.upsert({
+      where: { branchId_date: { branchId, date: today } },
+      create: { branchId, date: today, count: 1 },
+      update: { count: { increment: 1 } },
+    });
+    return counter.count;
   }
 
   private async resolveBranchForActor(actor: RequestUser, branchId?: string) {

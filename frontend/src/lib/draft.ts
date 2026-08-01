@@ -28,6 +28,7 @@ export interface DraftDisposalItem {
   brandName: string;
   image: string | null;
   quantity: number;
+  reason?: string | null;
 }
 
 // A staged expense entry (e.g. ₱300, "Water bill").
@@ -49,6 +50,10 @@ interface DraftState {
   addExpense: (expense: DraftExpense) => void;
   removeExpense: (index: number) => void;
   clear: () => void;
+  // Adopt the server's current draft content wholesale — used to pull down
+  // changes this device didn't make itself (e.g. an admin decline copying
+  // an item back into the draft). Only called while idle (see DraftBag).
+  replaceAll: (items: DraftItem[], disposalItems: DraftDisposalItem[], expenses: DraftExpense[]) => void;
 }
 
 /**
@@ -122,6 +127,8 @@ export const useDraftStore = create<DraftState>()(
         set((state) => ({ expenses: state.expenses.filter((_, i) => i !== index) })),
 
       clear: () => set({ items: [], disposalItems: [], expenses: [] }),
+
+      replaceAll: (items, disposalItems, expenses) => set({ items, disposalItems, expenses }),
     }),
     { name: 'vape-shop-draft' },
   ),
