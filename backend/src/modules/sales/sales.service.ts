@@ -398,19 +398,27 @@ export class SalesService {
 
   /** Build full sale item records (with payment resolved) from DTO input. */
   private buildSaleItems(
-    dtoItems: { productId: string; quantity: number; paymentMethod: PaymentMethod; bankNote?: string; note?: string; paymentSplit?: { cash: number; gcash: number; bankTransfer: number; cashless: number } }[],
+    dtoItems: { productId: string; quantity: number; discount?: number; paymentMethod: PaymentMethod; bankNote?: string; note?: string; paymentSplit?: { cash: number; gcash: number; bankTransfer: number; cashless: number } }[],
     productMap: Map<string, { id: string; name: string; sellingPrice: Prisma.Decimal; brand: { name: string } }>,
   ) {
     return dtoItems.map((item) => {
       const product = productMap.get(item.productId)!;
       const unitPrice = new Prisma.Decimal(product.sellingPrice);
-      const subTotal = unitPrice.mul(item.quantity);
+      const lineTotal = unitPrice.mul(item.quantity);
+      const discount = new Prisma.Decimal(item.discount || 0);
+      if (discount.gt(lineTotal)) {
+        throw new BadRequestException(
+          `Discount for "${product.name}" (${discount.toFixed(2)}) can't exceed its line total (${lineTotal.toFixed(2)})`,
+        );
+      }
+      const subTotal = lineTotal.sub(discount);
       return {
         productId: product.id,
         name: product.name,
         brandName: product.brand.name,
         quantity: item.quantity,
         unitPrice,
+        discount,
         subTotal,
         ...this.resolveItemPayment(item, subTotal, product.name),
       };
@@ -581,6 +589,7 @@ export class SalesService {
         brandName: i.brandName,
         quantity: i.quantity,
         unitPrice: Number(i.unitPrice),
+        discount: Number(i.discount ?? 0),
         subTotal: Number(i.subTotal),
         paymentMethod: i.paymentMethod,
         bankNote: i.bankNote ?? null,

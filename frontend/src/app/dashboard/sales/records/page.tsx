@@ -116,7 +116,10 @@ export default function SalesRecordsPage() {
                       <td className="px-4 py-3 text-sm text-text-primary">{item.quantity}</td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{item.brandName}</td>
                       <td className="px-4 py-3 text-sm text-text-primary">{peso(item.unitPrice)}</td>
-                      <td className="px-4 py-3 text-sm text-text-primary font-medium">{peso(item.subTotal)}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary font-medium">
+                        {peso(item.subTotal)}
+                        {!!item.discount && <p className="text-xs font-normal text-accent-orange">−{peso(item.discount)} discount</p>}
+                      </td>
                       <td className="px-4 py-3">
                         <span className="badge badge-neutral">
                           <span className={`badge-dot ${paymentDotColor(item.paymentMethod)}`} />

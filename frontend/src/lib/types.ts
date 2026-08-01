@@ -141,6 +141,8 @@ export interface SaleLineItem {
   brandName: string;
   quantity: number;
   unitPrice: number;
+  // Fixed ₱ amount knocked off this line. subTotal already reflects it.
+  discount: number;
   subTotal: number;
   paymentMethod: PaymentMethod;
   bankNote: string | null;
@@ -179,6 +181,7 @@ export interface DraftSaleItem {
   unitPrice: number;
   quantity: number;
   image?: string | null;
+  discount?: number;
   paymentMethod: PaymentMethod;
   bankNote?: string | null;
   note?: string | null;

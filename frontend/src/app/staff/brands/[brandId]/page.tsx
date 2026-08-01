@@ -138,6 +138,7 @@ function AddPurchaseModal({
   onSaved: (message: string) => void;
 }) {
   const [quantity, setQuantity] = useState('1');
+  const [discount, setDiscount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<ItemPaymentMethod>('Cash');
   const [bankNote, setBankNote] = useState('');
   const [note, setNote] = useState('');
@@ -162,9 +163,12 @@ function AddPurchaseModal({
 
   const qtyNumber = Number(quantity) || 0;
   const lineTotal = product.sellingPrice * qtyNumber;
+  const discountNumber = Number(discount) || 0;
+  const discountTooHigh = discountNumber > lineTotal + 0.001;
+  const discountedTotal = Math.max(0, lineTotal - discountNumber);
   const allocated = (Number(splitCash) || 0) + (Number(splitGcash) || 0) + (Number(splitBankTransfer) || 0);
-  const splitCashless = Math.max(0, lineTotal - allocated);
-  const splitOverAllocated = allocated > lineTotal + 0.001;
+  const splitCashless = Math.max(0, discountedTotal - allocated);
+  const splitOverAllocated = allocated > discountedTotal + 0.001;
 
   function validQty(): number | null {
     const qty = Number(quantity);
@@ -184,6 +188,10 @@ function AddPurchaseModal({
     setError(null);
     const qty = validQty();
     if (qty === null) return;
+    if (discountTooHigh) {
+      setError('Discount can\'t be more than this item\'s total.');
+      return;
+    }
     if (paymentMethod === 'Split' && splitOverAllocated) {
       setError('Split amounts add up to more than the item total.');
       return;
@@ -195,6 +203,7 @@ function AddPurchaseModal({
         brandName: product.brand?.name ?? '',
         unitPrice: product.sellingPrice,
         image: product.image,
+        discount: discountNumber,
         paymentMethod,
         bankNote: paymentMethod === 'BankTransfer' || paymentMethod === 'Split' ? bankNote.trim() || null : null,
         note: note.trim() || null,
@@ -267,6 +276,24 @@ function AddPurchaseModal({
             onChange={(e) => setQuantity(e.target.value)}
             className="w-full rounded border border-input-border bg-input-bg px-3 py-2 text-sm focus:outline-none focus:border-input-focus"
           />
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-text-primary mb-1">Discount (₱, if selling)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={discount}
+            onChange={(e) => setDiscount(e.target.value)}
+            placeholder="0"
+            className="w-full rounded border border-input-border bg-input-bg px-3 py-2 text-sm focus:outline-none focus:border-input-focus"
+          />
+          {discountNumber > 0 && (
+            <p className={`mt-1 text-xs ${discountTooHigh ? 'text-accent-red' : 'text-text-secondary'}`}>
+              {discountTooHigh ? "Discount exceeds this item's total." : `Total after discount: ${peso(discountedTotal)}`}
+            </p>
+          )}
         </div>
 
         <div className="mb-4 space-y-2 rounded-lg border border-card-border p-3">

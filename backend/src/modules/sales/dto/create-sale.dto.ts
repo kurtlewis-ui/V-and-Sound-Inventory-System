@@ -52,6 +52,17 @@ export class SaleItemInputDto {
   @Min(1)
   quantity: number;
 
+  @ApiProperty({
+    required: false,
+    example: 20,
+    description: 'Fixed ₱ amount knocked off this line, must not exceed unitPrice * quantity',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  discount?: number;
+
   @ApiProperty({ enum: PaymentMethod, example: 'Cash', description: 'How this item was paid for' })
   @IsEnum(PaymentMethod)
   paymentMethod: PaymentMethod;

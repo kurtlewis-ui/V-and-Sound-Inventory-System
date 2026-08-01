@@ -364,6 +364,7 @@ export function useRestoreUser() {
 export interface SaleItemInput {
   productId: string;
   quantity: number;
+  discount?: number;
   paymentMethod: PaymentMethod;
   bankNote?: string;
   note?: string;
@@ -461,6 +462,7 @@ export interface DraftSyncInput {
     unitPrice: number;
     quantity: number;
     image?: string | null;
+    discount?: number;
     paymentMethod: PaymentMethod;
     bankNote?: string | null;
     note?: string | null;

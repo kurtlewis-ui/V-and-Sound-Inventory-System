@@ -13,6 +13,7 @@ export interface DraftItem {
   unitPrice: number;
   image: string | null;
   quantity: number;
+  discount?: number;
   paymentMethod: PaymentMethod;
   bankNote?: string | null;
   note?: string | null;

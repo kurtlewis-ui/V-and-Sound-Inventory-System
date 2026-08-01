@@ -239,7 +239,7 @@ function DraftBag() {
   }, [myDraftExists]);
 
   const itemsTotal = useMemo(
-    () => items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0),
+    () => items.reduce((sum, i) => sum + i.unitPrice * i.quantity - (i.discount ?? 0), 0),
     [items],
   );
   const expensesTotal = useMemo(
@@ -247,11 +247,12 @@ function DraftBag() {
     [expenses],
   );
   // Live rollup of what's staged so far, by payment method — splits an
-  // item's Split-payment breakdown across its buckets.
+  // item's Split-payment breakdown across its buckets. Line totals are
+  // net of each item's discount.
   const paymentTotals = useMemo(() => {
     const totals = { cash: 0, gcash: 0, bankTransfer: 0, cashless: 0 };
     for (const item of items) {
-      const lineTotal = item.unitPrice * item.quantity;
+      const lineTotal = item.unitPrice * item.quantity - (item.discount ?? 0);
       if (item.paymentMethod === 'Split' && item.paymentSplit) {
         totals.cash += item.paymentSplit.cash;
         totals.gcash += item.paymentSplit.gcash;
@@ -381,7 +382,10 @@ function DraftBag() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-text-primary">{item.name}</p>
                           <p className="truncate text-xs text-text-muted">{item.brandName}</p>
-                          <p className="text-xs text-text-secondary">{peso(item.unitPrice)} each &middot; {peso(item.unitPrice * item.quantity)} total</p>
+                          <p className="text-xs text-text-secondary">
+                            {peso(item.unitPrice)} each &middot; {peso(item.unitPrice * item.quantity - (item.discount ?? 0))} total
+                            {!!item.discount && <span className="text-accent-orange"> (−{peso(item.discount)} discount)</span>}
+                          </p>
                           <span className="mt-0.5 inline-block rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple-light">{paymentTagLabel(item)}</span>
                         </div>
                         <div className="flex items-center gap-1">

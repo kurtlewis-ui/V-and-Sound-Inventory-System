@@ -143,7 +143,10 @@ export default function StaffDailyReportPage() {
                       <td className="px-4 py-3 text-sm text-text-primary">{item.quantity}</td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{item.brandName}</td>
                       <td className="px-4 py-3 text-sm text-text-primary">{peso(item.unitPrice)}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-text-primary">{peso(item.subTotal)}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                        {peso(item.subTotal)}
+                        {!!item.discount && <p className="text-xs font-normal text-accent-orange">−{peso(item.discount)} discount</p>}
+                      </td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{itemPaymentLabel(item)}</td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{idx === 0 ? formatDate(sale.createdAt) : ''}</td>
                     </tr>

@@ -51,6 +51,13 @@ export class DraftItemDto {
   @Min(1)
   quantity: number;
 
+  @ApiProperty({ required: false, example: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  discount?: number;
+
   @ApiProperty({ enum: PaymentMethod, example: 'Cash' })
   @IsEnum(PaymentMethod)
   paymentMethod: PaymentMethod;
