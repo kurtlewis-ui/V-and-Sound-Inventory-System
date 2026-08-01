@@ -7,14 +7,17 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SalesService } from './sales.service';
+import { DraftsService } from './drafts.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { QuerySaleDto } from './dto/query-sale.dto';
+import { UpsertDraftDto } from './dto/upsert-draft.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -25,7 +28,34 @@ import { RequestUser } from '../../common/interfaces/request-user.interface';
 @Controller('sales')
 @UseGuards(RolesGuard)
 export class SalesController {
-  constructor(private readonly salesService: SalesService) {}
+  constructor(
+    private readonly salesService: SalesService,
+    private readonly draftsService: DraftsService,
+  ) {}
+
+  // Draft-cart routes must come before ':id' so 'draft(s)' isn't swallowed
+  // by the dynamic param route below.
+  @Get('drafts')
+  @Roles('Admin')
+  @ApiOperation({ summary: "List every staff member's current draft cart (Admin)" })
+  async drafts(@Query('branchId') branchId?: string) {
+    const data = await this.draftsService.findAll(branchId || undefined);
+    return { success: true, data };
+  }
+
+  @Put('draft')
+  @ApiOperation({ summary: 'Save/replace your own in-progress draft cart' })
+  async saveDraft(@Body() dto: UpsertDraftDto, @CurrentUser() user: RequestUser) {
+    const data = await this.draftsService.upsertMine(dto, user);
+    return { success: true, data };
+  }
+
+  @Delete('draft')
+  @ApiOperation({ summary: 'Clear your own draft cart' })
+  async clearDraft(@CurrentUser() user: RequestUser) {
+    const data = await this.draftsService.clearMine(user);
+    return { success: true, data };
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create a sale (starts as PENDING approval)' })

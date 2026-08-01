@@ -64,6 +64,7 @@ model User {
   salesDecided Sale[]     @relation("SaleDecidedBy")
   disposals        Disposal[] @relation("DisposalCreatedBy")
   disposalsDecided Disposal[] @relation("DisposalDecidedBy")
+  draftOrder   DraftOrder?
 
   @@index([roleId])
   @@index([branchId])
@@ -106,10 +107,11 @@ model Branch {
   deletedAt DateTime? @map("deleted_at") @db.Timestamp(6)
 
   // Relations
-  users     User[]
-  inventory Inventory[]
-  sales     Sale[]
-  disposals Disposal[]
+  users       User[]
+  inventory   Inventory[]
+  sales       Sale[]
+  disposals   Disposal[]
+  draftOrders DraftOrder[]
 
   @@index([isActive])
   @@map("branches")
@@ -275,6 +277,27 @@ model SaleItem {
   @@map("sale_items")
 }
 
+// A staff member's in-progress (not-yet-submitted) cart. One row per staff —
+// upserted as they add/edit/remove items, cleared on submit or manual clear.
+// Lets Admins see what's currently being built, per branch, on the Pending
+// Sales page before it becomes an actual PENDING Sale.
+model DraftOrder {
+  id            String        @id @default(uuid()) @db.Uuid
+  staffId       String        @unique @map("staff_id") @db.Uuid
+  branchId      String        @map("branch_id") @db.Uuid
+  items         Json          @default("[]") @db.JsonB
+  paymentMethod PaymentMethod @default(Cash) @map("payment_method")
+  customerName  String?       @map("customer_name") @db.VarChar(150)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  staff  User   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([branchId])
+  @@map("draft_orders")
+}
 
 // ============================================================================
 // DISPOSALS (damaged / expired / unsellable stock written off)

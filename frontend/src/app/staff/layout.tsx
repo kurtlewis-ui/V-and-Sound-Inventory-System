@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { useDraftStore } from '@/lib/draft';
-import { useCreateSale } from '@/lib/hooks';
+import { useCreateSale, useSaveDraft, useClearDraftSync } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import {
   Home,
@@ -162,8 +162,30 @@ function DraftBag() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const createSale = useCreateSale();
+  const saveDraft = useSaveDraft();
+  const clearDraftSync = useClearDraftSync();
 
   useEffect(() => setMounted(true), []);
+
+  // Push the cart to the server (debounced) so Admins can see it on Pending
+  // Sales before it's ever submitted. Skips the initial mount so an empty
+  // cart on page load doesn't fire a pointless clear.
+  const didMount = useRef(false);
+  useEffect(() => {
+    if (!didMount.current) {
+      didMount.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (items.length === 0) {
+        clearDraftSync.mutate();
+      } else {
+        saveDraft.mutate({ items, paymentMethod, customerName: customerName.trim() || undefined });
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, paymentMethod, customerName]);
 
   const total = useMemo(
     () => items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0),
@@ -182,11 +204,17 @@ function DraftBag() {
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       });
       clear();
+      clearDraftSync.mutate();
       setCustomerName('');
       setSuccess('Order submitted! It now awaits admin approval in Pending Sales.');
     } catch (e) {
       setError(getApiErrorMessage(e));
     }
+  }
+
+  function handleClear() {
+    clear();
+    clearDraftSync.mutate();
   }
 
   return (
@@ -286,7 +314,7 @@ function DraftBag() {
                   <span className="font-bold text-text-primary">{peso(total)}</span>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={clear} disabled={createSale.isPending} className="flex-1 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-text-primary hover:bg-white/15 transition disabled:opacity-60">Clear</button>
+                  <button onClick={handleClear} disabled={createSale.isPending} className="flex-1 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-text-primary hover:bg-white/15 transition disabled:opacity-60">Clear</button>
                   <button onClick={handleSave} disabled={createSale.isPending} className="flex-[2] btn-grad rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60">
                     {createSale.isPending ? 'Saving...' : 'Save Order'}
                   </button>
