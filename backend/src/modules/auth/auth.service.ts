@@ -137,11 +137,16 @@ export class AuthService {
       throw new UnauthorizedException('Session not found');
     }
 
-    // Update session last activity
+    // Update session last activity and slide the idle-timeout window forward.
+    // Without this, `expiresAt` (set once at login) is reached ~15 minutes in
+    // regardless of activity, and every subsequent request/refresh gets
+    // rejected by JwtStrategy/JwtRefreshStrategy's `expiresAt < now` check.
+    const sessionTimeout = parseInt(this.config.get<string>('SESSION_TIMEOUT') ?? '900', 10) || 900;
     await this.prisma.session.update({
       where: { id: sessionId },
       data: {
         lastActivityAt: new Date(),
+        expiresAt: new Date(Date.now() + sessionTimeout * 1000),
         ipAddress,
       },
     });

@@ -31,10 +31,35 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// If the token is rejected, clear it so the UI can send the user back to login.
-// Also auto-retry transient failures: the free-tier backend sleeps after idle
-// and the first request can network-error / 502 while it wakes (~30-50s). We
-// retry those automatically so the user doesn't see a scary "Network Error".
+// Refreshes the access token using the HTTP-only refresh cookie. Plain axios
+// (not the `api` instance) so this call never recurses through this same
+// response interceptor.
+let refreshPromise: Promise<string> | null = null;
+function refreshAccessToken(): Promise<string> {
+  if (!refreshPromise) {
+    refreshPromise = axios
+      .post(
+        `${resolveBaseUrl()}/auth/refresh`,
+        {},
+        { withCredentials: true },
+      )
+      .then((res) => {
+        const { accessToken, user } = res.data.data;
+        useAuthStore.getState().setAuth(accessToken, user);
+        return accessToken;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+// If the token is rejected, try to silently refresh it and retry the request
+// once before giving up and sending the user back to login. Also auto-retry
+// transient failures: the free-tier backend sleeps after idle and the first
+// request can network-error / 502 while it wakes (~30-50s). We retry those
+// automatically so the user doesn't see a scary "Network Error".
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -49,6 +74,19 @@ api.interceptors.response.use(
         const delay = Math.min(8000, 3000 * config.__retryCount);
         await new Promise((res) => setTimeout(res, delay));
         return api(config);
+      }
+    }
+
+    const isAuthEndpoint = typeof config?.url === 'string' && config.url.includes('/auth/');
+    if (status === 401 && config && !config.__isRetryAfterRefresh && !isAuthEndpoint) {
+      config.__isRetryAfterRefresh = true;
+      try {
+        const accessToken = await refreshAccessToken();
+        config.headers.Authorization = `Bearer ${accessToken}`;
+        return api(config);
+      } catch {
+        useAuthStore.getState().logout();
+        return Promise.reject(error);
       }
     }
 

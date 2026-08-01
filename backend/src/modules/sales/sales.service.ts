@@ -152,13 +152,22 @@ export class SalesService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, actor: RequestUser) {
     const sale = await this.prisma.sale.findUnique({
       where: { id },
       include: this.includeFull(),
     });
     if (!sale) {
       throw new NotFoundException('Sale not found');
+    }
+    if (actor.role === 'Staff') {
+      const me = await this.prisma.user.findUnique({
+        where: { id: actor.userId },
+        select: { branchId: true },
+      });
+      if (!me?.branchId || sale.branchId !== me.branchId) {
+        throw new NotFoundException('Sale not found');
+      }
     }
     return this.serialize(sale);
   }
@@ -180,6 +189,21 @@ export class SalesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // Atomically claim the sale: only one concurrent approve() call can win
+      // this conditional update, so a double-click or two admins approving at
+      // once can't both pass the earlier PENDING check and both deduct stock.
+      const claim = await tx.sale.updateMany({
+        where: { id, status: SaleStatus.PENDING },
+        data: {
+          status: SaleStatus.APPROVED,
+          decidedById: actor.userId,
+          decidedAt: new Date(),
+        },
+      });
+      if (claim.count === 0) {
+        throw new BadRequestException('Sale is already approved or declined');
+      }
+
       for (const item of sale.items) {
         if (!item.productId) continue;
         const inv = await tx.inventory.findUnique({
@@ -211,13 +235,8 @@ export class SalesService {
         });
       }
 
-      const updated = await tx.sale.update({
+      const updated = await tx.sale.findUnique({
         where: { id },
-        data: {
-          status: SaleStatus.APPROVED,
-          decidedById: actor.userId,
-          decidedAt: new Date(),
-        },
         include: this.includeFull(),
       });
 
@@ -231,7 +250,7 @@ export class SalesService {
         },
       });
 
-      return this.serialize(updated);
+      return this.serialize(updated!);
     });
   }
 
