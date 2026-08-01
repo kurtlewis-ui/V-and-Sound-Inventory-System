@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
-import { useDraftStore } from '@/lib/draft';
+import { useDraftStore, type DraftItem } from '@/lib/draft';
 import { useSaveDraft, useClearDraftSync, useSaveMyDraft, useMyDraftExists } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import {
@@ -157,7 +157,15 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
 // Order" submits everything together (creates the sale + disposal(s) +
 // expense(s), all PENDING, awaiting admin approval).
 // ---------------------------------------------------------------------------
-type PaymentMethod = 'Cash' | 'Gcash' | 'BankTransfer';
+
+// Payment is chosen per item (in the Add Purchase modal), not once for the
+// whole order — this renders each item's choice as a small tag.
+function paymentTagLabel(item: DraftItem) {
+  if (item.paymentMethod === 'BankTransfer' && item.bankNote) return `Bank Transfer (${item.bankNote})`;
+  if (item.paymentMethod === 'Split') return 'Split';
+  if (item.paymentMethod === 'Cashless') return 'Cashless';
+  return item.paymentMethod;
+}
 
 function DraftBag() {
   const router = useRouter();
@@ -175,8 +183,6 @@ function DraftBag() {
     removeExpense,
     clear,
   } = useDraftStore();
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
-  const [bankNote, setBankNote] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -211,15 +217,13 @@ function DraftBag() {
           items,
           disposalItems,
           expenses,
-          paymentMethod,
-          bankNote: paymentMethod === 'BankTransfer' ? bankNote.trim() || undefined : undefined,
           customerName: customerName.trim() || undefined,
         });
       }
     }, 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, disposalItems, expenses, paymentMethod, bankNote, customerName]);
+  }, [items, disposalItems, expenses, customerName]);
 
   // If the server-side draft disappeared while we weren't actively editing
   // (nothing changed locally in the last few seconds), it wasn't us — an
@@ -242,6 +246,24 @@ function DraftBag() {
     () => expenses.reduce((sum, e) => sum + e.amount, 0),
     [expenses],
   );
+  // Live rollup of what's staged so far, by payment method — splits an
+  // item's Split-payment breakdown across its buckets.
+  const paymentTotals = useMemo(() => {
+    const totals = { cash: 0, gcash: 0, bankTransfer: 0, cashless: 0 };
+    for (const item of items) {
+      const lineTotal = item.unitPrice * item.quantity;
+      if (item.paymentMethod === 'Split' && item.paymentSplit) {
+        totals.cash += item.paymentSplit.cash;
+        totals.gcash += item.paymentSplit.gcash;
+        totals.bankTransfer += item.paymentSplit.bankTransfer;
+        totals.cashless += item.paymentSplit.cashless;
+      } else if (item.paymentMethod === 'Cash') totals.cash += lineTotal;
+      else if (item.paymentMethod === 'Gcash') totals.gcash += lineTotal;
+      else if (item.paymentMethod === 'BankTransfer') totals.bankTransfer += lineTotal;
+      else if (item.paymentMethod === 'Cashless') totals.cashless += lineTotal;
+    }
+    return totals;
+  }, [items]);
   const count =
     items.reduce((sum, i) => sum + i.quantity, 0) +
     disposalItems.reduce((sum, i) => sum + i.quantity, 0) +
@@ -259,14 +281,11 @@ function DraftBag() {
         items,
         disposalItems,
         expenses,
-        paymentMethod,
-        bankNote: paymentMethod === 'BankTransfer' ? bankNote.trim() || undefined : undefined,
         customerName: customerName.trim() || undefined,
       });
       const result = await saveMyDraft.mutateAsync();
       clear();
       setCustomerName('');
-      setBankNote('');
       if (result.errors.length > 0) {
         // Whatever succeeded is already submitted; only the failed part (if
         // any) is still sitting in the server-side draft for a retry later —
@@ -363,6 +382,7 @@ function DraftBag() {
                           <p className="truncate text-sm font-medium text-text-primary">{item.name}</p>
                           <p className="truncate text-xs text-text-muted">{item.brandName}</p>
                           <p className="text-xs text-text-secondary">{peso(item.unitPrice)} each &middot; {peso(item.unitPrice * item.quantity)} total</p>
+                          <span className="mt-0.5 inline-block rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple-light">{paymentTagLabel(item)}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <button onClick={() => setQuantity(item.productId, item.quantity - 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Decrease"><Minus size={14} /></button>
@@ -515,49 +535,36 @@ function DraftBag() {
 
             {!isEmpty && (
               <div className="border-t border-card-border p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">Payment</label>
-                    <select
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                      className="w-full border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg"
-                    >
-                      <option value="Cash">Cash</option>
-                      <option value="Gcash">Gcash</option>
-                      <option value="BankTransfer">Bank Transfer</option>
-                    </select>
-                  </div>
-                  {paymentMethod === 'BankTransfer' ? (
-                    <div>
-                      <label className="block text-xs font-medium text-text-secondary mb-1">Which bank?</label>
-                      <input
-                        type="text"
-                        value={bankNote}
-                        onChange={(e) => setBankNote(e.target.value)}
-                        placeholder="e.g. BDO, BPI"
-                        className="w-full border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg"
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-xs font-medium text-text-secondary mb-1">Customer (optional)</label>
-                      <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg" />
-                    </div>
-                  )}
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">Customer (optional)</label>
+                  <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg" />
                 </div>
-                {paymentMethod === 'BankTransfer' && (
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">Customer (optional)</label>
-                    <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg" />
-                  </div>
-                )}
                 <div className="space-y-1 text-sm">
                   {items.length > 0 && (
                     <div className="flex items-center justify-between">
                       <span className="text-text-secondary">Items Total</span>
                       <span className="font-medium text-text-primary">{peso(itemsTotal)}</span>
                     </div>
+                  )}
+                  {items.length > 0 && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-text-secondary">Total Cash</span>
+                        <span className="text-text-primary">{peso(paymentTotals.cash)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-text-secondary">Total Gcash</span>
+                        <span className="text-text-primary">{peso(paymentTotals.gcash)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-text-secondary">Total Bank Transfer</span>
+                        <span className="text-text-primary">{peso(paymentTotals.bankTransfer)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-text-secondary">Total Cashless</span>
+                        <span className="text-text-primary">{peso(paymentTotals.cashless)}</span>
+                      </div>
+                    </>
                   )}
                   {expenses.length > 0 && (
                     <div className="flex items-center justify-between">

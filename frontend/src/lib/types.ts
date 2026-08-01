@@ -121,8 +121,18 @@ export interface Product {
   deletedAt: string | null;
 }
 
-export type PaymentMethod = 'Cash' | 'Gcash' | 'BankTransfer';
+// Cash/Gcash/BankTransfer/Cashless are real per-item payment methods. Split
+// means the item's cost was divided across those four (see PaymentSplit).
+// Mixed is a Sale-level-only rollup shown when its items don't all agree.
+export type PaymentMethod = 'Cash' | 'Gcash' | 'BankTransfer' | 'Cashless' | 'Split' | 'Mixed';
 export type SaleStatus = 'PENDING' | 'APPROVED' | 'DECLINED';
+
+export interface PaymentSplit {
+  cash: number;
+  gcash: number;
+  bankTransfer: number;
+  cashless: number;
+}
 
 export interface SaleLineItem {
   id: string;
@@ -132,6 +142,10 @@ export interface SaleLineItem {
   quantity: number;
   unitPrice: number;
   subTotal: number;
+  paymentMethod: PaymentMethod;
+  bankNote: string | null;
+  note: string | null;
+  paymentSplit: PaymentSplit | null;
 }
 
 export interface Sale {
@@ -140,8 +154,8 @@ export interface Sale {
   customerName: string | null;
   branch: { id: string; name: string } | null;
   staff: { id: string; name: string; email: string } | null;
+  // Rollup of the items' payment methods — the shared method, or Mixed.
   paymentMethod: PaymentMethod;
-  bankNote: string | null;
   status: SaleStatus;
   total: number;
   items: SaleLineItem[];
@@ -153,6 +167,7 @@ export interface SalesSummary {
   cash: number;
   gcash: number;
   bankTransfer: number;
+  cashless: number;
   total: number;
   count: number;
 }
@@ -164,6 +179,10 @@ export interface DraftSaleItem {
   unitPrice: number;
   quantity: number;
   image?: string | null;
+  paymentMethod: PaymentMethod;
+  bankNote?: string | null;
+  note?: string | null;
+  paymentSplit?: PaymentSplit | null;
 }
 
 export interface DraftDisposalItem {
@@ -189,8 +208,6 @@ export interface StaffDraft {
   items: DraftSaleItem[];
   disposalItems: DraftDisposalItem[];
   expenses: DraftExpenseItem[];
-  paymentMethod: PaymentMethod;
-  bankNote: string | null;
   customerName: string | null;
   total: number;
   expensesTotal: number;

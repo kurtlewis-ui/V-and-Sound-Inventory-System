@@ -20,6 +20,8 @@ import type {
   ExpenseSummary,
   FullUser,
   Pagination,
+  PaymentMethod,
+  PaymentSplit,
   Product,
   RoleOption,
   Sale,
@@ -362,13 +364,15 @@ export function useRestoreUser() {
 export interface SaleItemInput {
   productId: string;
   quantity: number;
+  paymentMethod: PaymentMethod;
+  bankNote?: string;
+  note?: string;
+  paymentSplit?: PaymentSplit;
 }
 
 export interface SaleCreateInput {
   branchId?: string;
   customerName?: string;
-  paymentMethod: 'Cash' | 'Gcash' | 'BankTransfer';
-  bankNote?: string;
   items: SaleItemInput[];
 }
 
@@ -457,6 +461,10 @@ export interface DraftSyncInput {
     unitPrice: number;
     quantity: number;
     image?: string | null;
+    paymentMethod: PaymentMethod;
+    bankNote?: string | null;
+    note?: string | null;
+    paymentSplit?: PaymentSplit | null;
   }[];
   disposalItems?: {
     productId: string;
@@ -466,8 +474,6 @@ export interface DraftSyncInput {
     image?: string | null;
   }[];
   expenses?: { amount: number; note: string }[];
-  paymentMethod: 'Cash' | 'Gcash' | 'BankTransfer';
-  bankNote?: string;
   customerName?: string;
 }
 

@@ -14,6 +14,10 @@ function formatDate(iso: string) {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 }
+function itemPaymentLabel(item: { paymentMethod: string; bankNote?: string | null }) {
+  if (item.paymentMethod === 'BankTransfer') return `Bank Transfer${item.bankNote ? ` (${item.bankNote})` : ''}`;
+  return item.paymentMethod;
+}
 function todayLocalDate() {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -38,7 +42,7 @@ export default function StaffDailyReportPage() {
     endDate: today,
   });
   const sales = data?.data ?? [];
-  const summary = data?.summary ?? { cash: 0, gcash: 0, bankTransfer: 0, total: 0, count: 0 };
+  const summary = data?.summary ?? { cash: 0, gcash: 0, bankTransfer: 0, cashless: 0, total: 0, count: 0 };
 
   const { data: branchSummary } = useBranchSummary();
 
@@ -140,7 +144,7 @@ export default function StaffDailyReportPage() {
                       <td className="px-4 py-3 text-sm text-text-secondary">{item.brandName}</td>
                       <td className="px-4 py-3 text-sm text-text-primary">{peso(item.unitPrice)}</td>
                       <td className="px-4 py-3 text-sm font-medium text-text-primary">{peso(item.subTotal)}</td>
-                      <td className="px-4 py-3 text-sm text-text-secondary">{idx === 0 ? sale.paymentMethod : ''}</td>
+                      <td className="px-4 py-3 text-sm text-text-secondary">{itemPaymentLabel(item)}</td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{idx === 0 ? formatDate(sale.createdAt) : ''}</td>
                     </tr>
                   ))}
@@ -189,6 +193,7 @@ export default function StaffDailyReportPage() {
           <p className="text-sm text-text-secondary">Total for Cash: <span className="font-medium text-text-primary">{peso(summary.cash)}</span></p>
           <p className="text-sm text-text-secondary">Total for Gcash: <span className="font-medium text-text-primary">{peso(summary.gcash)}</span></p>
           <p className="text-sm text-text-secondary">Total for Bank Transfer: <span className="font-medium text-text-primary">{peso(summary.bankTransfer)}</span></p>
+          <p className="text-sm text-text-secondary">Total for Cashless: <span className="font-medium text-text-primary">{peso(summary.cashless)}</span></p>
           <p className="text-sm font-bold text-text-primary">Total for All Sales: {peso(summary.total)}</p>
         </div>
       </div>

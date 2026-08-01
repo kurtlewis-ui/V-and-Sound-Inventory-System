@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, SaleStatus } from '@prisma/client';
+import { Prisma, SaleStatus, PaymentMethod } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
@@ -36,19 +36,7 @@ export class SalesService {
       throw new BadRequestException('One or more products do not exist');
     }
 
-    const items = dto.items.map((item) => {
-      const product = productMap.get(item.productId)!;
-      const unitPrice = new Prisma.Decimal(product.sellingPrice);
-      const subTotal = unitPrice.mul(item.quantity);
-      return {
-        productId: product.id,
-        name: product.name,
-        brandName: product.brand.name,
-        quantity: item.quantity,
-        unitPrice,
-        subTotal,
-      };
-    });
+    const items = this.buildSaleItems(dto.items, productMap);
 
     const total = items.reduce(
       (sum, i) => sum.add(i.subTotal),
@@ -63,8 +51,7 @@ export class SalesService {
           branchId,
           staffId: actor.userId,
           customerName: dto.customerName?.trim() || null,
-          paymentMethod: dto.paymentMethod,
-          bankNote: dto.paymentMethod === 'BankTransfer' ? dto.bankNote?.trim() || null : null,
+          paymentMethod: this.rollupPaymentMethod(items),
           status: SaleStatus.PENDING,
           total,
           items: { create: items },
@@ -137,7 +124,7 @@ export class SalesService {
       ];
     }
 
-    const [total, sales] = await Promise.all([
+    const [total, sales, summaryItems] = await Promise.all([
       this.prisma.sale.count({ where }),
       this.prisma.sale.findMany({
         where,
@@ -146,26 +133,35 @@ export class SalesService {
         skip,
         take: limit,
       }),
+      // Summary across the whole filtered set (not just current page).
+      // Payment now varies per item, so this sums item-level amounts
+      // (splitting Split-payment items across their buckets) rather than a
+      // DB-level groupBy on the sale's single payment method.
+      this.prisma.saleItem.findMany({
+        where: { sale: where },
+        select: { paymentMethod: true, subTotal: true, paymentSplit: true },
+      }),
     ]);
 
-    // Summary across the whole filtered set (not just current page).
-    const grouped = await this.prisma.sale.groupBy({
-      by: ['paymentMethod'],
-      where,
-      _sum: { total: true },
-    });
-    const cash = Number(grouped.find((g) => g.paymentMethod === 'Cash')?._sum.total ?? 0);
-    const gcash = Number(grouped.find((g) => g.paymentMethod === 'Gcash')?._sum.total ?? 0);
-    const bankTransfer = Number(
-      grouped.find((g) => g.paymentMethod === 'BankTransfer')?._sum.total ?? 0,
-    );
-    const summary = {
-      cash,
-      gcash,
-      bankTransfer,
-      total: cash + gcash + bankTransfer,
-      count: total,
-    };
+    const summary = { cash: 0, gcash: 0, bankTransfer: 0, cashless: 0, total: 0, count: total };
+    for (const item of summaryItems) {
+      if (item.paymentMethod === 'Split' && item.paymentSplit) {
+        const split = item.paymentSplit as unknown as {
+          cash: number; gcash: number; bankTransfer: number; cashless: number;
+        };
+        summary.cash += Number(split.cash || 0);
+        summary.gcash += Number(split.gcash || 0);
+        summary.bankTransfer += Number(split.bankTransfer || 0);
+        summary.cashless += Number(split.cashless || 0);
+      } else {
+        const amount = Number(item.subTotal);
+        if (item.paymentMethod === 'Cash') summary.cash += amount;
+        else if (item.paymentMethod === 'Gcash') summary.gcash += amount;
+        else if (item.paymentMethod === 'BankTransfer') summary.bankTransfer += amount;
+        else if (item.paymentMethod === 'Cashless') summary.cashless += amount;
+      }
+    }
+    summary.total = summary.cash + summary.gcash + summary.bankTransfer + summary.cashless;
 
     return {
       data: sales.map((s) => this.serialize(s)),
@@ -268,14 +264,8 @@ export class SalesService {
     if (dto.customerName !== undefined) {
       data.customerName = dto.customerName?.trim() || null;
     }
-    if (dto.paymentMethod !== undefined) {
-      data.paymentMethod = dto.paymentMethod;
-      data.bankNote = dto.paymentMethod === 'BankTransfer' ? dto.bankNote?.trim() || null : null;
-    } else if (dto.bankNote !== undefined) {
-      data.bankNote = dto.bankNote?.trim() || null;
-    }
 
-    let newItems: { productId: string; name: string; brandName: string; quantity: number; unitPrice: Prisma.Decimal; subTotal: Prisma.Decimal }[] | null = null;
+    let newItems: ReturnType<typeof this.buildSaleItems> | null = null;
     if (dto.items?.length) {
       const productIds = [...new Set(dto.items.map((i) => i.productId))];
       const products = await this.prisma.product.findMany({
@@ -287,22 +277,12 @@ export class SalesService {
       }
       const productMap = new Map(products.map((p) => [p.id, p]));
 
-      newItems = dto.items.map((item) => {
-        const product = productMap.get(item.productId)!;
-        const unitPrice = new Prisma.Decimal(product.sellingPrice);
-        return {
-          productId: product.id,
-          name: product.name,
-          brandName: product.brand.name,
-          quantity: item.quantity,
-          unitPrice,
-          subTotal: unitPrice.mul(item.quantity),
-        };
-      });
+      newItems = this.buildSaleItems(dto.items, productMap);
       data.total = newItems.reduce(
         (sum, i) => sum.add(i.subTotal),
         new Prisma.Decimal(0),
       );
+      data.paymentMethod = this.rollupPaymentMethod(newItems);
       // Replace items wholesale.
       data.items = { deleteMany: {}, create: newItems };
     }
@@ -416,6 +396,82 @@ export class SalesService {
     return { message: 'Sale deleted successfully' };
   }
 
+  /** Build full sale item records (with payment resolved) from DTO input. */
+  private buildSaleItems(
+    dtoItems: { productId: string; quantity: number; paymentMethod: PaymentMethod; bankNote?: string; note?: string; paymentSplit?: { cash: number; gcash: number; bankTransfer: number; cashless: number } }[],
+    productMap: Map<string, { id: string; name: string; sellingPrice: Prisma.Decimal; brand: { name: string } }>,
+  ) {
+    return dtoItems.map((item) => {
+      const product = productMap.get(item.productId)!;
+      const unitPrice = new Prisma.Decimal(product.sellingPrice);
+      const subTotal = unitPrice.mul(item.quantity);
+      return {
+        productId: product.id,
+        name: product.name,
+        brandName: product.brand.name,
+        quantity: item.quantity,
+        unitPrice,
+        subTotal,
+        ...this.resolveItemPayment(item, subTotal, product.name),
+      };
+    });
+  }
+
+  /**
+   * Validate and normalize one item's payment fields. For Split, the client
+   * supplies cash/gcash/bankTransfer and the remaining cashless amount is
+   * always recomputed server-side as the remainder — never trusted from the
+   * client — so the four buckets can't be made to disagree with subTotal.
+   */
+  private resolveItemPayment(
+    item: { paymentMethod: PaymentMethod; bankNote?: string; note?: string; paymentSplit?: { cash: number; gcash: number; bankTransfer: number; cashless: number } },
+    subTotal: Prisma.Decimal,
+    label: string,
+  ) {
+    let paymentSplit: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull;
+
+    if (item.paymentMethod === 'Split') {
+      const s = item.paymentSplit;
+      if (!s) {
+        throw new BadRequestException(`Split payment amounts are required for "${label}"`);
+      }
+      const cash = new Prisma.Decimal(s.cash || 0);
+      const gcash = new Prisma.Decimal(s.gcash || 0);
+      const bankTransfer = new Prisma.Decimal(s.bankTransfer || 0);
+      const allocated = cash.add(gcash).add(bankTransfer);
+      if (allocated.gt(subTotal)) {
+        throw new BadRequestException(
+          `Split payment for "${label}" adds up to more than its total (${subTotal.toFixed(2)})`,
+        );
+      }
+      const cashless = subTotal.sub(allocated);
+      paymentSplit = {
+        cash: cash.toNumber(),
+        gcash: gcash.toNumber(),
+        bankTransfer: bankTransfer.toNumber(),
+        cashless: cashless.toNumber(),
+      };
+    }
+
+    const bankNote =
+      item.paymentMethod === 'BankTransfer' || item.paymentMethod === 'Split'
+        ? item.bankNote?.trim() || null
+        : null;
+
+    return {
+      paymentMethod: item.paymentMethod,
+      bankNote,
+      note: item.note?.trim() || null,
+      paymentSplit,
+    };
+  }
+
+  /** Sale-level rollup: the shared method if every item agrees, else Mixed. */
+  private rollupPaymentMethod(items: { paymentMethod: PaymentMethod }[]): PaymentMethod {
+    const methods = new Set(items.map((i) => i.paymentMethod));
+    return methods.size === 1 ? [...methods][0] : PaymentMethod.Mixed;
+  }
+
   /**
    * Atomically reserve (decrement) stock for each item as a single
    * conditional UPDATE (quantity >= needed), throwing if any item can't be
@@ -514,8 +570,8 @@ export class SalesService {
             email: sale.staff.email,
           }
         : null,
+      // Rollup of the items' payment methods — the shared method, or Mixed.
       paymentMethod: sale.paymentMethod,
-      bankNote: sale.bankNote ?? null,
       status: sale.status,
       total: Number(sale.total),
       items: (sale.items ?? []).map((i: any) => ({
@@ -526,6 +582,10 @@ export class SalesService {
         quantity: i.quantity,
         unitPrice: Number(i.unitPrice),
         subTotal: Number(i.subTotal),
+        paymentMethod: i.paymentMethod,
+        bankNote: i.bankNote ?? null,
+        note: i.note ?? null,
+        paymentSplit: i.paymentSplit ?? null,
       })),
       createdAt: sale.createdAt,
       decidedAt: sale.decidedAt,

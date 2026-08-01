@@ -19,9 +19,10 @@ import {
   useApproveExpense,
   useDeclineExpense,
   useBranchSummary,
+  type SaleItemInput,
 } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
-import type { Sale, PaymentMethod } from '@/lib/types';
+import type { Sale, PaymentMethod, PaymentSplit } from '@/lib/types';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -32,7 +33,17 @@ function formatDate(iso: string) {
   });
 }
 function paymentDotColor(pm: PaymentMethod) {
-  return pm === 'Cash' ? 'bg-accent-green' : pm === 'Gcash' ? 'bg-accent-blue' : 'bg-accent-purple-light';
+  switch (pm) {
+    case 'Cash': return 'bg-accent-green';
+    case 'Gcash': return 'bg-accent-blue';
+    case 'BankTransfer': return 'bg-accent-purple-light';
+    case 'Cashless': return 'bg-accent-orange';
+    default: return 'bg-text-muted';
+  }
+}
+function itemPaymentLabel(item: { paymentMethod: PaymentMethod; bankNote?: string | null }) {
+  if (item.paymentMethod === 'BankTransfer') return `Bank Transfer${item.bankNote ? ` (${item.bankNote})` : ''}`;
+  return item.paymentMethod;
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -53,6 +64,10 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 interface EditRow {
   productId: string;
   quantity: number;
+  paymentMethod: PaymentMethod;
+  bankNote?: string | null;
+  note?: string | null;
+  paymentSplit?: PaymentSplit | null;
 }
 
 export default function SalesPendingPage() {
@@ -77,7 +92,7 @@ export default function SalesPendingPage() {
     branchId: selectedShop || undefined,
   });
   const sales = data?.data ?? [];
-  const summary = data?.summary ?? { cash: 0, gcash: 0, bankTransfer: 0, total: 0, count: 0 };
+  const summary = data?.summary ?? { cash: 0, gcash: 0, bankTransfer: 0, cashless: 0, total: 0, count: 0 };
 
   const approveSale = useApproveSale();
   const declineSale = useDeclineSale();
@@ -239,9 +254,10 @@ export default function SalesPendingPage() {
                       <td className="px-4 py-3 text-sm text-text-primary font-medium">{peso(item.subTotal)}</td>
                       <td className="px-4 py-3">
                         <span className="badge badge-neutral">
-                          <span className={`badge-dot ${paymentDotColor(sale.paymentMethod)}`} />
-                          {sale.paymentMethod === 'BankTransfer' ? `Bank Transfer${sale.bankNote ? ` (${sale.bankNote})` : ''}` : sale.paymentMethod}
+                          <span className={`badge-dot ${paymentDotColor(item.paymentMethod)}`} />
+                          {itemPaymentLabel(item)}
                         </span>
+                        {item.note && <p className="mt-0.5 text-[11px] text-text-muted truncate max-w-[140px]">{item.note}</p>}
                       </td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{sale.staff?.name ?? '—'}</td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{idx === 0 ? formatDate(sale.createdAt) : ''}</td>
@@ -274,6 +290,7 @@ export default function SalesPendingPage() {
             <p className="text-sm text-text-primary"><span className="font-medium">Total for Cash:</span> {peso(summary.cash)}</p>
             <p className="text-sm text-text-primary"><span className="font-medium">Total for Gcash:</span> {peso(summary.gcash)}</p>
             <p className="text-sm text-text-primary"><span className="font-medium">Total for Bank Transfer:</span> {peso(summary.bankTransfer)}</p>
+            <p className="text-sm text-text-primary"><span className="font-medium">Total for Cashless:</span> {peso(summary.cashless)}</p>
             <p className="text-sm text-text-primary font-bold">Total for All Pending: {peso(summary.total)}</p>
           </div>
         </div>
@@ -297,7 +314,6 @@ export default function SalesPendingPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">To Sell</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">To Dispose</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Expenses</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Payment</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Total</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Last Updated</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Actions</th>
@@ -305,9 +321,9 @@ export default function SalesPendingPage() {
             </thead>
             <tbody>
               {draftsLoading ? (
-                <tr><td colSpan={9} className="text-center py-6 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading…</td></tr>
+                <tr><td colSpan={8} className="text-center py-6 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading…</td></tr>
               ) : drafts.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-6 text-text-muted">No staff currently building an order.</td></tr>
+                <tr><td colSpan={8} className="text-center py-6 text-text-muted">No staff currently building an order.</td></tr>
               ) : drafts.map((d) => (
                 <tr key={d.id} className="border-b border-card-border hover:bg-white/5 transition align-top">
                   <td className="px-4 py-3">
@@ -317,8 +333,16 @@ export default function SalesPendingPage() {
                   <td className="px-4 py-3 text-sm text-text-secondary">{d.branch?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">
                     {d.items.length === 0 ? '—' : (
-                      <ul className="space-y-0.5">
-                        {d.items.map((item) => <li key={item.productId}>{item.quantity}× {item.name}</li>)}
+                      <ul className="space-y-1">
+                        {d.items.map((item) => (
+                          <li key={item.productId}>
+                            {item.quantity}× {item.name}{' '}
+                            <span className="badge badge-neutral">
+                              <span className={`badge-dot ${paymentDotColor(item.paymentMethod)}`} />
+                              {itemPaymentLabel(item)}
+                            </span>
+                          </li>
+                        ))}
                       </ul>
                     )}
                   </td>
@@ -334,14 +358,6 @@ export default function SalesPendingPage() {
                       <ul className="space-y-0.5">
                         {d.expenses.map((exp, idx) => <li key={idx}>{peso(exp.amount)} — {exp.note}</li>)}
                       </ul>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {d.items.length > 0 && (
-                      <span className="badge badge-neutral">
-                        <span className={`badge-dot ${paymentDotColor(d.paymentMethod)}`} />
-                        {d.paymentMethod === 'BankTransfer' ? `Bank${d.bankNote ? ` (${d.bankNote})` : ''}` : d.paymentMethod}
-                      </span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-text-primary font-medium">
@@ -551,20 +567,27 @@ function EditSaleModal({
   products: { id: string; name: string; sellingPrice: number; brand: { name: string } | null }[];
   isSaving: boolean;
   onClose: () => void;
-  onSave: (payload: { paymentMethod: PaymentMethod; bankNote?: string; customerName?: string; items: EditRow[] }) => Promise<void>;
+  onSave: (payload: { customerName?: string; items: SaleItemInput[] }) => Promise<void>;
 }) {
   const [rows, setRows] = useState<EditRow[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(sale.paymentMethod);
-  const [bankNote, setBankNote] = useState(sale.bankNote ?? '');
   const [customerName, setCustomerName] = useState(sale.customerName ?? '');
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    // Seed rows from the sale's current items (skip items whose product was deleted).
+    // Seed rows from the sale's current items (skip items whose product was
+    // deleted), carrying over each item's own payment method — payment isn't
+    // editable here; correct it by declining and having the item resubmitted.
     setRows(
       sale.items
         .filter((i) => i.productId)
-        .map((i) => ({ productId: i.productId as string, quantity: i.quantity })),
+        .map((i) => ({
+          productId: i.productId as string,
+          quantity: i.quantity,
+          paymentMethod: i.paymentMethod,
+          bankNote: i.bankNote,
+          note: i.note,
+          paymentSplit: i.paymentSplit,
+        })),
     );
   }, [sale]);
 
@@ -577,7 +600,7 @@ function EditSaleModal({
   const addRow = () => {
     const first = products[0];
     if (!first) return;
-    setRows((rs) => [...rs, { productId: first.id, quantity: 1 }]);
+    setRows((rs) => [...rs, { productId: first.id, quantity: 1, paymentMethod: 'Cash' as PaymentMethod }]);
   };
   const removeRow = (idx: number) => setRows((rs) => rs.filter((_, i) => i !== idx));
 
@@ -587,10 +610,15 @@ function EditSaleModal({
     setErr(null);
     try {
       await onSave({
-        paymentMethod,
-        bankNote: paymentMethod === 'BankTransfer' ? bankNote.trim() || undefined : undefined,
         customerName: customerName.trim() || undefined,
-        items: rows.map((r) => ({ productId: r.productId, quantity: r.quantity })),
+        items: rows.map((r) => ({
+          productId: r.productId,
+          quantity: r.quantity,
+          paymentMethod: r.paymentMethod,
+          bankNote: r.bankNote ?? undefined,
+          note: r.note ?? undefined,
+          paymentSplit: r.paymentSplit ?? undefined,
+        })),
       });
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Failed to save sale.');
@@ -600,40 +628,19 @@ function EditSaleModal({
   return (
     <Modal title={`Edit Sale #${sale.number}`} onClose={onClose}>
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">Payment Method</label>
-            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus">
-              <option value="Cash">Cash</option>
-              <option value="Gcash">Gcash</option>
-              <option value="BankTransfer">Bank Transfer</option>
-            </select>
-          </div>
-          {paymentMethod === 'BankTransfer' ? (
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">Which bank?</label>
-              <input type="text" value={bankNote} onChange={(e) => setBankNote(e.target.value)} placeholder="e.g. BDO, BPI" className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">Customer (optional)</label>
-              <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
-            </div>
-          )}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-1">Customer (optional)</label>
+          <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
         </div>
-
-        {paymentMethod === 'BankTransfer' && (
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">Customer (optional)</label>
-            <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
-          </div>
-        )}
 
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium text-text-primary">Items</label>
             <button onClick={addRow} className="flex items-center gap-1 text-sm text-accent-blue hover:underline"><Plus size={14} /> Add item</button>
           </div>
+          <p className="mb-2 text-xs text-text-muted">
+            Payment method isn&apos;t editable here — decline the sale and have the staff resubmit it to change how an item was paid.
+          </p>
           <div className="space-y-2">
             {rows.length === 0 && <p className="text-xs text-text-muted">No items. Add at least one.</p>}
             {rows.map((row, idx) => (
@@ -643,8 +650,9 @@ function EditSaleModal({
                     <option key={p.id} value={p.id}>{p.name}{p.brand ? ` (${p.brand.name})` : ''} — {peso(p.sellingPrice)}</option>
                   ))}
                 </select>
-                <input type="number" min="1" value={row.quantity} onChange={(e) => setRow(idx, { quantity: parseInt(e.target.value) || 1 })} className="w-20 border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
-                <span className="w-24 text-right text-sm text-text-secondary">{peso(priceOf(row.productId) * row.quantity)}</span>
+                <input type="number" min="1" value={row.quantity} onChange={(e) => setRow(idx, { quantity: parseInt(e.target.value) || 1 })} className="w-16 border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
+                <span className="w-20 text-right text-sm text-text-secondary">{peso(priceOf(row.productId) * row.quantity)}</span>
+                <span className="w-24 truncate text-xs text-text-muted" title={row.paymentMethod}>{row.paymentMethod}</span>
                 <button onClick={() => removeRow(idx)} className="p-1.5 text-accent-red hover:bg-red-500/10 rounded transition" title="Remove"><Trash2 size={15} /></button>
               </div>
             ))}

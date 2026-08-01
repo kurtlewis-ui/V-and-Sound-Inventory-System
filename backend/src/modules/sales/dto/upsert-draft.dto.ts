@@ -14,6 +14,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { PaymentMethod } from '@prisma/client';
+import { PaymentSplitDto } from './create-sale.dto';
 
 // Mirrors the frontend's client-side DraftItem shape so the admin view can
 // render it without extra product lookups (and stays accurate even if the
@@ -49,6 +50,28 @@ export class DraftItemDto {
   @IsInt()
   @Min(1)
   quantity: number;
+
+  @ApiProperty({ enum: PaymentMethod, example: 'Cash' })
+  @IsEnum(PaymentMethod)
+  paymentMethod: PaymentMethod;
+
+  @ApiProperty({ required: false, example: 'BDO' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  bankNote?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  note?: string;
+
+  @ApiProperty({ required: false, type: PaymentSplitDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PaymentSplitDto)
+  paymentSplit?: PaymentSplitDto;
 }
 
 // A staged "to dispose" line, mirroring DraftItemDto but for write-offs.
@@ -120,17 +143,6 @@ export class UpsertDraftDto {
   @ValidateNested({ each: true })
   @Type(() => DraftExpenseDto)
   expenses?: DraftExpenseDto[];
-
-  @ApiProperty({ enum: PaymentMethod, required: false, default: 'Cash' })
-  @IsOptional()
-  @IsEnum(PaymentMethod)
-  paymentMethod?: PaymentMethod;
-
-  @ApiProperty({ required: false, example: 'BDO' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  bankNote?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()

@@ -5,6 +5,7 @@ import {
   IsArray,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -13,6 +14,32 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { PaymentMethod } from '@prisma/client';
+
+export class PaymentSplitDto {
+  @ApiProperty({ example: 150 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  cash: number;
+
+  @ApiProperty({ example: 110 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  gcash: number;
+
+  @ApiProperty({ example: 0 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  bankTransfer: number;
+
+  @ApiProperty({ example: 0 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  cashless: number;
+}
 
 export class SaleItemInputDto {
   @ApiProperty({ description: 'Product ID' })
@@ -24,6 +51,36 @@ export class SaleItemInputDto {
   @IsInt()
   @Min(1)
   quantity: number;
+
+  @ApiProperty({ enum: PaymentMethod, example: 'Cash', description: 'How this item was paid for' })
+  @IsEnum(PaymentMethod)
+  paymentMethod: PaymentMethod;
+
+  @ApiProperty({
+    required: false,
+    example: 'BDO',
+    description: 'Which bank, when paymentMethod is BankTransfer (or included in a split)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  bankNote?: string;
+
+  @ApiProperty({ required: false, example: 'Regular customer' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  note?: string;
+
+  @ApiProperty({
+    required: false,
+    type: PaymentSplitDto,
+    description: 'Required when paymentMethod is Split; amounts must sum to unitPrice * quantity',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PaymentSplitDto)
+  paymentSplit?: PaymentSplitDto;
 }
 
 export class CreateSaleDto {
@@ -40,20 +97,6 @@ export class CreateSaleDto {
   @IsString()
   @MaxLength(150)
   customerName?: string;
-
-  @ApiProperty({ enum: PaymentMethod, example: 'Cash' })
-  @IsEnum(PaymentMethod)
-  paymentMethod: PaymentMethod;
-
-  @ApiProperty({
-    required: false,
-    example: 'BDO',
-    description: 'Which bank, when paymentMethod is BankTransfer',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  bankNote?: string;
 
   @ApiProperty({ type: [SaleItemInputDto] })
   @IsArray()
