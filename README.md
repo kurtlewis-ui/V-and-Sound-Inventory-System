@@ -174,17 +174,16 @@ docker-compose logs -f
 docker-compose down
 ```
 
-## 👥 Default Users
+## 👥 Default User
 
-After running the seed script:
+After running the seed script, a single bootstrap account is created. Create
+shops, staff and additional admins from inside the app afterwards.
 
 | Role | Email | Password | Permissions |
 |------|-------|----------|-------------|
-| Owner | owner@vapeshop.com | ChangeMe123! | Full access |
-| Admin | admin@vapeshop.com | ChangeMe123! | Administrative access |
-| Staff | staff@vapeshop.com | ChangeMe123! | Basic operations |
+| Admin | admin@vapeshop.com | ChangeMe123! | Full access |
 
-⚠️ **IMPORTANT:** Change these passwords immediately in production!
+⚠️ **IMPORTANT:** Change this password immediately in production!
 
 ## 🧪 Testing
 

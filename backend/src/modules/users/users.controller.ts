@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -93,13 +94,7 @@ export class UsersController {
   async findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     // Allow users to view their own profile, or Admin to view anyone
     if (user.userId !== id && !['Admin'].includes(user.role)) {
-      return {
-        success: false,
-        error: {
-          code: 'FORBIDDEN',
-          message: 'You can only view your own profile',
-        },
-      };
+      throw new ForbiddenException('You can only view your own profile');
     }
 
     const result = await this.usersService.findOne(id);
