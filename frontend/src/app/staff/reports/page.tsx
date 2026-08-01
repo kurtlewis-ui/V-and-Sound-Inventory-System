@@ -14,6 +14,13 @@ function formatDate(iso: string) {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 }
+function todayLocalDate() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 type ViewMode = 'sale' | 'product';
 
@@ -23,8 +30,13 @@ export default function StaffDailyReportPage() {
   const [showDisposals, setShowDisposals] = useState(false);
 
   const branchName = useAuthStore((s) => s.user?.branch?.name);
+  const today = useMemo(() => todayLocalDate(), []);
 
-  const { data, isLoading, isError, error } = useSalesRecords({ search: search || undefined });
+  const { data, isLoading, isError, error } = useSalesRecords({
+    search: search || undefined,
+    startDate: today,
+    endDate: today,
+  });
   const sales = data?.data ?? [];
   const summary = data?.summary ?? { cash: 0, gcash: 0, bankTransfer: 0, total: 0, count: 0 };
 
@@ -58,6 +70,9 @@ export default function StaffDailyReportPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-text-muted mb-1">{branchName}</p>
           )}
           <h1 className="text-2xl font-bold text-text-primary">Daily Report</h1>
+          <p className="mt-0.5 text-xs text-text-muted">
+            {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
         </div>
         <button
           onClick={() => setShowDisposals(true)}
