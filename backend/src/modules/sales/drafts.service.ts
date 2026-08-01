@@ -50,6 +50,20 @@ export class DraftsService {
     return { message: 'Draft saved' };
   }
 
+  /**
+   * Whether a draft still exists server-side for the current staff member.
+   * Lets the staff's own device detect that an admin submitted their draft
+   * on their behalf (via saveForStaff) while they still have the old items
+   * sitting in local storage, so it can clear them and avoid resubmitting.
+   */
+  async existsForMine(actor: RequestUser) {
+    const draft = await this.prisma.draftOrder.findUnique({
+      where: { staffId: actor.userId },
+      select: { id: true },
+    });
+    return { exists: !!draft };
+  }
+
   /** Clear the current staff member's draft (e.g. on submit/logout). */
   async clearMine(actor: RequestUser) {
     await this.prisma.draftOrder.deleteMany({ where: { staffId: actor.userId } });
