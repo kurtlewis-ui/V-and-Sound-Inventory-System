@@ -281,6 +281,9 @@ model SaleItem {
   brandName String  @map("brand_name") @db.VarChar(100)
   quantity  Int
   unitPrice Decimal @map("unit_price") @db.Decimal(10, 2)
+  // Fixed ₱ amount knocked off this line (0 = none). subTotal already
+  // reflects it: subTotal = unitPrice * quantity - discount.
+  discount  Decimal @default(0) @db.Decimal(10, 2)
   subTotal  Decimal @map("sub_total") @db.Decimal(12, 2)
 
   // How this specific item was paid for.

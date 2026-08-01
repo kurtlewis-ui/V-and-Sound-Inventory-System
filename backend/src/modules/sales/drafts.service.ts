@@ -121,6 +121,7 @@ export class DraftsService {
             items: items.map((i) => ({
               productId: i.productId,
               quantity: i.quantity,
+              discount: i.discount ?? undefined,
               paymentMethod: i.paymentMethod,
               bankNote: i.bankNote ?? undefined,
               note: i.note ?? undefined,
@@ -232,7 +233,7 @@ export class DraftsService {
     const disposalItems = Array.isArray(draft.disposalItems) ? (draft.disposalItems as any[]) : [];
     const expenses = Array.isArray(draft.expenses) ? (draft.expenses as any[]) : [];
     const total = items.reduce(
-      (sum, i) => sum + Number(i.unitPrice ?? 0) * Number(i.quantity ?? 0),
+      (sum, i) => sum + Number(i.unitPrice ?? 0) * Number(i.quantity ?? 0) - Number(i.discount ?? 0),
       0,
     );
     const expensesTotal = expenses.reduce((sum, e) => sum + Number(e.amount ?? 0), 0);

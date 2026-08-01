@@ -64,6 +64,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 interface EditRow {
   productId: string;
   quantity: number;
+  discount?: number;
   paymentMethod: PaymentMethod;
   bankNote?: string | null;
   note?: string | null;
@@ -251,7 +252,10 @@ export default function SalesPendingPage() {
                       <td className="px-4 py-3 text-sm text-text-primary">{item.quantity}</td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{item.brandName}</td>
                       <td className="px-4 py-3 text-sm text-text-primary">{peso(item.unitPrice)}</td>
-                      <td className="px-4 py-3 text-sm text-text-primary font-medium">{peso(item.subTotal)}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary font-medium">
+                        {peso(item.subTotal)}
+                        {!!item.discount && <p className="text-xs font-normal text-accent-orange">−{peso(item.discount)} discount</p>}
+                      </td>
                       <td className="px-4 py-3">
                         <span className="badge badge-neutral">
                           <span className={`badge-dot ${paymentDotColor(item.paymentMethod)}`} />
@@ -583,6 +587,7 @@ function EditSaleModal({
         .map((i) => ({
           productId: i.productId as string,
           quantity: i.quantity,
+          discount: i.discount,
           paymentMethod: i.paymentMethod,
           bankNote: i.bankNote,
           note: i.note,
@@ -592,7 +597,7 @@ function EditSaleModal({
   }, [sale]);
 
   const priceOf = (productId: string) => products.find((p) => p.id === productId)?.sellingPrice ?? 0;
-  const computedTotal = rows.reduce((sum, r) => sum + priceOf(r.productId) * r.quantity, 0);
+  const computedTotal = rows.reduce((sum, r) => sum + priceOf(r.productId) * r.quantity - (r.discount ?? 0), 0);
 
   const setRow = (idx: number, patch: Partial<EditRow>) => {
     setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
@@ -614,6 +619,7 @@ function EditSaleModal({
         items: rows.map((r) => ({
           productId: r.productId,
           quantity: r.quantity,
+          discount: r.discount ?? undefined,
           paymentMethod: r.paymentMethod,
           bankNote: r.bankNote ?? undefined,
           note: r.note ?? undefined,
@@ -651,7 +657,7 @@ function EditSaleModal({
                   ))}
                 </select>
                 <input type="number" min="1" value={row.quantity} onChange={(e) => setRow(idx, { quantity: parseInt(e.target.value) || 1 })} className="w-16 border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
-                <span className="w-20 text-right text-sm text-text-secondary">{peso(priceOf(row.productId) * row.quantity)}</span>
+                <span className="w-20 text-right text-sm text-text-secondary">{peso(priceOf(row.productId) * row.quantity - (row.discount ?? 0))}</span>
                 <span className="w-24 truncate text-xs text-text-muted" title={row.paymentMethod}>{row.paymentMethod}</span>
                 <button onClick={() => removeRow(idx)} className="p-1.5 text-accent-red hover:bg-red-500/10 rounded transition" title="Remove"><Trash2 size={15} /></button>
               </div>
