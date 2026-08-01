@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
+import { useDraftStore } from '@/lib/draft';
 import {
   LayoutDashboard,
   Store,
@@ -102,6 +103,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   function handleLogout() {
     logout();
+    // Clear any leftover staff draft cart on shared devices (see staff/layout.tsx).
+    useDraftStore.getState().clear();
     router.replace('/login');
   }
 
