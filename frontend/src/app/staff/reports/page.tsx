@@ -12,6 +12,7 @@ import {
 } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/store';
 import { getApiErrorMessage } from '@/lib/api';
+import { TableSkeleton } from '@/components/Skeleton';
 
 function peso(n: number) {
   return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -21,7 +22,15 @@ function formatDate(iso: string) {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 }
-function itemPaymentLabel(item: { paymentMethod: string; bankNote?: string | null }) {
+function itemPaymentLabel(item: { paymentMethod: string; bankNote?: string | null; paymentSplit?: { cash: number; gcash: number; bankTransfer: number; cashless: number } | null }) {
+  if (item.paymentMethod === 'Split' && item.paymentSplit) {
+    const parts: string[] = [];
+    if (item.paymentSplit.cash > 0) parts.push(`₱${item.paymentSplit.cash.toLocaleString(undefined, { minimumFractionDigits: 2 })} Cash`);
+    if (item.paymentSplit.gcash > 0) parts.push(`₱${item.paymentSplit.gcash.toLocaleString(undefined, { minimumFractionDigits: 2 })} Gcash`);
+    if (item.paymentSplit.bankTransfer > 0) parts.push(`₱${item.paymentSplit.bankTransfer.toLocaleString(undefined, { minimumFractionDigits: 2 })} Bank`);
+    if (item.paymentSplit.cashless > 0) parts.push(`₱${item.paymentSplit.cashless.toLocaleString(undefined, { minimumFractionDigits: 2 })} Cashless`);
+    return parts.join(' · ') || 'Split';
+  }
   if (item.paymentMethod === 'BankTransfer') return `Bank Transfer${item.bankNote ? ` (${item.bankNote})` : ''}`;
   return item.paymentMethod;
 }
@@ -155,7 +164,7 @@ export default function StaffDailyReportPage() {
       </div>
 
       {isLoading ? (
-        <div className="py-10 text-center text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading...</div>
+        <TableSkeleton rows={5} cols={8} />
       ) : isError ? (
         <div className="py-10 text-center text-accent-red">{getApiErrorMessage(error)}</div>
       ) : sales.length === 0 ? (
@@ -187,10 +196,16 @@ export default function StaffDailyReportPage() {
                           <>
                             {`#${sale.number}`}
                             <PendingTag status={sale.status} />
+                            {sale.customerName && (
+                              <p className="text-[10px] font-normal text-accent-blue mt-0.5">{sale.customerName}</p>
+                            )}
                           </>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-text-primary">{item.name}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">
+                        {item.name}
+                        {item.note && <p className="text-[10px] text-text-muted italic mt-0.5">{item.note}</p>}
+                      </td>
                       <td className="px-4 py-3 text-sm text-text-primary">{item.quantity}</td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{item.brandName}</td>
                       <td className="px-4 py-3 text-sm text-text-primary">{peso(item.unitPrice)}</td>
@@ -198,7 +213,9 @@ export default function StaffDailyReportPage() {
                         {peso(item.subTotal)}
                         {!!item.discount && <p className="text-xs font-normal text-accent-orange">−{peso(item.discount)} discount</p>}
                       </td>
-                      <td className="px-4 py-3 text-sm text-text-secondary">{itemPaymentLabel(item)}</td>
+                      <td className="px-4 py-3 text-sm text-text-secondary max-w-[200px]">
+                        <span className="break-words">{itemPaymentLabel(item)}</span>
+                      </td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{idx === 0 ? formatDate(sale.createdAt) : ''}</td>
                     </tr>
                   ))}
@@ -243,6 +260,7 @@ export default function StaffDailyReportPage() {
 
       {/* Summary — approved sales only, so it isn't inflated by unconfirmed pending amounts */}
       <div className="mt-4 rounded-xl border border-card-border bg-card-bg p-4 shadow-sm">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted mb-2">Totals below reflect approved sales only — pending sales are not included.</p>
         <div className="border-l-4 border-accent-blue pl-4 text-right space-y-1">
           <p className="text-sm text-text-secondary">Total for Cash: <span className="font-medium text-text-primary">{peso(summary.cash)}</span></p>
           <p className="text-sm text-text-secondary">Total for Gcash: <span className="font-medium text-text-primary">{peso(summary.gcash)}</span></p>

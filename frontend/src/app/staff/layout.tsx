@@ -7,6 +7,7 @@ import { useAuthStore } from '@/lib/store';
 import { useDraftStore, type DraftItem } from '@/lib/draft';
 import { useSaveDraft, useClearDraftSync, useSaveMyDraft, useMyDraftExists } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
+import type { PaymentMethod, PaymentSplit } from '@/lib/types';
 import {
   Home,
   ClipboardList,
@@ -21,6 +22,7 @@ import {
   Recycle,
   Receipt,
   Settings as SettingsIcon,
+  Edit2,
 } from 'lucide-react';
 
 function peso(n: number) {
@@ -167,6 +169,23 @@ function paymentTagLabel(item: DraftItem) {
   return item.paymentMethod;
 }
 
+// Formats the split amounts as a single line, hiding zero values.
+function splitBreakdownLine(split: PaymentSplit): string {
+  const parts: string[] = [];
+  if (split.cash > 0) parts.push(`₱${split.cash.toLocaleString(undefined, { minimumFractionDigits: 2 })} Cash`);
+  if (split.gcash > 0) parts.push(`₱${split.gcash.toLocaleString(undefined, { minimumFractionDigits: 2 })} Gcash`);
+  if (split.bankTransfer > 0) parts.push(`₱${split.bankTransfer.toLocaleString(undefined, { minimumFractionDigits: 2 })} Bank Transfer`);
+  if (split.cashless > 0) parts.push(`₱${split.cashless.toLocaleString(undefined, { minimumFractionDigits: 2 })} Cashless`);
+  return parts.join(' · ') || '—';
+}
+
+// Formats addedAt timestamp in 12-hour format.
+function formatAddedTime(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 function DraftBag() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -175,21 +194,25 @@ function DraftBag() {
     items,
     setQuantity,
     removeItem,
+    updateItemPayment,
     disposalItems,
     setDisposalQuantity,
     removeDisposalItem,
     expenses,
     addExpense,
     removeExpense,
+    customerName,
+    setCustomerName,
     clear,
     replaceAll,
   } = useDraftStore();
-  const [customerName, setCustomerName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [addingExpense, setAddingExpense] = useState(false);
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseNote, setExpenseNote] = useState('');
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [editingPaymentIdx, setEditingPaymentIdx] = useState<number | null>(null);
   const saveDraft = useSaveDraft();
   const clearDraftSync = useClearDraftSync();
   const saveMyDraft = useSaveMyDraft();
@@ -344,7 +367,6 @@ function DraftBag() {
       const result = await saveMyDraft.mutateAsync();
       suppressNextSync.current = true;
       clear();
-      setCustomerName('');
       if (result.errors.length > 0) {
         // Whatever succeeded is already submitted; only the failed part (if
         // any) is still sitting in the server-side draft for a retry later —
@@ -362,6 +384,11 @@ function DraftBag() {
   }
 
   function handleClear() {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      return;
+    }
+    setConfirmClear(false);
     suppressNextSync.current = true;
     clear();
     clearDraftSync.mutate();
@@ -428,37 +455,61 @@ function DraftBag() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {items.map((item) => (
-                      <div key={item.productId} className="flex items-center gap-3 rounded-lg border border-card-border p-2">
-                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-white/10 flex items-center justify-center">
-                          {item.image ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <span className="text-[9px] text-text-muted">No Img</span>
-                          )}
+                    {items.map((item, idx) => (
+                      <div key={`${item.productId}-${idx}`} className="rounded-lg border border-card-border p-2">
+                        <div className="flex items-center gap-3">
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-white/10 flex items-center justify-center">
+                            {item.image ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={item.image} alt={item.name} loading="lazy" className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="text-[9px] text-text-muted">No Img</span>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-text-primary">{item.name}</p>
+                            <p className="truncate text-xs text-text-muted">{item.brandName}</p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-text-secondary">
+                                {peso(item.unitPrice)} each &middot; {peso(item.unitPrice * item.quantity - (item.discount ?? 0))} total
+                                {!!item.discount && <span className="text-accent-orange"> (−{peso(item.discount)} discount)</span>}
+                              </p>
+                              <span className="text-[10px] text-text-muted">{formatAddedTime(item.addedAt)}</span>
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-1.5">
+                              <span className="inline-block rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple-light">{paymentTagLabel(item)}</span>
+                              <button
+                                onClick={() => setEditingPaymentIdx(editingPaymentIdx === idx ? null : idx)}
+                                className="text-[10px] text-accent-blue hover:underline"
+                                title="Edit payment method"
+                              >
+                                <Edit2 size={10} />
+                              </button>
+                            </div>
+                            {item.paymentMethod === 'Split' && item.paymentSplit && (
+                              <p className="mt-0.5 text-[10px] text-text-secondary">{splitBreakdownLine(item.paymentSplit)}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setQuantity(item.productId, item.quantity - 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Decrease"><Minus size={14} /></button>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => setQuantity(item.productId, parseInt(e.target.value) || 1)}
+                              className="w-12 rounded border border-input-border bg-input-bg px-1 py-1 text-center text-sm"
+                            />
+                            <button onClick={() => setQuantity(item.productId, item.quantity + 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Increase"><Plus size={14} /></button>
+                          </div>
+                          <button onClick={() => removeItem(item.productId)} className="rounded p-1.5 text-accent-red hover:bg-accent-red/10" title="Remove"><Trash2 size={15} /></button>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-text-primary">{item.name}</p>
-                          <p className="truncate text-xs text-text-muted">{item.brandName}</p>
-                          <p className="text-xs text-text-secondary">
-                            {peso(item.unitPrice)} each &middot; {peso(item.unitPrice * item.quantity - (item.discount ?? 0))} total
-                            {!!item.discount && <span className="text-accent-orange"> (−{peso(item.discount)} discount)</span>}
-                          </p>
-                          <span className="mt-0.5 inline-block rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple-light">{paymentTagLabel(item)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => setQuantity(item.productId, item.quantity - 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Decrease"><Minus size={14} /></button>
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => setQuantity(item.productId, parseInt(e.target.value) || 1)}
-                            className="w-12 rounded border border-input-border bg-input-bg px-1 py-1 text-center text-sm"
+                        {editingPaymentIdx === idx && (
+                          <EditPaymentInline
+                            item={item}
+                            onSave={(updates) => { updateItemPayment(item.productId, updates); setEditingPaymentIdx(null); }}
+                            onCancel={() => setEditingPaymentIdx(null)}
                           />
-                          <button onClick={() => setQuantity(item.productId, item.quantity + 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Increase"><Plus size={14} /></button>
-                        </div>
-                        <button onClick={() => removeItem(item.productId)} className="rounded p-1.5 text-accent-red hover:bg-accent-red/10" title="Remove"><Trash2 size={15} /></button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -481,7 +532,7 @@ function DraftBag() {
                         <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-white/10 flex items-center justify-center">
                           {item.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                            <img src={item.image} alt={item.name} loading="lazy" className="h-full w-full object-cover" />
                           ) : (
                             <span className="text-[9px] text-text-muted">No Img</span>
                           )}
@@ -643,7 +694,14 @@ function DraftBag() {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={handleClear} disabled={isSaving} className="flex-1 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-text-primary hover:bg-white/15 transition disabled:opacity-60">Clear</button>
+                  {confirmClear ? (
+                    <div className="flex-1 flex gap-1">
+                      <button onClick={handleClear} className="flex-1 rounded-lg bg-accent-red px-3 py-2 text-xs font-medium text-white hover:opacity-90 transition">Yes, Clear</button>
+                      <button onClick={() => setConfirmClear(false)} className="flex-1 rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/15 transition">Cancel</button>
+                    </div>
+                  ) : (
+                    <button onClick={handleClear} disabled={isSaving} className="flex-1 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-text-primary hover:bg-white/15 transition disabled:opacity-60">Clear</button>
+                  )}
                   <button onClick={handleSave} disabled={isSaving} className="flex-[2] btn-grad rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60">
                     {isSaving ? 'Saving...' : 'Save Order'}
                   </button>
@@ -654,5 +712,84 @@ function DraftBag() {
         </>
       )}
     </>
+  );
+}
+
+
+// Inline editor for changing an item's payment method without removing it.
+function EditPaymentInline({
+  item,
+  onSave,
+  onCancel,
+}: {
+  item: DraftItem;
+  onSave: (updates: { paymentMethod: PaymentMethod; bankNote?: string | null; paymentSplit?: PaymentSplit | null }) => void;
+  onCancel: () => void;
+}) {
+  const [method, setMethod] = useState<PaymentMethod>(item.paymentMethod);
+  const [bankNote, setBankNote] = useState(item.bankNote ?? '');
+  const [splitCash, setSplitCash] = useState(String(item.paymentSplit?.cash ?? ''));
+  const [splitGcash, setSplitGcash] = useState(String(item.paymentSplit?.gcash ?? ''));
+  const [splitBank, setSplitBank] = useState(String(item.paymentSplit?.bankTransfer ?? ''));
+
+  const lineTotal = item.unitPrice * item.quantity - (item.discount ?? 0);
+  const allocated = (Number(splitCash) || 0) + (Number(splitGcash) || 0) + (Number(splitBank) || 0);
+  const splitCashless = Math.max(0, lineTotal - allocated);
+  const overAllocated = allocated > lineTotal + 0.001;
+
+  function peso(n: number) {
+    return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  function handleSave() {
+    if (method === 'Split' && overAllocated) return;
+    onSave({
+      paymentMethod: method,
+      bankNote: method === 'BankTransfer' || method === 'Split' ? bankNote.trim() || null : null,
+      paymentSplit:
+        method === 'Split'
+          ? { cash: Number(splitCash) || 0, gcash: Number(splitGcash) || 0, bankTransfer: Number(splitBank) || 0, cashless: splitCashless }
+          : null,
+    });
+  }
+
+  return (
+    <div className="mt-2 rounded border border-card-border bg-white/5 p-2 space-y-2">
+      <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full rounded border border-input-border bg-input-bg px-2 py-1 text-xs">
+        <option value="Cash">Cash</option>
+        <option value="Gcash">Gcash</option>
+        <option value="BankTransfer">Bank Transfer</option>
+        <option value="Cashless">Cashless</option>
+        <option value="Split">Split Payment</option>
+      </select>
+      {(method === 'BankTransfer' || method === 'Split') && (
+        <input type="text" value={bankNote} onChange={(e) => setBankNote(e.target.value)} placeholder="Which bank?" className="w-full rounded border border-input-border bg-input-bg px-2 py-1 text-xs" />
+      )}
+      {method === 'Split' && (
+        <div className="space-y-1">
+          <div className="grid grid-cols-3 gap-1">
+            <div>
+              <label className="block text-[10px] text-text-muted">Cash</label>
+              <input type="number" min="0" step="0.01" value={splitCash} onChange={(e) => setSplitCash(e.target.value)} className="w-full rounded border border-input-border bg-input-bg px-1.5 py-0.5 text-xs" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-text-muted">Gcash</label>
+              <input type="number" min="0" step="0.01" value={splitGcash} onChange={(e) => setSplitGcash(e.target.value)} className="w-full rounded border border-input-border bg-input-bg px-1.5 py-0.5 text-xs" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-text-muted">Bank</label>
+              <input type="number" min="0" step="0.01" value={splitBank} onChange={(e) => setSplitBank(e.target.value)} className="w-full rounded border border-input-border bg-input-bg px-1.5 py-0.5 text-xs" />
+            </div>
+          </div>
+          <p className={`text-[10px] ${overAllocated ? 'text-accent-red' : 'text-text-secondary'}`}>
+            Cashless (remainder): {peso(splitCashless)} {overAllocated && '— exceeds total'}
+          </p>
+        </div>
+      )}
+      <div className="flex gap-1.5">
+        <button onClick={onCancel} className="flex-1 rounded bg-white/10 px-2 py-1 text-[10px] font-medium text-text-primary hover:bg-white/15">Cancel</button>
+        <button onClick={handleSave} disabled={method === 'Split' && overAllocated} className="flex-1 rounded bg-btn-primary px-2 py-1 text-[10px] font-medium text-white hover:opacity-90 disabled:opacity-50">Save</button>
+      </div>
+    </div>
   );
 }

@@ -1,18 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Loader2 } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useBrands } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/store';
 import { getApiErrorMessage } from '@/lib/api';
+import { GridSkeleton } from '@/components/Skeleton';
 
 export default function StaffHomePage() {
   const router = useRouter();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const branchName = useAuthStore((s) => s.user?.branch?.name);
-  const { data, isLoading, isError, error } = useBrands(search);
+  const { data, isLoading, isError, error } = useBrands(debouncedSearch);
   const brands = data?.data ?? [];
+
+  // Debounce search input by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   return (
     <div>
@@ -35,9 +43,7 @@ export default function StaffHomePage() {
       </div>
 
       {isLoading ? (
-        <div className="py-16 text-center text-text-muted">
-          <Loader2 className="inline animate-spin mr-2" size={16} /> Loading brands...
-        </div>
+        <GridSkeleton count={10} />
       ) : isError ? (
         <div className="py-16 text-center text-accent-red">{getApiErrorMessage(error)}</div>
       ) : brands.length === 0 ? (
@@ -53,7 +59,7 @@ export default function StaffHomePage() {
               <div className="flex aspect-square items-center justify-center bg-white/5">
                 {brand.coverImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={brand.coverImage} alt={brand.name} className="h-full w-full object-cover" />
+                  <img src={brand.coverImage} alt={brand.name} loading="lazy" className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-xs text-text-muted">No Image Available</span>
                 )}

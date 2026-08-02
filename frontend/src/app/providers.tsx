@@ -11,6 +11,12 @@ export function Providers({ children }: { children: ReactNode }) {
           queries: {
             refetchOnWindowFocus: false,
             retry: 1,
+            // Data is considered fresh for 5 seconds — prevents redundant
+            // refetches on re-renders and navigations.
+            staleTime: 5000,
+            // Keep unused cached data in memory for 5 minutes so navigating
+            // back to a page is instant.
+            gcTime: 300_000,
           },
         },
       }),
