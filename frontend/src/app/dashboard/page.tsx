@@ -38,7 +38,7 @@ export default function DashboardPage() {
     label: formatBucket(p.date, period),
     total: p.total,
   }));
-  const topData = topProducts.map((p) => ({ name: p.name, quantity: p.quantity }));
+  const topData = topProducts.map((p) => ({ name: p.name, quantity: p.quantity, revenue: p.revenue }));
 
   return (
     <div className="space-y-6">
@@ -50,9 +50,30 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard href="/dashboard/shops" icon={<Store size={24} />} value={v(stats?.shops)} label="Shops" />
         <StatsCard href="/dashboard/products" icon={<Package size={24} />} value={v(stats?.products)} label="Products" subtitle={`${v(stats?.brands)} brands`} />
-        <StatsCard href="/dashboard/sales/pending" icon={<PhilippinePeso size={24} />} value={v(stats?.pendingSales)} label="Pending Sales" subtitle={`${v(stats?.approvedSales)} Approved Sales`} />
+        <StatsCard href="/dashboard/sales/pending" icon={<PhilippinePeso size={24} />} value={v(stats?.pendingSales)} label="Pending Sales" subtitle={`${v(stats?.approvedSales)} Approved`} />
         <StatsCard href="/dashboard/users" icon={<Users size={24} />} value={v(stats?.staff)} label="Staff" subtitle={`${v(stats?.admins)} Admins`} />
       </div>
+
+      {/* Revenue Summary */}
+      {stats && (
+        <div className="bg-card-bg border border-card-border rounded-xl p-5 shadow-sm shadow-black/20">
+          <p className="text-xs text-text-muted font-medium uppercase tracking-wider mb-3">Revenue (All-Time Approved)</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-xs text-text-secondary">Total Sales</p>
+              <p className="text-2xl font-bold text-accent-green">{peso(stats.approvedSalesTotal)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-secondary">Total Expenses</p>
+              <p className="text-2xl font-bold text-accent-red">—</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-secondary">Net Revenue</p>
+              <p className="text-2xl font-bold text-text-primary">{peso(stats.approvedSalesTotal)}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sales Overview */}
       <div className="bg-card-bg border border-card-border rounded-xl p-6 shadow-sm shadow-black/20">
@@ -110,10 +131,10 @@ export default function DashboardPage() {
           <ResponsiveContainer width="100%" height={Math.max(288, topData.length * 36)}>
             <BarChart data={topData} layout="vertical" margin={{ top: 0, right: 16, left: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} tickFormatter={(n) => peso(Number(n))} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} width={150} />
-              <Tooltip formatter={(val: any) => [`${val} units`, 'Sold']} contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
-              <Bar dataKey="quantity" fill="#8b5cf6" radius={[0, 4, 4, 0]} name="Units sold" />
+              <Tooltip formatter={(val: any, name: string) => [name === 'revenue' ? peso(Number(val)) : `${val} units`, name === 'revenue' ? 'Revenue' : 'Sold']} contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
+              <Bar dataKey="revenue" fill="#10b981" radius={[0, 4, 4, 0]} name="revenue" />
             </BarChart>
           </ResponsiveContainer>
         )}

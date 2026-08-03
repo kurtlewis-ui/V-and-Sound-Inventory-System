@@ -11,10 +11,6 @@ import {
 import { getApiErrorMessage } from '@/lib/api';
 import type { Branch } from '@/lib/types';
 
-function generateSlug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
-
 export default function ShopsPage() {
   const { data, isLoading, isError, error } = useBranches();
   const createBranch = useCreateBranch();
@@ -30,6 +26,7 @@ export default function ShopsPage() {
   const [editingShop, setEditingShop] = useState<Branch | null>(null);
   const [archivingShop, setArchivingShop] = useState<Branch | null>(null);
   const [newName, setNewName] = useState('');
+  const [newAddress, setNewAddress] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
   const filteredShops = shops.filter((s) =>
@@ -43,8 +40,9 @@ export default function ShopsPage() {
     }
     setFormError(null);
     try {
-      await createBranch.mutateAsync({ name: newName.trim() });
+      await createBranch.mutateAsync({ name: newName.trim(), address: newAddress.trim() || undefined });
       setNewName('');
+      setNewAddress('');
       setShowAddModal(false);
     } catch (e) {
       setFormError(getApiErrorMessage(e));
@@ -58,8 +56,9 @@ export default function ShopsPage() {
     }
     setFormError(null);
     try {
-      await updateBranch.mutateAsync({ id: editingShop.id, name: newName.trim() });
+      await updateBranch.mutateAsync({ id: editingShop.id, name: newName.trim(), address: newAddress.trim() || undefined });
       setNewName('');
+      setNewAddress('');
       setEditingShop(null);
       setShowEditModal(false);
     } catch (e) {
@@ -83,7 +82,7 @@ export default function ShopsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-text-primary">Shops</h1>
         <button
-          onClick={() => { setNewName(''); setFormError(null); setShowAddModal(true); }}
+          onClick={() => { setNewName(''); setNewAddress(''); setFormError(null); setShowAddModal(true); }}
           className="flex items-center gap-2 btn-grad px-4 py-2 rounded-lg text-sm font-medium"
         >
           <Plus size={16} />
@@ -108,7 +107,7 @@ export default function ShopsPage() {
             <tr className="bg-table-header">
               <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-table-header-text w-16">#</th>
               <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-table-header-text">Name</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-table-header-text">Slug</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-table-header-text">Address</th>
               <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-table-header-text">Staff</th>
               <th className="text-right px-4 py-3 text-xs font-semibold uppercase text-table-header-text w-24"></th>
             </tr>
@@ -125,12 +124,12 @@ export default function ShopsPage() {
                 <tr key={shop.id} className="border-t border-card-border hover:bg-white/5 transition-colors">
                   <td className="px-4 py-3 text-sm text-accent-blue font-medium">{i + 1}</td>
                   <td className="px-4 py-3 text-sm text-accent-blue font-medium">{shop.name}</td>
-                  <td className="px-4 py-3 text-sm text-accent-blue">{generateSlug(shop.name)}</td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{shop.address || '—'}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{shop.staffCount}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => { setEditingShop(shop); setNewName(shop.name); setFormError(null); setShowEditModal(true); }}
+                        onClick={() => { setEditingShop(shop); setNewName(shop.name); setNewAddress(shop.address ?? ''); setFormError(null); setShowEditModal(true); }}
                         className="icon-btn text-accent-blue hover:bg-accent-blue/10"
                         title="Edit"
                       >
@@ -164,6 +163,16 @@ export default function ShopsPage() {
                 className="w-full border border-input-border rounded px-3 py-2 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">Address (optional)</label>
+              <input
+                type="text"
+                value={newAddress}
+                onChange={(e) => setNewAddress(e.target.value)}
+                placeholder="e.g. 123 Main St, City"
+                className="w-full border border-input-border rounded px-3 py-2 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus"
+              />
+            </div>
             {formError && <p className="text-sm text-accent-red">{formError}</p>}
             <div className="flex justify-end">
               <button onClick={handleAdd} disabled={createBranch.isPending} className="btn-grad px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-60">
@@ -183,6 +192,16 @@ export default function ShopsPage() {
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
+                className="w-full border border-input-border rounded px-3 py-2 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">Address (optional)</label>
+              <input
+                type="text"
+                value={newAddress}
+                onChange={(e) => setNewAddress(e.target.value)}
+                placeholder="e.g. 123 Main St, City"
                 className="w-full border border-input-border rounded px-3 py-2 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus"
               />
             </div>
