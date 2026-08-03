@@ -16,7 +16,6 @@ import {
   Archive,
   ChevronDown,
   LogOut,
-  Settings as SettingsIcon,
   Menu,
   X,
 } from 'lucide-react';

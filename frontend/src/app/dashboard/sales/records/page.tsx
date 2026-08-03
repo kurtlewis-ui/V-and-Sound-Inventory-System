@@ -5,7 +5,6 @@ import { Search, Loader2 } from 'lucide-react';
 import { useSalesRecords, useBranches, useBranchSummary } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import type { PaymentMethod } from '@/lib/types';
-import { TableSkeleton } from '@/components/Skeleton';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -146,7 +145,7 @@ export default function SalesRecordsPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={10} className="p-0"><TableSkeleton rows={5} cols={10} /></td></tr>
+                <tr><td colSpan={10} className="text-center py-8 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading records...</td></tr>
               ) : isError ? (
                 <tr><td colSpan={10} className="text-center py-8 text-accent-red">{getApiErrorMessage(error)}</td></tr>
               ) : sales.length === 0 ? (
