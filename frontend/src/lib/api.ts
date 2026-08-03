@@ -28,6 +28,7 @@ function resolveBaseUrl(): string {
 export const api = axios.create({
   baseURL: resolveBaseUrl(),
   withCredentials: true,
+  timeout: 15_000, // 15-second timeout prevents indefinite hangs
 });
 
 // Attach the bearer token (if logged in) to every request.
@@ -78,8 +79,8 @@ api.interceptors.response.use(
 
     if (config && !config.__skipRetry && (isNetwork || isGateway)) {
       config.__retryCount = (config.__retryCount || 0) + 1;
-      if (config.__retryCount <= 8) {
-        const delay = Math.min(8000, 3000 * config.__retryCount);
+      if (config.__retryCount <= 4) {
+        const delay = Math.min(5000, 2000 * config.__retryCount);
         await new Promise((res) => setTimeout(res, delay));
         return api(config);
       }

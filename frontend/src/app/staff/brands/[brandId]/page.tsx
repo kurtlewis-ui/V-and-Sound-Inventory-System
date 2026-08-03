@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Search, Loader2, X, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Search, X, CheckCircle2 } from 'lucide-react';
 import { useBrands, useProducts } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/store';
 import { useDraftStore } from '@/lib/draft';
 import { getApiErrorMessage } from '@/lib/api';
+import { GridSkeleton } from '@/components/Skeleton';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -76,36 +77,58 @@ export default function BrandProductsPage() {
           Your account is not assigned to a shop. Ask an admin to assign one.
         </div>
       ) : isLoading ? (
-        <div className="py-16 text-center text-text-muted">
-          <Loader2 className="inline animate-spin mr-2" size={16} /> Loading products...
-        </div>
+        <GridSkeleton count={10} />
       ) : isError ? (
         <div className="py-16 text-center text-accent-red">{getApiErrorMessage(error)}</div>
       ) : products.length === 0 ? (
         <div className="py-16 text-center text-text-muted">No products found for this brand.</div>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {products.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setSelected(p)}
-              className="flex flex-col overflow-hidden rounded-xl border border-card-border bg-card-bg text-left shadow-sm transition hover:border-accent-primary/50 hover:shadow-md hover:shadow-accent-primary/10"
-            >
-              <div className="flex aspect-square items-center justify-center bg-white/5">
-                {p.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.image} alt={p.name} className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-xs text-text-muted">No Image Available</span>
+          {products.map((p) => {
+            const isOutOfStock = p.totalQuantity <= 0;
+            const isLowStock = !isOutOfStock && p.totalQuantity <= 5;
+            return (
+              <button
+                key={p.id}
+                onClick={() => setSelected(p)}
+                className={`relative flex flex-col overflow-hidden rounded-xl border bg-card-bg text-left shadow-sm transition hover:shadow-md hover:shadow-accent-primary/10 ${
+                  isOutOfStock
+                    ? 'border-accent-red/40 opacity-60 grayscale-[40%]'
+                    : isLowStock
+                    ? 'border-accent-orange/40 hover:border-accent-primary/50'
+                    : 'border-card-border hover:border-accent-primary/50'
+                }`}
+              >
+                {isOutOfStock && (
+                  <div className="absolute top-2 right-2 z-10 rounded bg-accent-red px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+                    OUT
+                  </div>
                 )}
-              </div>
-              <div className="px-3 py-2">
-                <p className="truncate text-sm font-semibold text-text-primary" title={p.name}>{p.name}</p>
-                <p className="text-sm font-bold text-accent-purple-light">{peso(p.sellingPrice)}</p>
-                <p className={`text-xs ${p.totalQuantity <= 0 ? 'text-accent-red' : 'text-text-muted'}`}>Stock/s: {p.totalQuantity}</p>
-              </div>
-            </button>
-          ))}
+                {isLowStock && (
+                  <div className="absolute top-2 right-2 z-10 rounded bg-accent-orange px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+                    LOW
+                  </div>
+                )}
+                <div className="flex aspect-square items-center justify-center bg-white/5">
+                  {p.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.image} alt={p.name} loading="lazy" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-xs text-text-muted">No Image Available</span>
+                  )}
+                </div>
+                <div className="px-3 py-2">
+                  <p className="truncate text-sm font-semibold text-text-primary" title={p.name}>{p.name}</p>
+                  <p className="text-sm font-bold text-accent-purple-light">{peso(p.sellingPrice)}</p>
+                  <p className={`text-xs ${isOutOfStock ? 'text-accent-red font-medium' : isLowStock ? 'text-accent-orange font-medium' : 'text-text-muted'}`}>
+                    Stock/s: {p.totalQuantity}
+                    {isOutOfStock && ' (Out of stock)'}
+                    {isLowStock && ' (Low stock)'}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -145,6 +168,7 @@ function AddPurchaseModal({
   const [splitCash, setSplitCash] = useState('');
   const [splitGcash, setSplitGcash] = useState('');
   const [splitBankTransfer, setSplitBankTransfer] = useState('');
+  const [disposalReason, setDisposalReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const addItem = useDraftStore((s) => s.addItem);
   const addDisposalItem = useDraftStore((s) => s.addDisposalItem);
@@ -232,6 +256,7 @@ function AddPurchaseModal({
         name: product.name,
         brandName: product.brand?.name ?? '',
         image: product.image,
+        reason: disposalReason.trim() || null,
       },
       qty,
     );
@@ -352,6 +377,23 @@ function AddPurchaseModal({
         </div>
 
         {error && <p className="mb-3 text-sm text-accent-red">{error}</p>}
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-text-primary mb-1">Disposal Reason (if disposing)</label>
+          <select
+            value={disposalReason}
+            onChange={(e) => setDisposalReason(e.target.value)}
+            className="w-full rounded border border-input-border bg-input-bg px-3 py-2 text-sm focus:outline-none focus:border-input-focus"
+          >
+            <option value="">Select reason...</option>
+            <option value="Damaged">Damaged</option>
+            <option value="Expired">Expired</option>
+            <option value="Defective">Defective</option>
+            <option value="Lost">Lost</option>
+            <option value="Sample/Tester">Sample/Tester</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
 
         <div className="flex flex-col items-end gap-2">
           <button

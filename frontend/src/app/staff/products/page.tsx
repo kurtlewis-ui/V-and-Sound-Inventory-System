@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useBrands, useProducts } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/store';
@@ -10,7 +10,7 @@ function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const PAGE_SIZES = [5, 10, 25, 50, 100, 'All'] as const;
+const PAGE_SIZES = [10, 25, 50] as const;
 type PageSize = (typeof PAGE_SIZES)[number];
 
 export default function StaffProductsPage() {
@@ -29,19 +29,16 @@ export default function StaffProductsPage() {
     branchId,
     brandId: brandId || undefined,
     search: search || undefined,
+    page,
+    limit: pageSize,
   });
-  const allProducts = data?.data ?? [];
+  const products = data?.data ?? [];
+  const pagination = data?.pagination;
+  const totalPages = pagination?.totalPages ?? 1;
+  const total = pagination?.total ?? products.length;
 
-  const perPage = pageSize === 'All' ? allProducts.length || 1 : pageSize;
-  const totalPages = Math.max(1, Math.ceil(allProducts.length / perPage));
-  const currentPage = Math.min(page, totalPages);
-  const pageProducts = useMemo(() => {
-    const start = (currentPage - 1) * perPage;
-    return allProducts.slice(start, start + perPage);
-  }, [allProducts, currentPage, perPage]);
-
-  const startIndex = allProducts.length === 0 ? 0 : (currentPage - 1) * perPage + 1;
-  const endIndex = Math.min(currentPage * perPage, allProducts.length);
+  const startIndex = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endIndex = Math.min(page * pageSize, total);
 
   return (
     <div>
@@ -67,14 +64,13 @@ export default function StaffProductsPage() {
             <select
               value={String(pageSize)}
               onChange={(e) => {
-                const v = e.target.value;
-                setPageSize(v === 'All' ? 'All' : (Number(v) as PageSize));
+                setPageSize(Number(e.target.value) as PageSize);
                 setPage(1);
               }}
               className="rounded-lg border border-input-border bg-input-bg px-2 py-1 text-sm focus:outline-none"
             >
               {PAGE_SIZES.map((s) => (
-                <option key={String(s)} value={String(s)}>{s}</option>
+                <option key={s} value={String(s)}>{s}</option>
               ))}
             </select>
             entries
@@ -107,22 +103,26 @@ export default function StaffProductsPage() {
                 <tr><td colSpan={6} className="py-10 text-center text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading products...</td></tr>
               ) : isError ? (
                 <tr><td colSpan={6} className="py-10 text-center text-accent-red">{getApiErrorMessage(error)}</td></tr>
-              ) : pageProducts.length === 0 ? (
+              ) : products.length === 0 ? (
                 <tr><td colSpan={6} className="py-10 text-center text-text-muted">No products found.</td></tr>
               ) : (
-                pageProducts.map((p, i) => (
+                products.map((p, i) => (
                   <tr key={p.id} className="border-t border-card-border hover:bg-white/5 transition">
                     <td className="px-4 py-3 text-sm text-accent-blue font-medium">{startIndex + i}</td>
                     <td className="px-4 py-3">
                       {p.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.image} alt={p.name} className="h-10 w-10 rounded object-cover bg-white/10" />
+                        <img src={p.image} alt={p.name} loading="lazy" className="h-10 w-10 rounded object-cover bg-white/10" />
                       ) : (
                         <div className="flex h-10 w-10 items-center justify-center rounded bg-white/10 text-[9px] text-text-muted">No Img</div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-text-primary">{p.name}</td>
-                    <td className="px-4 py-3 text-sm text-text-primary">{p.totalQuantity}</td>
+                    <td className={`px-4 py-3 text-sm ${p.totalQuantity <= 0 ? 'text-accent-red font-medium' : p.totalQuantity <= (p.quantityAlert || 5) ? 'text-accent-orange font-medium' : 'text-text-primary'}`}>
+                      {p.totalQuantity}
+                      {p.totalQuantity <= 0 && <span className="ml-1 text-[10px]">(Out)</span>}
+                      {p.totalQuantity > 0 && p.totalQuantity <= (p.quantityAlert || 5) && <span className="ml-1 text-[10px]">(Low)</span>}
+                    </td>
                     <td className="px-4 py-3 text-sm text-text-secondary">{p.brand?.name ?? '—'}</td>
                     <td className="px-4 py-3 text-sm text-text-primary">{peso(p.sellingPrice)}</td>
                   </tr>
@@ -134,21 +134,21 @@ export default function StaffProductsPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-card-border p-4">
           <p className="text-sm text-text-muted">
-            Showing {startIndex} to {endIndex} of {allProducts.length} products
+            Showing {startIndex} to {endIndex} of {total} products
           </p>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage <= 1}
+              disabled={page <= 1}
               className="rounded-lg px-3 py-1.5 text-sm text-text-secondary hover:bg-white/5 disabled:opacity-40"
             >
               Previous
             </button>
-            <span className="rounded-lg bg-accent-primary px-3 py-1.5 text-sm font-medium text-white">{currentPage}</span>
+            <span className="rounded-lg bg-accent-primary px-3 py-1.5 text-sm font-medium text-white">{page}</span>
             <span className="px-1 text-sm text-text-muted">/ {totalPages}</span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage >= totalPages}
+              disabled={page >= totalPages}
               className="rounded-lg px-3 py-1.5 text-sm text-text-secondary hover:bg-white/5 disabled:opacity-40"
             >
               Next

@@ -34,7 +34,15 @@ import type {
 
 // Staff Drafts / Pending Disposals / Pending Expenses poll this often on the
 // admin's Pending Sales page so it feels close to real-time.
-const LIVE_POLL_MS = 2500;
+const LIVE_POLL_MS = 10_000;
+
+// Returns false when the browser tab is hidden or the device is offline,
+// pausing polling to save bandwidth and battery.
+function shouldPoll(): number | false {
+  if (typeof document !== 'undefined' && document.hidden) return false;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
+  return LIVE_POLL_MS;
+}
 
 // Every backend response is wrapped as { success, data, pagination?, summary? }.
 async function getData<T>(url: string, params?: Record<string, unknown>): Promise<T> {
@@ -182,12 +190,13 @@ export interface ProductMutationInput {
   quantities?: { branchId: string; quantity: number }[];
 }
 
-export function useProducts(params?: { search?: string; brandId?: string; branchId?: string }) {
+export function useProducts(params?: { search?: string; brandId?: string; branchId?: string; page?: number; limit?: number }) {
   return useQuery({
     queryKey: ['products', params ?? {}],
     queryFn: () =>
       getList<Product>('/products', {
-        limit: 200,
+        limit: params?.limit ?? 20,
+        page: params?.page ?? 1,
         search: params?.search || undefined,
         brandId: params?.brandId || undefined,
         branchId: params?.branchId || undefined,
@@ -394,7 +403,7 @@ export function useSalesRecords(params?: {
         startDate: params?.startDate || undefined,
         endDate: params?.endDate || undefined,
       }),
-    refetchInterval: LIVE_POLL_MS,
+    refetchInterval: shouldPoll,
   });
 }
 
@@ -414,7 +423,7 @@ export function useSalesPending(params?: {
         startDate: params?.startDate || undefined,
         endDate: params?.endDate || undefined,
       }),
-    refetchInterval: LIVE_POLL_MS,
+    refetchInterval: shouldPoll,
   });
 }
 
@@ -535,7 +544,7 @@ export function useMyDraftExists() {
   return useQuery({
     queryKey: ['my-draft-exists'],
     queryFn: () => getData<MyDraftContent>('/sales/draft'),
-    refetchInterval: 4000,
+    refetchInterval: shouldPoll,
   });
 }
 
@@ -545,7 +554,7 @@ export function useStaffDrafts(branchId?: string) {
   return useQuery({
     queryKey: ['staff-drafts', { branchId }],
     queryFn: () => getData<StaffDraft[]>('/sales/drafts', { branchId: branchId || undefined }),
-    refetchInterval: LIVE_POLL_MS,
+    refetchInterval: shouldPoll,
   });
 }
 
@@ -619,7 +628,7 @@ export function useDisposals(params?: { search?: string; branchId?: string; star
         summary: (res.data.summary ?? { totalValue: 0, totalQuantity: 0, count: 0 }) as DisposalSummary,
       };
     },
-    refetchInterval: LIVE_POLL_MS,
+    refetchInterval: shouldPoll,
   });
 }
 
@@ -648,7 +657,7 @@ export function useDisposalsPending(params?: { search?: string; branchId?: strin
         summary: (res.data.summary ?? { totalValue: 0, totalQuantity: 0, count: 0 }) as DisposalSummary,
       };
     },
-    refetchInterval: LIVE_POLL_MS,
+    refetchInterval: shouldPoll,
   });
 }
 
@@ -705,7 +714,7 @@ export function useExpenses(params?: {
         summary: (res.data.summary ?? { totalAmount: 0, count: 0 }) as ExpenseSummary,
       };
     },
-    refetchInterval: LIVE_POLL_MS,
+    refetchInterval: shouldPoll,
   });
 }
 
@@ -725,7 +734,7 @@ export function useExpensesPending(params?: { search?: string; branchId?: string
         summary: (res.data.summary ?? { totalAmount: 0, count: 0 }) as ExpenseSummary,
       };
     },
-    refetchInterval: LIVE_POLL_MS,
+    refetchInterval: shouldPoll,
   });
 }
 
@@ -751,7 +760,7 @@ export function useBranchSummary(branchId?: string, options?: { enabled?: boolea
   return useQuery({
     queryKey: ['stats', 'branch-summary', { branchId }],
     queryFn: () => getData<BranchSummary>('/stats/branch-summary', { branchId: branchId || undefined }),
-    refetchInterval: LIVE_POLL_MS,
+    refetchInterval: shouldPoll,
     // Admin/Owner must pass a specific branch — skip the query entirely
     // when none is selected (e.g. "All Shops" on the Sales Records page)
     // instead of firing a request that's guaranteed to 400.
