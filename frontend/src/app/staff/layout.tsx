@@ -584,6 +584,9 @@ function DraftBag() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-text-primary">{item.name}</p>
                           <p className="truncate text-xs text-text-muted">{item.brandName}</p>
+                          {item.reason && (
+                            <p className="truncate text-[10px] text-accent-orange mt-0.5">{item.reason}</p>
+                          )}
                         </div>
                         <div className="flex items-center gap-1">
                           <button onClick={() => setDisposalQuantity(item.productId, item.quantity - 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Decrease"><Minus size={14} /></button>

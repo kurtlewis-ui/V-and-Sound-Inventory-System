@@ -169,6 +169,7 @@ function AddPurchaseModal({
   const [splitGcash, setSplitGcash] = useState('');
   const [splitBankTransfer, setSplitBankTransfer] = useState('');
   const [disposalReason, setDisposalReason] = useState('');
+  const [disposalNote, setDisposalNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const addItem = useDraftStore((s) => s.addItem);
   const addDisposalItem = useDraftStore((s) => s.addDisposalItem);
@@ -250,13 +251,18 @@ function AddPurchaseModal({
     setError(null);
     const qty = validQty();
     if (qty === null) return;
+    // Combine dropdown reason and note into one string.
+    const reasonParts: string[] = [];
+    if (disposalReason.trim()) reasonParts.push(disposalReason.trim());
+    if (disposalNote.trim()) reasonParts.push(disposalNote.trim());
+    const combinedReason = reasonParts.join(' — ') || null;
     addDisposalItem(
       {
         productId: product.id,
         name: product.name,
         brandName: product.brand?.name ?? '',
         image: product.image,
-        reason: disposalReason.trim() || null,
+        reason: combinedReason,
       },
       qty,
     );
@@ -386,13 +392,20 @@ function AddPurchaseModal({
             className="w-full rounded border border-input-border bg-input-bg px-3 py-2 text-sm focus:outline-none focus:border-input-focus"
           >
             <option value="">Select reason...</option>
-            <option value="Damaged">Damaged</option>
+            <option value="Leak">Leak</option>
+            <option value="Damage">Damage</option>
+            <option value="Crack">Crack</option>
             <option value="Expired">Expired</option>
-            <option value="Defective">Defective</option>
-            <option value="Lost">Lost</option>
-            <option value="Sample/Tester">Sample/Tester</option>
-            <option value="Other">Other</option>
+            <option value="Burned">Burned</option>
+            <option value="Not Working">Not Working</option>
           </select>
+          <input
+            type="text"
+            value={disposalNote}
+            onChange={(e) => setDisposalNote(e.target.value)}
+            placeholder="Add note (optional)"
+            className="mt-2 w-full rounded border border-input-border bg-input-bg px-3 py-2 text-sm focus:outline-none focus:border-input-focus"
+          />
         </div>
 
         <div className="flex flex-col items-end gap-2">
