@@ -266,10 +266,54 @@ function DraftBag() {
           clearDraftSync.mutate();
         }
       } else {
+        // Before pushing, merge any server-side items that don't exist
+        // locally. This prevents a decline-restored item (added server-side
+        // by restoreToDraft) from being overwritten by our full-replace push.
+        // If we find missing items, adopt them locally too so the next cycle
+        // doesn't push without them again.
+        const server = myDraftExistsRef.current;
+        let mergedItems = items;
+        let mergedDisposalItems = disposalItems;
+        let mergedExpenses = expenses;
+        let hasNewServerContent = false;
+        if (server?.exists) {
+          // Append server items whose productId isn't in our local list.
+          const localProductIds = new Set(items.map((i) => i.productId));
+          const missingItems = (server.items ?? []).filter(
+            (si: { productId: string }) => !localProductIds.has(si.productId),
+          );
+          if (missingItems.length > 0) {
+            mergedItems = [...items, ...missingItems];
+            hasNewServerContent = true;
+          }
+          const localDisposalIds = new Set(disposalItems.map((i) => i.productId));
+          const missingDisposals = (server.disposalItems ?? []).filter(
+            (si: { productId: string }) => !localDisposalIds.has(si.productId),
+          );
+          if (missingDisposals.length > 0) {
+            mergedDisposalItems = [...disposalItems, ...missingDisposals];
+            hasNewServerContent = true;
+          }
+          // For expenses, check by amount+note signature to avoid duplicates.
+          const localExpSigs = new Set(expenses.map((e) => `${e.amount}|${e.note}`));
+          const missingExpenses = (server.expenses ?? []).filter(
+            (se: { amount: number; note: string }) => !localExpSigs.has(`${se.amount}|${se.note}`),
+          );
+          if (missingExpenses.length > 0) {
+            mergedExpenses = [...expenses, ...missingExpenses];
+            hasNewServerContent = true;
+          }
+        }
+        // If decline-restored items were found, adopt them locally so the
+        // store reflects the full merged state going forward.
+        if (hasNewServerContent) {
+          suppressNextSync.current = true;
+          replaceAll(mergedItems, mergedDisposalItems, mergedExpenses);
+        }
         saveDraft.mutate({
-          items,
-          disposalItems,
-          expenses,
+          items: mergedItems,
+          disposalItems: mergedDisposalItems,
+          expenses: mergedExpenses,
           customerName: customerName.trim() || undefined,
         });
       }
