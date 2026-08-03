@@ -185,7 +185,7 @@ export default function ProductsPage() {
                   <td className="px-3 py-3">
                     {product.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover bg-white/10" />
+                      <img src={product.image} alt={product.name} loading="lazy" className="w-10 h-10 rounded object-cover bg-white/10" />
                     ) : (
                       <div className="w-10 h-10 rounded bg-white/10 flex items-center justify-center text-[10px] text-text-muted">No Img</div>
                     )}
@@ -193,12 +193,35 @@ export default function ProductsPage() {
                   <td className="px-3 py-3 text-sm text-text-primary font-medium">{product.name}</td>
                   <td className="px-3 py-3 text-sm">
                     {shopFilter ? (
-                      <span className="font-medium text-text-primary">{qtyForBranch(product, shopFilter)}</span>
+                      (() => {
+                        const qty = qtyForBranch(product, shopFilter);
+                        const isOut = qty <= 0;
+                        const isLow = !isOut && product.quantityAlert > 0 && qty <= product.quantityAlert;
+                        return (
+                          <span className={`font-medium ${isOut ? 'text-accent-red' : isLow ? 'text-accent-orange' : 'text-text-primary'}`}>
+                            {qty}
+                            {isOut && <span className="ml-1 text-[10px]">(Out)</span>}
+                            {isLow && <span className="ml-1 text-[10px]">(Low)</span>}
+                          </span>
+                        );
+                      })()
                     ) : (
                       <div className="space-y-0.5">
-                        {branches.map((b) => (
-                          <div key={b.id} className="text-xs"><span className="font-semibold text-text-primary">{b.name}:</span> <span className="text-accent-blue">{qtyForBranch(product, b.id)}</span></div>
-                        ))}
+                        {branches.map((b) => {
+                          const qty = qtyForBranch(product, b.id);
+                          const isOut = qty <= 0;
+                          const isLow = !isOut && product.quantityAlert > 0 && qty <= product.quantityAlert;
+                          return (
+                            <div key={b.id} className="text-xs">
+                              <span className="font-semibold text-text-primary">{b.name}:</span>{' '}
+                              <span className={`${isOut ? 'text-accent-red font-medium' : isLow ? 'text-accent-orange font-medium' : 'text-accent-blue'}`}>
+                                {qty}
+                                {isOut && <span className="ml-0.5 text-[9px]">(Out)</span>}
+                                {isLow && <span className="ml-0.5 text-[9px]">(Low)</span>}
+                              </span>
+                            </div>
+                          );
+                        })}
                         {branches.length === 0 && <span className="text-xs text-text-muted">No shops yet</span>}
                       </div>
                     )}

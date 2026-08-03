@@ -18,7 +18,15 @@ function paymentDotColor(pm: PaymentMethod) {
     default: return 'bg-text-muted';
   }
 }
-function itemPaymentLabel(item: { paymentMethod: PaymentMethod; bankNote?: string | null }) {
+function itemPaymentLabel(item: { paymentMethod: PaymentMethod; bankNote?: string | null; paymentSplit?: { cash: number; gcash: number; bankTransfer: number; cashless: number } | null }) {
+  if (item.paymentMethod === 'Split' && item.paymentSplit) {
+    const parts: string[] = [];
+    if (item.paymentSplit.cash > 0) parts.push(`₱${item.paymentSplit.cash.toLocaleString(undefined, { minimumFractionDigits: 2 })} Cash`);
+    if (item.paymentSplit.gcash > 0) parts.push(`₱${item.paymentSplit.gcash.toLocaleString(undefined, { minimumFractionDigits: 2 })} Gcash`);
+    if (item.paymentSplit.bankTransfer > 0) parts.push(`₱${item.paymentSplit.bankTransfer.toLocaleString(undefined, { minimumFractionDigits: 2 })} Bank`);
+    if (item.paymentSplit.cashless > 0) parts.push(`₱${item.paymentSplit.cashless.toLocaleString(undefined, { minimumFractionDigits: 2 })} Cashless`);
+    return parts.join(' · ') || 'Split';
+  }
   if (item.paymentMethod === 'BankTransfer') return `Bank Transfer${item.bankNote ? ` (${item.bankNote})` : ''}`;
   return item.paymentMethod;
 }
@@ -130,22 +138,30 @@ export default function SalesRecordsPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Selling Price</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Sub Total</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Payment</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Staff</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Date</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={9} className="text-center py-8 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading records...</td></tr>
+                <tr><td colSpan={10} className="text-center py-8 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading records...</td></tr>
               ) : isError ? (
-                <tr><td colSpan={9} className="text-center py-8 text-accent-red">{getApiErrorMessage(error)}</td></tr>
+                <tr><td colSpan={10} className="text-center py-8 text-accent-red">{getApiErrorMessage(error)}</td></tr>
               ) : sales.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-8 text-text-muted">No sales records found.</td></tr>
+                <tr><td colSpan={10} className="text-center py-8 text-text-muted">No sales records found.</td></tr>
               ) : sales.map((sale) => (
                 <Fragment key={sale.id}>
                   {sale.items.map((item, idx) => (
                     <tr key={item.id} className="border-b border-card-border hover:bg-white/5 transition">
-                      <td className="px-4 py-3 text-sm text-text-primary font-medium">{idx === 0 ? `#${sale.number}` : ''}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary font-medium">
+                        {idx === 0 && (
+                          <>
+                            {`#${sale.number}`}
+                            {sale.customerName && <p className="text-[10px] font-normal text-accent-blue mt-0.5">{sale.customerName}</p>}
+                          </>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm text-text-primary">{item.name}</td>
                       <td className="px-4 py-3 text-sm text-text-primary">{item.quantity}</td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{item.brandName}</td>
@@ -160,12 +176,22 @@ export default function SalesRecordsPage() {
                           {itemPaymentLabel(item)}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-sm">
+                        {idx === 0 && (
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${sale.status === 'APPROVED' ? 'bg-accent-green/15 text-accent-green' : sale.status === 'DECLINED' ? 'bg-accent-red/15 text-accent-red' : 'bg-accent-orange/15 text-accent-orange'}`}>
+                            {sale.status.charAt(0) + sale.status.slice(1).toLowerCase()}
+                          </span>
+                        )}
+                        {idx === 0 && sale.decidedAt && (
+                          <p className="text-[10px] text-text-muted mt-0.5">{formatDate(sale.decidedAt)}</p>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{sale.staff?.name ?? '—'}</td>
-                      <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(sale.createdAt)}</td>
+                      <td className="px-4 py-3 text-sm text-text-secondary">{idx === 0 ? formatDate(sale.createdAt) : ''}</td>
                     </tr>
                   ))}
                   <tr className="bg-accent-orange/10 border-b border-card-border">
-                    <td colSpan={9} className="px-4 py-2 text-sm font-semibold text-accent-orange">
+                    <td colSpan={10} className="px-4 py-2 text-sm font-semibold text-accent-orange">
                       Total for Sale #{sale.number}{sale.branch ? ` (${sale.branch.name})` : ''}: {peso(sale.total)}
                     </td>
                   </tr>

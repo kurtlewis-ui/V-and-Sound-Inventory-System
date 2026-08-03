@@ -17,8 +17,10 @@ export default function ActivityLogsPage() {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [entriesPerPage, setEntriesPerPage] = useState<number | 'All'>(10);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
-  const { data, isLoading, isError, error } = useActivityLogs({ search, category: activeCategory });
+  const { data, isLoading, isError, error } = useActivityLogs({ search, category: activeCategory, startDate: startDate || undefined, endDate: endDate || undefined });
   const logs = data?.data ?? [];
   const displayedLogs = entriesPerPage === 'All' ? logs : logs.slice(0, entriesPerPage);
 
@@ -39,6 +41,15 @@ export default function ActivityLogsPage() {
             {cat}
           </button>
         ))}
+      </div>
+
+      {/* Date Filter */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus" />
+        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus" />
+        {(startDate || endDate) && (
+          <button onClick={() => { setStartDate(''); setEndDate(''); }} className="px-3 py-2 text-sm text-text-secondary border border-input-border rounded-lg hover:bg-white/5 transition">Clear dates</button>
+        )}
       </div>
 
       <div className="bg-card-bg rounded-xl border border-card-border shadow-sm">

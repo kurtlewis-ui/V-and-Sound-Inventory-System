@@ -16,7 +16,8 @@ import {
   Archive,
   ChevronDown,
   LogOut,
-  Settings as SettingsIcon,
+  Menu,
+  X,
 } from 'lucide-react';
 
 interface NavItem {
@@ -41,7 +42,7 @@ const navItems: NavItem[] = [
       { label: 'Disposals', href: '/dashboard/sales/disposals' },
     ],
   },
-  { label: 'User', href: '/dashboard/users', icon: <Users size={16} /> },
+  { label: 'Users', href: '/dashboard/users', icon: <Users size={16} /> },
   { label: 'Activity Logs', href: '/dashboard/activity-logs', icon: <ClipboardList size={16} /> },
   {
     label: 'Archive',
@@ -62,6 +63,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, accessToken, logout } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
 
   // Close the open dropdown when clicking outside the nav or pressing Escape.
@@ -86,6 +88,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // Always close the dropdown when navigating to another page.
   useEffect(() => {
     setOpenDropdown(null);
+    setMobileNavOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -137,12 +140,21 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-50 bg-nav-bg/80 backdrop-blur-md border-b border-nav-border shadow-sm shadow-black/20">
         {/* Top bar: Logo + User */}
         <div className="flex items-center justify-between px-6 py-3">
-          <Link href="/dashboard" className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-primary text-sm font-bold text-white">
-              V
-            </span>
-            <span className="text-lg font-bold text-text-primary">Vape Shop</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMobileNavOpen(!mobileNavOpen)}
+              className="md:hidden flex items-center rounded-lg p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
+              aria-label="Toggle navigation"
+            >
+              {mobileNavOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+            <Link href="/dashboard" className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-primary text-sm font-bold text-white">
+                V
+              </span>
+              <span className="text-lg font-bold text-text-primary">Vape Shop</span>
+            </Link>
+          </div>
           <div className="flex items-center gap-3">
             <Link href="/dashboard/settings" className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 transition-colors" title="Settings">
               {user?.avatarUrl ? (
@@ -157,14 +169,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 {user?.firstName} {user?.lastName}
               </span>
             </Link>
-            <Link
-              href="/dashboard/settings"
-              className="flex items-center rounded-lg p-2 text-sm text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
-              title="Settings"
-              aria-label="Settings"
-            >
-              <SettingsIcon size={16} />
-            </Link>
             <button
               onClick={handleLogout}
               className="flex items-center gap-1 rounded-lg p-2 text-sm text-text-secondary hover:text-accent-red hover:bg-accent-red/10 transition-colors"
@@ -177,7 +181,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </div>
 
         {/* Navigation Bar */}
-        <nav ref={navRef} className="flex flex-wrap items-center justify-center gap-1 px-6 pb-2">
+        <nav ref={navRef} className={`${mobileNavOpen ? 'flex' : 'hidden'} md:flex flex-wrap items-center justify-center gap-1 px-6 pb-2`}>
           {navItems.map((item) => {
             const active = isActive(item);
             const hasDropdown = !!item.dropdown;

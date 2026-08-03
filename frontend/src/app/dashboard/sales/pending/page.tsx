@@ -41,7 +41,15 @@ function paymentDotColor(pm: PaymentMethod) {
     default: return 'bg-text-muted';
   }
 }
-function itemPaymentLabel(item: { paymentMethod: PaymentMethod; bankNote?: string | null }) {
+function itemPaymentLabel(item: { paymentMethod: PaymentMethod; bankNote?: string | null; paymentSplit?: PaymentSplit | null }) {
+  if (item.paymentMethod === 'Split' && item.paymentSplit) {
+    const parts: string[] = [];
+    if (item.paymentSplit.cash > 0) parts.push(`₱${item.paymentSplit.cash.toLocaleString(undefined, { minimumFractionDigits: 2 })} Cash`);
+    if (item.paymentSplit.gcash > 0) parts.push(`₱${item.paymentSplit.gcash.toLocaleString(undefined, { minimumFractionDigits: 2 })} Gcash`);
+    if (item.paymentSplit.bankTransfer > 0) parts.push(`₱${item.paymentSplit.bankTransfer.toLocaleString(undefined, { minimumFractionDigits: 2 })} Bank`);
+    if (item.paymentSplit.cashless > 0) parts.push(`₱${item.paymentSplit.cashless.toLocaleString(undefined, { minimumFractionDigits: 2 })} Cashless`);
+    return parts.join(' · ') || 'Split';
+  }
   if (item.paymentMethod === 'BankTransfer') return `Bank Transfer${item.bankNote ? ` (${item.bankNote})` : ''}`;
   return item.paymentMethod;
 }
@@ -130,6 +138,14 @@ export default function SalesPendingPage() {
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [deletingSale, setDeletingSale] = useState<Sale | null>(null);
+  const [confirmAction, setConfirmAction] = useState<string | null>(null);
+
+  // Auto-dismiss success messages after 5 seconds.
+  useEffect(() => {
+    if (!actionStatus) return;
+    const timer = setTimeout(() => setActionStatus(null), 5000);
+    return () => clearTimeout(timer);
+  }, [actionStatus]);
 
   async function runSafe(fn: () => Promise<unknown>) {
     setActionError(null);
@@ -140,6 +156,8 @@ export default function SalesPendingPage() {
   const handleApproveAll = () => {
     const n = sales.length;
     if (n === 0) return;
+    if (confirmAction !== 'approve-all-sales') { setConfirmAction('approve-all-sales'); return; }
+    setConfirmAction(null);
     runSafe(async () => {
       await Promise.all(sales.map((s) => approveSale.mutateAsync(s.id)));
       setActionStatus(`✓ All ${n} pending sale${n === 1 ? '' : 's'} have been approved.`);
@@ -148,6 +166,8 @@ export default function SalesPendingPage() {
   const handleDeclineAll = () => {
     const n = sales.length;
     if (n === 0) return;
+    if (confirmAction !== 'decline-all-sales') { setConfirmAction('decline-all-sales'); return; }
+    setConfirmAction(null);
     runSafe(async () => {
       await Promise.all(sales.map((s) => declineSale.mutateAsync(s.id)));
       setActionStatus(`✓ All ${n} pending sale${n === 1 ? '' : 's'} have been declined.`);
@@ -162,11 +182,17 @@ export default function SalesPendingPage() {
         <h1 className="text-2xl font-bold text-text-primary">Pending Sales</h1>
         <div className="flex items-center gap-2">
           <button onClick={handleApproveAll} disabled={busy || sales.length === 0} className="flex items-center gap-1.5 px-4 py-2 bg-accent-green text-white rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-70">
-            <CheckCircle size={16} /> Approve All
+            <CheckCircle size={16} /> {confirmAction === 'approve-all-sales' ? 'Confirm Approve All?' : 'Approve All'}
           </button>
+          {confirmAction === 'approve-all-sales' && (
+            <button onClick={() => setConfirmAction(null)} className="px-3 py-2 bg-white/10 text-text-primary rounded-lg text-sm font-medium hover:bg-white/15 transition">Cancel</button>
+          )}
           <button onClick={handleDeclineAll} disabled={busy || sales.length === 0} className="flex items-center gap-1.5 px-4 py-2 bg-accent-red text-white rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-70">
-            <XCircle size={16} /> Decline All
+            <XCircle size={16} /> {confirmAction === 'decline-all-sales' ? 'Confirm Decline All?' : 'Decline All'}
           </button>
+          {confirmAction === 'decline-all-sales' && (
+            <button onClick={() => setConfirmAction(null)} className="px-3 py-2 bg-white/10 text-text-primary rounded-lg text-sm font-medium hover:bg-white/15 transition">Cancel</button>
+          )}
         </div>
       </div>
 
@@ -247,7 +273,14 @@ export default function SalesPendingPage() {
                 <Fragment key={sale.id}>
                   {sale.items.map((item, idx) => (
                     <tr key={item.id} className="border-b border-card-border hover:bg-white/5 transition">
-                      <td className="px-4 py-3 text-sm text-text-primary font-medium">{idx === 0 ? `#${sale.number}` : ''}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary font-medium">
+                        {idx === 0 && (
+                          <>
+                            {`#${sale.number}`}
+                            {sale.customerName && <p className="text-[10px] font-normal text-accent-blue mt-0.5">{sale.customerName}</p>}
+                          </>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm text-text-primary">{item.name}</td>
                       <td className="px-4 py-3 text-sm text-text-primary">{item.quantity}</td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{item.brandName}</td>
@@ -374,20 +407,27 @@ export default function SalesPendingPage() {
                   <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(d.updatedAt)}</td>
                   <td className="px-4 py-3">
                     <button
-                      onClick={() => runSafe(async () => {
-                        const result = await saveDraftForStaff.mutateAsync(d.staff.id);
-                        setActionStatus(
-                          result.errors.length > 0
-                            ? `Saved ${d.staff.name}'s draft with issues: ${result.errors.join('; ')}`
-                            : `✓ Saved ${d.staff.name}'s draft — now pending approval.`,
-                        );
-                      })}
+                      onClick={() => {
+                        if (confirmAction !== `save-draft-${d.staff.id}`) { setConfirmAction(`save-draft-${d.staff.id}`); return; }
+                        setConfirmAction(null);
+                        runSafe(async () => {
+                          const result = await saveDraftForStaff.mutateAsync(d.staff.id);
+                          setActionStatus(
+                            result.errors.length > 0
+                              ? `Saved ${d.staff.name}'s draft with issues: ${result.errors.join('; ')}`
+                              : `✓ Saved ${d.staff.name}'s draft — now pending approval.`,
+                          );
+                        });
+                      }}
                       disabled={saveDraftForStaff.isPending}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-primary text-white rounded-lg text-xs font-medium hover:opacity-90 transition disabled:opacity-70"
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium hover:opacity-90 transition disabled:opacity-70 ${confirmAction === `save-draft-${d.staff.id}` ? 'bg-accent-orange text-white' : 'bg-accent-primary text-white'}`}
                       title="Submit this staff member's draft on their behalf"
                     >
-                      <Send size={13} /> Save Draft
+                      <Send size={13} /> {confirmAction === `save-draft-${d.staff.id}` ? 'Confirm Submit?' : 'Save Draft'}
                     </button>
+                    {confirmAction === `save-draft-${d.staff.id}` && (
+                      <button onClick={() => setConfirmAction(null)} className="mt-1 text-[10px] text-text-muted hover:text-text-primary">Cancel</button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -405,19 +445,25 @@ export default function SalesPendingPage() {
           </h2>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { const n = disposals.length; if (!n) return; runSafe(async () => { await Promise.all(disposals.map((d) => approveDisposal.mutateAsync(d.id))); setActionStatus(`✓ All ${n} disposal${n === 1 ? '' : 's'} approved (stock deducted).`); }); }}
+              onClick={() => { const n = disposals.length; if (!n) return; if (confirmAction !== 'approve-all-disposals') { setConfirmAction('approve-all-disposals'); return; } setConfirmAction(null); runSafe(async () => { await Promise.all(disposals.map((d) => approveDisposal.mutateAsync(d.id))); setActionStatus(`✓ All ${n} disposal${n === 1 ? '' : 's'} approved (stock deducted).`); }); }}
               disabled={disposals.length === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green text-white rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-70"
             >
-              <CheckCircle size={15} /> Approve All
+              <CheckCircle size={15} /> {confirmAction === 'approve-all-disposals' ? 'Confirm?' : 'Approve All'}
             </button>
+            {confirmAction === 'approve-all-disposals' && (
+              <button onClick={() => setConfirmAction(null)} className="px-2 py-1.5 bg-white/10 text-text-primary rounded-lg text-xs font-medium">Cancel</button>
+            )}
             <button
-              onClick={() => { const n = disposals.length; if (!n) return; runSafe(async () => { await Promise.all(disposals.map((d) => declineDisposal.mutateAsync(d.id))); setActionStatus(`All ${n} disposal${n === 1 ? '' : 's'} declined.`); }); }}
+              onClick={() => { const n = disposals.length; if (!n) return; if (confirmAction !== 'decline-all-disposals') { setConfirmAction('decline-all-disposals'); return; } setConfirmAction(null); runSafe(async () => { await Promise.all(disposals.map((d) => declineDisposal.mutateAsync(d.id))); setActionStatus(`All ${n} disposal${n === 1 ? '' : 's'} declined.`); }); }}
               disabled={disposals.length === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red text-white rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-70"
             >
-              <XCircle size={15} /> Decline All
+              <XCircle size={15} /> {confirmAction === 'decline-all-disposals' ? 'Confirm?' : 'Decline All'}
             </button>
+            {confirmAction === 'decline-all-disposals' && (
+              <button onClick={() => setConfirmAction(null)} className="px-2 py-1.5 bg-white/10 text-text-primary rounded-lg text-xs font-medium">Cancel</button>
+            )}
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -472,19 +518,25 @@ export default function SalesPendingPage() {
           </h2>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { const n = expenses.length; if (!n) return; runSafe(async () => { await Promise.all(expenses.map((e) => approveExpense.mutateAsync(e.id))); setActionStatus(`✓ All ${n} expense${n === 1 ? '' : 's'} approved.`); }); }}
+              onClick={() => { const n = expenses.length; if (!n) return; if (confirmAction !== 'approve-all-expenses') { setConfirmAction('approve-all-expenses'); return; } setConfirmAction(null); runSafe(async () => { await Promise.all(expenses.map((e) => approveExpense.mutateAsync(e.id))); setActionStatus(`✓ All ${n} expense${n === 1 ? '' : 's'} approved.`); }); }}
               disabled={expenses.length === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green text-white rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-70"
             >
-              <CheckCircle size={15} /> Approve All
+              <CheckCircle size={15} /> {confirmAction === 'approve-all-expenses' ? 'Confirm?' : 'Approve All'}
             </button>
+            {confirmAction === 'approve-all-expenses' && (
+              <button onClick={() => setConfirmAction(null)} className="px-2 py-1.5 bg-white/10 text-text-primary rounded-lg text-xs font-medium">Cancel</button>
+            )}
             <button
-              onClick={() => { const n = expenses.length; if (!n) return; runSafe(async () => { await Promise.all(expenses.map((e) => declineExpense.mutateAsync(e.id))); setActionStatus(`All ${n} expense${n === 1 ? '' : 's'} declined.`); }); }}
+              onClick={() => { const n = expenses.length; if (!n) return; if (confirmAction !== 'decline-all-expenses') { setConfirmAction('decline-all-expenses'); return; } setConfirmAction(null); runSafe(async () => { await Promise.all(expenses.map((e) => declineExpense.mutateAsync(e.id))); setActionStatus(`All ${n} expense${n === 1 ? '' : 's'} declined.`); }); }}
               disabled={expenses.length === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red text-white rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-70"
             >
-              <XCircle size={15} /> Decline All
+              <XCircle size={15} /> {confirmAction === 'decline-all-expenses' ? 'Confirm?' : 'Decline All'}
             </button>
+            {confirmAction === 'decline-all-expenses' && (
+              <button onClick={() => setConfirmAction(null)} className="px-2 py-1.5 bg-white/10 text-text-primary rounded-lg text-xs font-medium">Cancel</button>
+            )}
           </div>
         </div>
         <div className="overflow-x-auto">

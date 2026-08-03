@@ -403,7 +403,6 @@ export function useSalesRecords(params?: {
         startDate: params?.startDate || undefined,
         endDate: params?.endDate || undefined,
       }),
-    refetchInterval: shouldPoll,
   });
 }
 
@@ -580,7 +579,7 @@ export function useDashboardStats() {
   });
 }
 
-export function useActivityLogs(params?: { search?: string; category?: string }) {
+export function useActivityLogs(params?: { search?: string; category?: string; startDate?: string; endDate?: string }) {
   return useQuery({
     queryKey: ['activity-logs', params ?? {}],
     queryFn: () =>
@@ -588,6 +587,8 @@ export function useActivityLogs(params?: { search?: string; category?: string })
         limit: 100,
         search: params?.search || undefined,
         category: params?.category && params.category !== 'All' ? params.category : undefined,
+        startDate: params?.startDate || undefined,
+        endDate: params?.endDate || undefined,
       }),
   });
 }
@@ -628,7 +629,6 @@ export function useDisposals(params?: { search?: string; branchId?: string; star
         summary: (res.data.summary ?? { totalValue: 0, totalQuantity: 0, count: 0 }) as DisposalSummary,
       };
     },
-    refetchInterval: shouldPoll,
   });
 }
 
@@ -714,7 +714,6 @@ export function useExpenses(params?: {
         summary: (res.data.summary ?? { totalAmount: 0, count: 0 }) as ExpenseSummary,
       };
     },
-    refetchInterval: shouldPoll,
   });
 }
 

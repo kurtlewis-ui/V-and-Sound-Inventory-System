@@ -359,16 +359,17 @@ export default function UsersPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Role</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Shop</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Last Login</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={8} className="text-center py-8 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading users...</td></tr>
+                <tr><td colSpan={9} className="text-center py-8 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading users...</td></tr>
               ) : isError ? (
-                <tr><td colSpan={8} className="text-center py-8 text-accent-red">{getApiErrorMessage(error)}</td></tr>
+                <tr><td colSpan={9} className="text-center py-8 text-accent-red">{getApiErrorMessage(error)}</td></tr>
               ) : displayedUsers.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-8 text-text-muted">No users found.</td></tr>
+                <tr><td colSpan={9} className="text-center py-8 text-text-muted">No users found.</td></tr>
               ) : displayedUsers.map((user, idx) => (
                 <tr key={user.id} className="border-b border-card-border hover:bg-white/5 transition">
                   <td className="px-4 py-3 text-sm text-text-primary">{pageStart + idx + 1}</td>
@@ -393,6 +394,12 @@ export default function UsersPage() {
                       <span className={`badge-dot ${user.isActive ? 'bg-accent-green' : 'bg-accent-red'}`} />
                       {user.isActive ? 'Active' : 'Disabled'}
                     </span>
+                    {user.isLocked && (
+                      <span className="ml-1 rounded-full bg-accent-red/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-accent-red">Locked</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-text-muted">
+                    {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never'}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
