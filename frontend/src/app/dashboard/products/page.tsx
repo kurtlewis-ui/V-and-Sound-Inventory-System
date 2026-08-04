@@ -16,6 +16,7 @@ import {
 } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import { parseCsv, toCsv, downloadCsv, readFileAsText } from '@/lib/csv';
+import { generateRestockXlsx, parseRestockXlsx, matchSlugToShopName, readFileAsArrayBuffer, type ProductRow } from '@/lib/xlsx-utils';
 import { fileToResizedDataUrl } from '@/lib/image';
 import { useAuthStore } from '@/lib/store';
 import type { Product, ImportResult, RestockResult } from '@/lib/types';
@@ -109,17 +110,31 @@ export default function ProductsPage() {
   }
 
   function handleExport() {
-    const headers = ['Name', 'Brand', 'SellingPrice', 'QuantityAlert', ...branches.map((b) => b.name)];
-    const rows = products.map((p) => [
-      p.name, p.brand?.name ?? '', p.sellingPrice, p.quantityAlert,
-      ...branches.map((b) => qtyForBranch(p, b.id)),
-    ]);
-    downloadCsv(`products-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, rows));
+    const targetShops = shopFilter ? branches.filter((b) => b.id === shopFilter) : branches;
+    const xlsxProducts: ProductRow[] = products.map((p) => ({
+      productId: p.id,
+      productName: p.name,
+      brand: p.brand?.name ?? '',
+      sellingPrice: p.sellingPrice,
+      quantities: Object.fromEntries(targetShops.map((b) => [b.name, qtyForBranch(p, b.id)])),
+    }));
+    generateRestockXlsx(xlsxProducts, targetShops, {
+      filename: `products-export-${new Date().toISOString().slice(0, 10)}.xlsx`,
+    });
   }
   function handleTemplate() {
-    const headers = ['Name', 'Brand', 'SellingPrice', 'QuantityAlert', ...branches.map((b) => b.name)];
-    const example = ['Example Vape 5000', 'Example Brand', 350, 5, ...branches.map(() => 0)];
-    downloadCsv('products-import-template.csv', toCsv(headers, [example]));
+    const targetShops = shopFilter ? branches.filter((b) => b.id === shopFilter) : branches;
+    const xlsxProducts: ProductRow[] = products.map((p) => ({
+      productId: p.id,
+      productName: p.name,
+      brand: p.brand?.name ?? '',
+      sellingPrice: p.sellingPrice,
+      quantities: {},
+    }));
+    generateRestockXlsx(xlsxProducts, targetShops, {
+      filename: `restock-template-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      isTemplate: true,
+    });
   }
 
   return (
@@ -366,29 +381,58 @@ function RestockModal({ products, branches, onClose }: { products: Product[]; br
   const removeRow = (i: number) => setRows((rs) => rs.filter((_, idx) => idx !== i));
 
   const branchNameSet = new Set(branches.map((b) => b.name.toLowerCase()));
+  const branchNames = branches.map((b) => b.name);
 
   async function onFile(file: File) {
     setError(null); setResult(null); setCsvItems([]); setFileName('');
     try {
-      const text = await readFileAsText(file);
-      const { headers, rows: csvRows } = parseCsv(text);
-      if (!headers.some((h) => h.toLowerCase() === 'name')) {
-        setError('This file does not look like a products export (missing a "Name" column).');
+      let headers: string[];
+      let csvRows: Record<string, string>[];
+
+      const isXlsx = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      if (isXlsx) {
+        const buffer = await readFileAsArrayBuffer(file);
+        const parsed = parseRestockXlsx(buffer, branchNames);
+        headers = parsed.headers;
+        csvRows = parsed.rows;
+      } else {
+        const text = await readFileAsText(file);
+        const parsed = parseCsv(text);
+        headers = parsed.headers;
+        csvRows = parsed.rows;
+      }
+
+      // Accept both "Name" and "ProductName" as the product name column
+      const nameCol = headers.find((h) => h.toLowerCase() === 'name' || h.toLowerCase() === 'productname') ?? null;
+      if (!nameCol) {
+        setError('This file does not look like a products export (missing a "Name" or "ProductName" column).');
         return;
       }
-      // Every header that matches a shop name is treated as a stock column.
-      const branchCols = headers.filter((h) => branchNameSet.has(h.toLowerCase()));
-      if (branchCols.length === 0) {
+
+      // Match shop columns — support both plain names and slug format
+      const branchColMap: { header: string; shopName: string }[] = [];
+      for (const h of headers) {
+        if (['productid', 'productname', 'name', 'brand', 'sellingprice', 'quantityalert'].includes(h.toLowerCase())) continue;
+        if (branchNameSet.has(h.toLowerCase())) {
+          const match = branches.find((b) => b.name.toLowerCase() === h.toLowerCase());
+          if (match) branchColMap.push({ header: h, shopName: match.name });
+        } else {
+          const matched = matchSlugToShopName(h, branchNames);
+          if (matched) branchColMap.push({ header: h, shopName: matched });
+        }
+      }
+
+      if (branchColMap.length === 0) {
         setError('No shop columns found in the file. Use the Export button to get the correct format.');
         return;
       }
       const items: RestockItem[] = [];
       for (const r of csvRows) {
-        const productName = r.Name?.trim();
+        const productName = (r[nameCol] ?? '').trim();
         if (!productName) continue;
-        for (const col of branchCols) {
-          const qty = Number(r[col]) || 0;
-          if (qty > 0) items.push({ productName, branchName: col, quantity: qty });
+        for (const { header, shopName } of branchColMap) {
+          const qty = Number(r[header]) || 0;
+          if (qty > 0) items.push({ productName, branchName: shopName, quantity: qty });
         }
       }
       setCsvItems(items);
@@ -450,7 +494,7 @@ function RestockModal({ products, branches, onClose }: { products: Product[]; br
             <p className="text-xs text-text-muted">
               <strong>Export</strong> the products first, edit the shop columns so each number is the stock you want to <strong>add</strong>, then upload the edited file here. The numbers in the shop columns are <strong>added</strong> to current stock; columns/rows with 0 (or blank) are ignored.
             </p>
-            <input type="file" accept=".csv,text/csv" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg" />
+            <input type="file" accept=".csv,text/csv,.xlsx,.xls" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg" />
             {fileName && (
               <p className="text-sm text-text-secondary">
                 Found <strong>{csvItems.length}</strong> stock addition(s) across {new Set(csvItems.map((c) => c.productName)).size} product(s) from {fileName}.
