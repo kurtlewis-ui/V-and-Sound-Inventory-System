@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Store, Package, PhilippinePeso, Users, BarChart3, ChevronDown, ChevronUp, Recycle } from 'lucide-react';
+import { Store, Package, PhilippinePeso, Users, BarChart3, ChevronDown, ChevronUp, Recycle, Download } from 'lucide-react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -35,6 +35,8 @@ export default function DashboardPage() {
   // Revenue date filter
   const [revenueStartDate, setRevenueStartDate] = useState('');
   const [revenueEndDate, setRevenueEndDate] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const { data: overview = [], isLoading: ovLoading } = useSalesOverview(period, overviewShop || undefined);
   const { data: topProducts = [], isLoading: tpLoading } = useTopProducts(topShop || undefined);
@@ -88,10 +90,33 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-xs text-text-muted font-medium uppercase tracking-wider">Overview</p>
-        <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <p className="text-xs text-text-muted font-medium uppercase tracking-wider">Overview</p>
+          <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
+        </div>
+        <button
+          onClick={async () => {
+            setExporting(true);
+            setExportError(null);
+            try {
+              const { exportAllData } = await import('@/lib/export-all');
+              await exportAllData();
+            } catch (e: any) {
+              setExportError(e?.message ?? 'Export failed');
+            } finally {
+              setExporting(false);
+            }
+          }}
+          disabled={exporting}
+          className="flex items-center gap-2 bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-60"
+        >
+          <Download size={16} /> {exporting ? 'Exporting...' : 'Export All Data'}
+        </button>
       </div>
+      {exportError && (
+        <div className="rounded-lg bg-accent-red/10 border border-accent-red/30 px-4 py-2 text-sm text-accent-red">{exportError}</div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard href="/dashboard/shops" icon={<Store size={24} />} value={v(stats?.shops)} label="Shops" />
