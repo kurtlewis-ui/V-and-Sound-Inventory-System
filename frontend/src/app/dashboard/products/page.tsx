@@ -153,10 +153,6 @@ export default function ProductsPage() {
           <option value="">All Shops</option>
           {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        <select value={brandFilter} onChange={(e) => { setBrandFilter(e.target.value); setCurrentPage(1); }} className="border border-input-border rounded px-3 py-2 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus min-w-[180px]">
-          <option value="">All Brands</option>
-          {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
         <button onClick={() => setShowRestockModal(true)} className="flex items-center gap-1 bg-btn-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><RefreshCw size={14} /> Restock</button>
         <button onClick={handleTemplate} className="flex items-center gap-1 bg-white/10 text-text-primary px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><FileDown size={14} /> Restock Template</button>
       </div>
