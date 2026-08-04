@@ -111,8 +111,8 @@ export default function ProductsPage() {
 
   function handleExport() {
     const targetShops = shopFilter ? branches.filter((b) => b.id === shopFilter) : branches;
-    const xlsxProducts: ProductRow[] = products.map((p) => ({
-      productId: p.id,
+    const xlsxProducts: ProductRow[] = products.map((p, idx) => ({
+      productId: idx + 1,
       productName: p.name,
       brand: p.brand?.name ?? '',
       sellingPrice: p.sellingPrice,
@@ -124,8 +124,8 @@ export default function ProductsPage() {
   }
   function handleTemplate() {
     const targetShops = shopFilter ? branches.filter((b) => b.id === shopFilter) : branches;
-    const xlsxProducts: ProductRow[] = products.map((p) => ({
-      productId: p.id,
+    const xlsxProducts: ProductRow[] = products.map((p, idx) => ({
+      productId: idx + 1,
       productName: p.name,
       brand: p.brand?.name ?? '',
       sellingPrice: p.sellingPrice,
@@ -158,7 +158,7 @@ export default function ProductsPage() {
           {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
         <button onClick={() => setShowRestockModal(true)} className="flex items-center gap-1 bg-btn-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><RefreshCw size={14} /> Restock</button>
-        <button onClick={handleTemplate} className="flex items-center gap-1 bg-white/10 text-text-primary px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><FileDown size={14} /> CSV Template</button>
+        <button onClick={handleTemplate} className="flex items-center gap-1 bg-white/10 text-text-primary px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><FileDown size={14} /> Restock Template</button>
       </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3">
