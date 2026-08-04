@@ -1,6 +1,7 @@
 /**
  * Export All Data — generates a complete backup xlsx with all sales,
  * disposals, expenses, and inventory. Admin-only feature.
+ * Uses pagination to fetch ALL records regardless of backend limit.
  */
 import * as XLSX from 'xlsx';
 import { api } from './api';
@@ -15,18 +16,53 @@ function formatSplitBreakdown(split: { cash: number; gcash: number; bankTransfer
   return parts.join(' / ');
 }
 
-export async function exportAllData(): Promise<void> {
-  const [salesRes, disposalsRes, expensesRes, productsRes] = await Promise.all([
-    api.get('/sales/records', { params: { limit: 10000 } }),
-    api.get('/disposals', { params: { limit: 10000 } }),
-    api.get('/expenses', { params: { limit: 10000 } }),
-    api.get('/products', { params: { limit: 10000 } }),
-  ]);
+/**
+ * Fetch all pages from a paginated API endpoint.
+ */
+async function fetchAllPages(
+  url: string,
+  params?: Record<string, unknown>,
+  onProgress?: (page: number, total: number) => void,
+): Promise<any[]> {
+  const limit = 200;
+  let page = 1;
+  let allData: any[] = [];
+  let hasMore = true;
 
-  const sales: any[] = salesRes.data.data ?? [];
-  const disposals: any[] = disposalsRes.data.data ?? [];
-  const expenses: any[] = expensesRes.data.data ?? [];
-  const products: any[] = productsRes.data.data ?? [];
+  while (hasMore) {
+    const res = await api.get(url, { params: { ...params, limit, page } });
+    const data = res.data.data ?? [];
+    allData = [...allData, ...data];
+
+    const pagination = res.data.pagination;
+    if (pagination) {
+      if (onProgress) onProgress(page, pagination.totalPages);
+      hasMore = pagination.hasNext;
+    } else {
+      hasMore = false;
+    }
+    page++;
+  }
+
+  return allData;
+}
+
+export async function exportAllData(
+  onProgress?: (status: string) => void,
+): Promise<void> {
+  onProgress?.('Fetching sales...');
+  const sales = await fetchAllPages('/sales/records', {}, (p, t) => onProgress?.(`Fetching sales... page ${p}/${t}`));
+
+  onProgress?.('Fetching disposals...');
+  const disposals = await fetchAllPages('/disposals', {}, (p, t) => onProgress?.(`Fetching disposals... page ${p}/${t}`));
+
+  onProgress?.('Fetching expenses...');
+  const expenses = await fetchAllPages('/expenses', {}, (p, t) => onProgress?.(`Fetching expenses... page ${p}/${t}`));
+
+  onProgress?.('Fetching products...');
+  const products = await fetchAllPages('/products', {}, (p, t) => onProgress?.(`Fetching products... page ${p}/${t}`));
+
+  onProgress?.('Generating file...');
 
   // --- Sheet 1: Sales ---
   const salesHeaders = [
@@ -64,7 +100,7 @@ export async function exportAllData(): Promise<void> {
     'Product', 'Brand', 'Shop', 'Qty', 'Unit Price', 'Value',
     'Reason', 'Status', 'Requested By', 'Date',
   ];
-  const disposalsRows = disposals.map((d) => [
+  const disposalsRows = disposals.map((d: any) => [
     d.name,
     d.brandName,
     d.branch?.name ?? '',
@@ -81,7 +117,7 @@ export async function exportAllData(): Promise<void> {
   const expensesHeaders = [
     'Staff', 'Shop', 'Amount', 'Note', 'Status', 'Date',
   ];
-  const expensesRows = expenses.map((e) => [
+  const expensesRows = expenses.map((e: any) => [
     e.staff?.name ?? '',
     e.branch?.name ?? '',
     e.amount,
@@ -100,9 +136,9 @@ export async function exportAllData(): Promise<void> {
   const branchList = [...branchNames].sort();
   const inventoryHeaders = [
     'Product', 'Brand', 'Selling Price', 'Qty Alert',
-    ...branchList.map((b) => `Stock: ${b}`),
+    ...branchList.map((b: string) => `Stock: ${b}`),
   ];
-  const inventoryRows = products.map((p) => [
+  const inventoryRows = products.map((p: any) => [
     p.name,
     p.brand?.name ?? '',
     p.sellingPrice,
