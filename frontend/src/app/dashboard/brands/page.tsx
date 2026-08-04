@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Search, Pencil, Trash2, X, Loader2 } from 'lucide-react';
 import {
   useBrands,
@@ -10,17 +10,37 @@ import {
 } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import { fileToResizedDataUrl } from '@/lib/image';
-import { useAuthStore } from '@/lib/store';
 import type { Brand } from '@/lib/types';
+
+const PAGE_SIZES = [5, 10, 25, 50, 'All'] as const;
+type PageSize = (typeof PAGE_SIZES)[number];
 
 export default function BrandsPage() {
   const [search, setSearch] = useState('');
-  const { data, isLoading, isError, error } = useBrands(search);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [pageSize, setPageSize] = useState<PageSize>(10);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Debounce search by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const { data, isLoading, isError, error } = useBrands(debouncedSearch);
   const createBrand = useCreateBrand();
   const updateBrand = useUpdateBrand();
   const archiveBrand = useArchiveBrand();
 
   const brands = data?.data ?? [];
+
+  // Pagination
+  const perPage = pageSize === 'All' ? brands.length || 1 : pageSize;
+  const totalPages = Math.max(1, Math.ceil(brands.length / perPage));
+  const page = Math.min(currentPage, totalPages);
+  const displayBrands = pageSize === 'All' ? brands : brands.slice((page - 1) * perPage, page * perPage);
+  const startIndex = brands.length === 0 ? 0 : (page - 1) * perPage + 1;
+  const endIndex = Math.min(page * perPage, brands.length);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -30,7 +50,6 @@ export default function BrandsPage() {
   const [formName, setFormName] = useState('');
   const [formCoverImage, setFormCoverImage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const isAdmin = useAuthStore((s) => s.user?.role?.name === 'Admin');
 
   async function handleAdd() {
     if (!formName.trim()) { setFormError('Brand name is required.'); return; }
@@ -77,15 +96,28 @@ export default function BrandsPage() {
         </button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-        <input
-          type="text"
-          placeholder="Search..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full border border-input-border rounded-lg pl-9 pr-4 py-2 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus"
-        />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <label className="flex items-center gap-2 text-sm text-text-secondary">
+          Show
+          <select
+            value={String(pageSize)}
+            onChange={(e) => { const v = e.target.value; setPageSize(v === 'All' ? 'All' : (Number(v) as PageSize)); setCurrentPage(1); }}
+            className="border border-input-border rounded px-2 py-1 text-sm bg-input-bg focus:outline-none"
+          >
+            {PAGE_SIZES.map((s) => <option key={String(s)} value={String(s)}>{s}</option>)}
+          </select>
+          entries
+        </label>
+        <div className="relative max-w-sm">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input
+            type="text"
+            placeholder="Search brands..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+            className="w-full border border-input-border rounded-lg pl-9 pr-4 py-2 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus"
+          />
+        </div>
       </div>
 
       <div className="bg-card-bg border border-card-border rounded-lg overflow-hidden">
@@ -95,33 +127,32 @@ export default function BrandsPage() {
               <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-table-header-text w-12">#</th>
               <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-table-header-text w-28">Cover Image</th>
               <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-table-header-text">Name</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-table-header-text">Slug</th>
               <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-table-header-text">Products</th>
               <th className="text-right px-4 py-3 text-xs font-semibold uppercase text-table-header-text w-24"></th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={6} className="text-center py-8 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading brands...</td></tr>
+              <tr><td colSpan={5} className="text-center py-8 text-text-muted"><Loader2 className="inline animate-spin mr-2" size={16} />Loading brands...</td></tr>
             ) : isError ? (
-              <tr><td colSpan={6} className="text-center py-8 text-accent-red">{getApiErrorMessage(error)}</td></tr>
-            ) : brands.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-8 text-text-muted">No brands found.</td></tr>
+              <tr><td colSpan={5} className="text-center py-8 text-accent-red">{getApiErrorMessage(error)}</td></tr>
+            ) : displayBrands.length === 0 ? (
+              <tr><td colSpan={5} className="text-center py-8 text-text-muted">No brands found.</td></tr>
             ) : (
-              brands.map((brand, i) => (
+              displayBrands.map((brand, i) => (
                 <tr key={brand.id} className="border-t border-card-border hover:bg-white/5 transition-colors">
-                  <td className="px-4 py-3 text-sm text-accent-blue font-medium">{i + 1}</td>
+                  <td className="px-4 py-3 text-sm text-accent-blue font-medium">{startIndex + i}</td>
                   <td className="px-4 py-3 text-sm text-text-muted">
                     {brand.coverImage ? (
                       <div className="w-12 h-12 rounded bg-white/10 overflow-hidden">
-                        <img src={brand.coverImage} alt={brand.name} className="w-full h-full object-cover" />
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={brand.coverImage} alt={brand.name} loading="lazy" className="w-full h-full object-cover" />
                       </div>
                     ) : (
                       <span className="text-xs text-text-muted">No Image</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm font-bold text-text-primary">{brand.name}</td>
-                  <td className="px-4 py-3 text-sm text-accent-blue">{brand.slug}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{brand.productCount}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -144,6 +175,21 @@ export default function BrandsPage() {
             )}
           </tbody>
         </table>
+
+        {/* Pagination footer */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-card-border p-4">
+          <p className="text-sm text-text-muted">
+            Showing {startIndex} to {endIndex} of {brands.length} brands
+          </p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 text-sm text-text-secondary rounded border border-card-border hover:bg-white/5 disabled:opacity-40">Previous</button>
+              <span className="rounded-lg bg-accent-primary px-3 py-1.5 text-sm font-medium text-white">{page}</span>
+              <span className="px-1 text-sm text-text-muted">/ {totalPages}</span>
+              <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 text-sm text-text-secondary rounded border border-card-border hover:bg-white/5 disabled:opacity-40">Next</button>
+            </div>
+          )}
+        </div>
       </div>
 
       {showAddModal && (
@@ -153,7 +199,7 @@ export default function BrandsPage() {
               <label className="block text-sm font-medium text-text-primary mb-1">Name</label>
               <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus" />
             </div>
-            <CoverImageField coverImage={formCoverImage} setCoverImage={setFormCoverImage} isAdmin={isAdmin} />
+            <CoverImageField coverImage={formCoverImage} setCoverImage={setFormCoverImage} />
             {formError && <p className="text-sm text-accent-red">{formError}</p>}
             <div className="flex justify-end">
               <button onClick={handleAdd} disabled={createBrand.isPending} className="btn-grad px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-60">{createBrand.isPending ? 'Saving...' : 'Save Brand'}</button>
@@ -169,7 +215,7 @@ export default function BrandsPage() {
               <label className="block text-sm font-medium text-text-primary mb-1">Name</label>
               <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus" />
             </div>
-            <CoverImageField coverImage={formCoverImage} setCoverImage={setFormCoverImage} isAdmin={isAdmin} />
+            <CoverImageField coverImage={formCoverImage} setCoverImage={setFormCoverImage} />
             {formError && <p className="text-sm text-accent-red">{formError}</p>}
             <div className="flex justify-end">
               <button onClick={handleEdit} disabled={updateBrand.isPending} className="btn-grad px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-60">{updateBrand.isPending ? 'Saving...' : 'Save Brand'}</button>
@@ -194,7 +240,7 @@ export default function BrandsPage() {
   );
 }
 
-function CoverImageField({ coverImage, setCoverImage, isAdmin }: { coverImage: string | null; setCoverImage: (v: string | null) => void; isAdmin: boolean }) {
+function CoverImageField({ coverImage, setCoverImage }: { coverImage: string | null; setCoverImage: (v: string | null) => void }) {
   const [imageError, setImageError] = useState<string | null>(null);
 
   async function handleFile(file: File) {
@@ -219,17 +265,13 @@ function CoverImageField({ coverImage, setCoverImage, isAdmin }: { coverImage: s
             <span className="text-[10px] text-text-muted">No Image</span>
           )}
         </div>
-        {isAdmin ? (
-          <div className="flex-1 space-y-1">
-            <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} className="w-full text-xs text-text-secondary file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-btn-primary file:text-white file:text-xs" />
-            {coverImage && (
-              <button type="button" onClick={() => { setCoverImage(null); setImageError(null); }} className="text-xs text-accent-red hover:underline">Remove image</button>
-            )}
-            {imageError && <p className="text-xs text-accent-red">{imageError}</p>}
-          </div>
-        ) : (
-          <p className="flex-1 text-xs text-text-muted">Only an admin can change the brand cover image.</p>
-        )}
+        <div className="flex-1 space-y-1">
+          <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} className="w-full text-xs text-text-secondary file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-btn-primary file:text-white file:text-xs" />
+          {coverImage && (
+            <button type="button" onClick={() => { setCoverImage(null); setImageError(null); }} className="text-xs text-accent-red hover:underline">Remove image</button>
+          )}
+          {imageError && <p className="text-xs text-accent-red">{imageError}</p>}
+        </div>
       </div>
     </div>
   );
