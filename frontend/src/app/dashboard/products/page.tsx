@@ -15,7 +15,7 @@ import {
   type RestockItem,
 } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
-import { parseCsv, toCsv, downloadCsv, readFileAsText } from '@/lib/csv';
+import { parseCsv, readFileAsText } from '@/lib/csv';
 import { generateRestockXlsx, parseRestockXlsx, matchSlugToShopName, readFileAsArrayBuffer, type ProductRow } from '@/lib/xlsx-utils';
 import { fileToResizedDataUrl } from '@/lib/image';
 import { useAuthStore } from '@/lib/store';

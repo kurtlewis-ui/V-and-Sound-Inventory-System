@@ -371,13 +371,14 @@ export default function SalesPendingPage() {
                   <td className="px-4 py-3 text-sm text-text-secondary">
                     {d.items.length === 0 ? '—' : (
                       <ul className="space-y-1">
-                        {d.items.map((item) => (
+                        {d.items.map((item: any) => (
                           <li key={item.productId}>
                             {item.quantity}× {item.name}{' '}
                             <span className="badge badge-neutral">
                               <span className={`badge-dot ${paymentDotColor(item.paymentMethod)}`} />
                               {itemPaymentLabel(item)}
                             </span>
+                            {item.addedAt && <span className="ml-1 text-[10px] text-text-muted">{new Date(item.addedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true })}</span>}
                           </li>
                         ))}
                       </ul>

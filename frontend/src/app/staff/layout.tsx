@@ -587,6 +587,9 @@ function DraftBag() {
                           {item.reason && (
                             <p className="truncate text-[10px] text-accent-orange mt-0.5">{item.reason}</p>
                           )}
+                          {item.addedAt && (
+                            <p className="text-[10px] text-text-muted mt-0.5">{formatAddedTime(item.addedAt)}</p>
+                          )}
                         </div>
                         <div className="flex items-center gap-1">
                           <button onClick={() => setDisposalQuantity(item.productId, item.quantity - 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Decrease"><Minus size={14} /></button>
@@ -635,6 +638,7 @@ function DraftBag() {
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-text-primary">{peso(exp.amount)}</p>
                           <p className="truncate text-xs text-text-muted">{exp.note}</p>
+                          {exp.addedAt && <p className="text-[10px] text-text-muted">{formatAddedTime(exp.addedAt)}</p>}
                         </div>
                         <button onClick={() => removeExpense(idx)} className="rounded p-1.5 text-accent-red hover:bg-accent-red/10" title="Remove"><Trash2 size={15} /></button>
                       </div>

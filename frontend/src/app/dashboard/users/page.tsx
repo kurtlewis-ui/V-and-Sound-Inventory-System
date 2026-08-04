@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Search, Plus, Pencil, Trash2, X, Eye, EyeOff, RefreshCw, Loader2 } from 'lucide-react';
 import {
   useUsers,
@@ -64,8 +64,6 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<FullUser | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [formError, setFormError] = useState<string | null>(null);
-
-  const staffRoleId = useMemo(() => roles.find((r) => r.name === 'Staff')?.id, [roles]);
 
   const [formData, setFormData] = useState<FormData>({
     firstName: '', middleInitial: '', lastName: '', email: '',

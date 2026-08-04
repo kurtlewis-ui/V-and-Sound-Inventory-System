@@ -31,12 +31,14 @@ export interface DraftDisposalItem {
   image: string | null;
   quantity: number;
   reason?: string | null;
+  addedAt?: string;
 }
 
 // A staged expense entry (e.g. ₱300, "Water bill").
 export interface DraftExpense {
   amount: number;
   note: string;
+  addedAt?: string;
 }
 
 interface DraftState {
@@ -127,7 +129,7 @@ export const useDraftStore = create<DraftState>()(
               ),
             };
           }
-          return { disposalItems: [...state.disposalItems, { ...item, quantity }] };
+          return { disposalItems: [...state.disposalItems, { ...item, quantity, addedAt: new Date().toISOString() }] };
         }),
       setDisposalQuantity: (productId, quantity) =>
         set((state) => ({
@@ -140,7 +142,7 @@ export const useDraftStore = create<DraftState>()(
           disposalItems: state.disposalItems.filter((i) => i.productId !== productId),
         })),
 
-      addExpense: (expense) => set((state) => ({ expenses: [...state.expenses, expense] })),
+      addExpense: (expense) => set((state) => ({ expenses: [...state.expenses, { ...expense, addedAt: new Date().toISOString() }] })),
       removeExpense: (index) =>
         set((state) => ({ expenses: state.expenses.filter((_, i) => i !== index) })),
 
