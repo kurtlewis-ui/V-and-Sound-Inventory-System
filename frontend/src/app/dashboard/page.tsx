@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Store, Package, PhilippinePeso, Users, BarChart3 } from 'lucide-react';
+import { Store, Package, PhilippinePeso, Users, BarChart3, ChevronDown, ChevronUp, Recycle } from 'lucide-react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -14,7 +14,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts';
-import { useDashboardStats, useSalesOverview, useTopProducts, useBranches } from '@/lib/hooks';
+import { useDashboardStats, useSalesOverview, useTopProducts, useBranches, useDisposals } from '@/lib/hooks';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -28,9 +28,51 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState('daily');
   const [overviewShop, setOverviewShop] = useState('');
   const [topShop, setTopShop] = useState('');
+  const [disposalShop, setDisposalShop] = useState('');
+  const [showAllSelling, setShowAllSelling] = useState(false);
+  const [showAllDisposed, setShowAllDisposed] = useState(false);
+
+  // Revenue date filter
+  const [revenueStartDate, setRevenueStartDate] = useState('');
+  const [revenueEndDate, setRevenueEndDate] = useState('');
 
   const { data: overview = [], isLoading: ovLoading } = useSalesOverview(period, overviewShop || undefined);
   const { data: topProducts = [], isLoading: tpLoading } = useTopProducts(topShop || undefined);
+
+  // Disposals data for "Most Disposed Products" chart
+  const { data: disposalsData } = useDisposals({ branchId: disposalShop || undefined, status: 'APPROVED' });
+  const disposals = disposalsData?.data ?? [];
+
+  // Compute top disposed products (group by product name, sum quantity)
+  const disposedProducts = useMemo(() => {
+    const map = new Map<string, { name: string; brandName: string; quantity: number; value: number }>();
+    for (const d of disposals) {
+      const existing = map.get(d.name) ?? { name: d.name, brandName: d.brandName, quantity: 0, value: 0 };
+      existing.quantity += d.quantity;
+      existing.value += d.value;
+      map.set(d.name, existing);
+    }
+    return [...map.values()].sort((a, b) => b.quantity - a.quantity);
+  }, [disposals]);
+
+  // Revenue filtered by date (uses sales records summary if dates are set)
+  const { data: revData } = useSalesOverview('daily', undefined);
+  const filteredRevenue = useMemo(() => {
+    if (!revenueStartDate && !revenueEndDate) {
+      return { total: stats?.approvedSalesTotal ?? 0, label: 'All-Time' };
+    }
+    // Filter overview data by date range
+    const filtered = (revData ?? []).filter((p) => {
+      if (revenueStartDate && p.date < revenueStartDate) return false;
+      if (revenueEndDate && p.date > revenueEndDate) return false;
+      return true;
+    });
+    const total = filtered.reduce((sum, p) => sum + p.total, 0);
+    const label = revenueStartDate && revenueEndDate
+      ? `${revenueStartDate} to ${revenueEndDate}`
+      : revenueStartDate ? `From ${revenueStartDate}` : `Until ${revenueEndDate}`;
+    return { total, label };
+  }, [revenueStartDate, revenueEndDate, revData, stats]);
 
   const v = (n?: number) => (isLoading || n === undefined ? '—' : n.toLocaleString());
 
@@ -38,7 +80,11 @@ export default function DashboardPage() {
     label: formatBucket(p.date, period),
     total: p.total,
   }));
-  const topData = topProducts.map((p) => ({ name: p.name, quantity: p.quantity, revenue: p.revenue }));
+
+  const topData = topProducts.map((p) => ({ name: p.name, brand: p.brand, quantity: p.quantity, revenue: p.revenue }));
+  const topDataPreview = topData.slice(0, 10);
+  const disposedPreview = disposedProducts.slice(0, 10);
+  const disposedChartData = disposedPreview.map((p) => ({ name: p.name, quantity: p.quantity }));
 
   return (
     <div className="space-y-6">
@@ -54,26 +100,34 @@ export default function DashboardPage() {
         <StatsCard href="/dashboard/users" icon={<Users size={24} />} value={v(stats?.staff)} label="Staff" subtitle={`${v(stats?.admins)} Admins`} />
       </div>
 
-      {/* Revenue Summary */}
-      {stats && (
-        <div className="bg-card-bg border border-card-border rounded-xl p-5 shadow-sm shadow-black/20">
-          <p className="text-xs text-text-muted font-medium uppercase tracking-wider mb-3">Revenue (All-Time Approved)</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-xs text-text-secondary">Total Sales</p>
-              <p className="text-2xl font-bold text-accent-green">{peso(stats.approvedSalesTotal)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-text-secondary">Total Expenses</p>
-              <p className="text-2xl font-bold text-accent-red">—</p>
-            </div>
-            <div>
-              <p className="text-xs text-text-secondary">Net Revenue</p>
-              <p className="text-2xl font-bold text-text-primary">{peso(stats.approvedSalesTotal)}</p>
-            </div>
+      {/* Revenue Summary with date picker */}
+      <div className="bg-card-bg border border-card-border rounded-xl p-5 shadow-sm shadow-black/20">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+          <p className="text-xs text-text-muted font-medium uppercase tracking-wider">Revenue ({filteredRevenue.label})</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input type="date" value={revenueStartDate} onChange={(e) => setRevenueStartDate(e.target.value)} className="px-2 py-1 border border-input-border rounded text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus" />
+            <span className="text-xs text-text-muted">to</span>
+            <input type="date" value={revenueEndDate} onChange={(e) => setRevenueEndDate(e.target.value)} className="px-2 py-1 border border-input-border rounded text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus" />
+            {(revenueStartDate || revenueEndDate) && (
+              <button onClick={() => { setRevenueStartDate(''); setRevenueEndDate(''); }} className="px-2 py-1 text-xs text-text-secondary border border-input-border rounded hover:bg-white/5">Clear</button>
+            )}
           </div>
         </div>
-      )}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+          <div>
+            <p className="text-xs text-text-secondary">Total Sales</p>
+            <p className="text-2xl font-bold text-accent-green">{peso(filteredRevenue.total)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-text-secondary">Total Expenses</p>
+            <p className="text-2xl font-bold text-accent-red">—</p>
+          </div>
+          <div>
+            <p className="text-xs text-text-secondary">Net Revenue</p>
+            <p className="text-2xl font-bold text-text-primary">{peso(filteredRevenue.total)}</p>
+          </div>
+        </div>
+      </div>
 
       {/* Sales Overview */}
       <div className="bg-card-bg border border-card-border rounded-xl p-6 shadow-sm shadow-black/20">
@@ -81,9 +135,10 @@ export default function DashboardPage() {
           <h2 className="text-lg font-bold text-text-primary">Sales Overview</h2>
           <div className="flex flex-wrap items-center gap-2">
             <select value={period} onChange={(e) => setPeriod(e.target.value)} className="border border-input-border rounded px-3 py-1.5 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus">
-              <option value="daily">Daily (14d)</option>
-              <option value="weekly">Weekly (12w)</option>
-              <option value="monthly">Monthly (12m)</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
             </select>
             <select value={overviewShop} onChange={(e) => setOverviewShop(e.target.value)} className="border border-input-border rounded px-3 py-1.5 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus">
               <option value="">All Shops</option>
@@ -106,7 +161,7 @@ export default function DashboardPage() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={(n) => peso(Number(n))} width={70} />
+              <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={(n: any) => peso(Number(n))} width={70} />
               <Tooltip formatter={(val: any) => peso(Number(val))} contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
               <Area type="monotone" dataKey="total" stroke="#8b5cf6" fill="url(#salesGrad)" strokeWidth={2} name="Sales" />
             </AreaChart>
@@ -114,10 +169,10 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Top Products */}
+      {/* Top Selling Products */}
       <div className="bg-card-bg border border-card-border rounded-xl p-6 shadow-sm shadow-black/20">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h2 className="text-lg font-bold text-text-primary">Top 10 Best-Selling Products</h2>
+          <h2 className="text-lg font-bold text-text-primary">Top Selling Products</h2>
           <select value={topShop} onChange={(e) => setTopShop(e.target.value)} className="border border-input-border rounded px-3 py-1.5 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus">
             <option value="">All Shops</option>
             {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -128,15 +183,115 @@ export default function DashboardPage() {
         ) : topData.length === 0 ? (
           <ChartPlaceholder message="No approved sales yet" />
         ) : (
-          <ResponsiveContainer width="100%" height={Math.max(288, topData.length * 36)}>
-            <BarChart data={topData} layout="vertical" margin={{ top: 0, right: 16, left: 10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} tickFormatter={(n: any) => peso(Number(n))} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} width={150} />
-              <Tooltip formatter={(val: any, name: any) => [name === 'revenue' ? peso(Number(val)) : `${val} units`, name === 'revenue' ? 'Revenue' : 'Sold']} contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
-              <Bar dataKey="revenue" fill="#10b981" radius={[0, 4, 4, 0]} name="revenue" />
-            </BarChart>
-          </ResponsiveContainer>
+          <>
+            {/* Bar chart preview — top 10 */}
+            <ResponsiveContainer width="100%" height={Math.max(288, topDataPreview.length * 36)}>
+              <BarChart data={topDataPreview} layout="vertical" margin={{ top: 0, right: 16, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} tickFormatter={(n: any) => peso(Number(n))} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} width={150} />
+                <Tooltip formatter={(val: any, name: any) => [name === 'revenue' ? peso(Number(val)) : `${val} units`, name === 'revenue' ? 'Revenue' : 'Sold']} contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
+                <Bar dataKey="revenue" fill="#10b981" radius={[0, 4, 4, 0]} name="revenue" />
+              </BarChart>
+            </ResponsiveContainer>
+
+            {/* View All / Show Less toggle */}
+            {topData.length > 10 && (
+              <button onClick={() => setShowAllSelling(!showAllSelling)} className="mt-3 flex items-center gap-1.5 text-sm font-medium text-accent-blue hover:underline">
+                {showAllSelling ? <><ChevronUp size={14} /> Show Less</> : <><ChevronDown size={14} /> View All ({topData.length} products)</>}
+              </button>
+            )}
+
+            {/* Expanded table */}
+            {showAllSelling && (
+              <div className="mt-4 max-h-[400px] overflow-y-auto rounded-lg border border-card-border">
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-table-header">
+                    <tr className="text-table-header-text">
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase">#</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase">Product</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase">Brand</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase">Qty Sold</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topData.map((p, i) => (
+                      <tr key={`${p.name}-${i}`} className="border-t border-card-border hover:bg-white/5">
+                        <td className="px-3 py-2 text-sm text-text-muted">{i + 1}</td>
+                        <td className="px-3 py-2 text-sm font-medium text-text-primary">{p.name}</td>
+                        <td className="px-3 py-2 text-sm text-text-secondary">{p.brand}</td>
+                        <td className="px-3 py-2 text-sm text-text-primary">{p.quantity}</td>
+                        <td className="px-3 py-2 text-sm font-medium text-accent-green">{peso(p.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Most Disposed Products */}
+      <div className="bg-card-bg border border-card-border rounded-xl p-6 shadow-sm shadow-black/20">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h2 className="text-lg font-bold text-text-primary flex items-center gap-2"><Recycle size={20} /> Most Disposed Products</h2>
+          <select value={disposalShop} onChange={(e) => setDisposalShop(e.target.value)} className="border border-input-border rounded px-3 py-1.5 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus">
+            <option value="">All Shops</option>
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </div>
+        {disposedProducts.length === 0 ? (
+          <ChartPlaceholder message="No approved disposals yet" />
+        ) : (
+          <>
+            {/* Bar chart preview — top 10 */}
+            <ResponsiveContainer width="100%" height={Math.max(288, disposedPreview.length * 36)}>
+              <BarChart data={disposedChartData} layout="vertical" margin={{ top: 0, right: 16, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} width={150} />
+                <Tooltip formatter={(val: any) => [`${val} units`, 'Disposed']} contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
+                <Bar dataKey="quantity" fill="#ef4444" radius={[0, 4, 4, 0]} name="Disposed" />
+              </BarChart>
+            </ResponsiveContainer>
+
+            {/* View All / Show Less toggle */}
+            {disposedProducts.length > 10 && (
+              <button onClick={() => setShowAllDisposed(!showAllDisposed)} className="mt-3 flex items-center gap-1.5 text-sm font-medium text-accent-blue hover:underline">
+                {showAllDisposed ? <><ChevronUp size={14} /> Show Less</> : <><ChevronDown size={14} /> View All ({disposedProducts.length} products)</>}
+              </button>
+            )}
+
+            {/* Expanded table */}
+            {showAllDisposed && (
+              <div className="mt-4 max-h-[400px] overflow-y-auto rounded-lg border border-card-border">
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-table-header">
+                    <tr className="text-table-header-text">
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase">#</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase">Product</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase">Brand</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase">Qty Disposed</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase">Value Lost</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {disposedProducts.map((p, i) => (
+                      <tr key={`${p.name}-${i}`} className="border-t border-card-border hover:bg-white/5">
+                        <td className="px-3 py-2 text-sm text-text-muted">{i + 1}</td>
+                        <td className="px-3 py-2 text-sm font-medium text-text-primary">{p.name}</td>
+                        <td className="px-3 py-2 text-sm text-text-secondary">{p.brandName}</td>
+                        <td className="px-3 py-2 text-sm text-text-primary">{p.quantity}</td>
+                        <td className="px-3 py-2 text-sm font-medium text-accent-red">{peso(p.value)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -145,6 +300,7 @@ export default function DashboardPage() {
 
 function formatBucket(iso: string, period: string) {
   const d = new Date(iso);
+  if (period === 'yearly') return d.toLocaleDateString(undefined, { year: 'numeric' });
   if (period === 'monthly') return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
   if (period === 'weekly') return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
