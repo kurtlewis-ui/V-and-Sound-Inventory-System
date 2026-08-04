@@ -131,9 +131,9 @@ export default function DashboardPage() {
           <ResponsiveContainer width="100%" height={Math.max(288, topData.length * 36)}>
             <BarChart data={topData} layout="vertical" margin={{ top: 0, right: 16, left: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} tickFormatter={(n) => peso(Number(n))} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} tickFormatter={(n: any) => peso(Number(n))} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} width={150} />
-              <Tooltip formatter={(val: any, name: string) => [name === 'revenue' ? peso(Number(val)) : `${val} units`, name === 'revenue' ? 'Revenue' : 'Sold']} contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
+              <Tooltip formatter={(val: any, name: any) => [name === 'revenue' ? peso(Number(val)) : `${val} units`, name === 'revenue' ? 'Revenue' : 'Sold']} contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
               <Bar dataKey="revenue" fill="#10b981" radius={[0, 4, 4, 0]} name="revenue" />
             </BarChart>
           </ResponsiveContainer>
