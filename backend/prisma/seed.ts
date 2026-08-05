@@ -15,6 +15,23 @@ async function main() {
   console.log('🌱 Starting database seed (clean bootstrap)...');
 
   // 1. Roles -----------------------------------------------------------------
+  const ownerRole = await prisma.role.upsert({
+    where: { name: 'Owner' },
+    update: {},
+    create: {
+      name: 'Owner',
+      description: 'Business owner — full access including confidential data',
+      permissions: {
+        users: ['create', 'read', 'update', 'delete'],
+        branches: ['create', 'read', 'update', 'delete'],
+        catalog: ['create', 'read', 'update', 'delete'],
+        sales: ['create', 'read', 'approve'],
+        reports: ['read'],
+        finance: ['read'],
+      },
+    },
+  });
+
   const adminRole = await prisma.role.upsert({
     where: { name: 'Admin' },
     update: {},
@@ -41,9 +58,29 @@ async function main() {
     },
   });
 
-  console.log('✅ Roles ready');
+  console.log('✅ Roles ready (Owner, Admin, Staff)');
 
-  // 2. Admin account ---------------------------------------------------------
+  // 2. Owner account ---------------------------------------------------------
+  const ownerPasswordHash = await bcrypt.hash('OwnerPass123!', BCRYPT_ROUNDS);
+
+  await prisma.user.upsert({
+    where: { email: 'owner@vapeshop.com' },
+    update: {},
+    create: {
+      email: 'owner@vapeshop.com',
+      passwordHash: ownerPasswordHash,
+      firstName: 'System',
+      lastName: 'Owner',
+      roleId: ownerRole.id,
+      mustChangePassword: true,
+    },
+  });
+
+  console.log('✅ Owner account ready (owner@vapeshop.com / OwnerPass123!)');
+
+  // 3. Admin account ---------------------------------------------------------
+
+  // 3. Admin account ---------------------------------------------------------
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, BCRYPT_ROUNDS);
 
   await prisma.user.upsert({
