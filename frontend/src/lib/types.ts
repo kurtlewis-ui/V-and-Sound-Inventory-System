@@ -112,6 +112,7 @@ export interface Product {
   image: string | null;
   brand: { id: string; name: string; slug: string } | null;
   sellingPrice: number;
+  costPrice?: number; // Owner-only, confidential
   quantityAlert: number;
   isActive: boolean;
   quantities: ProductBranchQuantity[];
@@ -327,4 +328,22 @@ export interface RestockResult {
   updated: number;
   total: number;
   warnings: string[];
+}
+
+
+// Stock movement types (per product per branch history)
+export type StockMovementType = 'SALE' | 'RESTOCK' | 'DISPOSAL' | 'RETURN' | 'ADJUSTMENT';
+
+export interface StockMovement {
+  id: string;
+  productId: string;
+  productName: string;
+  branchId: string;
+  branchName: string;
+  user: string | null;
+  type: StockMovementType;
+  quantityChange: number;
+  quantityAfter: number;
+  description: string | null;
+  createdAt: string;
 }

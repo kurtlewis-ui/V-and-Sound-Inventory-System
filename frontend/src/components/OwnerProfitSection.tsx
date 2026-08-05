@@ -1,0 +1,134 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { useSalesOverview, useDisposals, useExpenses, useBranches } from '@/lib/hooks';
+import { useAuthStore } from '@/lib/store';
+import { Download } from 'lucide-react';
+
+function peso(n: number) {
+  return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/**
+ * Owner-only Profit & Loss section on the dashboard.
+ * Shows: Revenue - COGS - Expenses - Disposal Losses = Net Profit.
+ * Only renders if user.role.name === 'Owner'.
+ */
+export function OwnerProfitSection() {
+  const role = useAuthStore((s) => s.user?.role?.name);
+  if (role !== 'Owner') return null;
+
+  return <ProfitContent />;
+}
+
+function ProfitContent() {
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [branchId, setBranchId] = useState('');
+  const [exporting, setExporting] = useState(false);
+
+  const { data: branchData } = useBranches();
+  const branches = branchData?.data ?? [];
+
+  // Fetch sales overview for date range
+  const { data: salesData } = useSalesOverview('daily', branchId || undefined);
+  const { data: disposalsData } = useDisposals({ branchId: branchId || undefined, startDate: startDate || undefined, endDate: endDate || undefined });
+  const { data: expensesData } = useExpenses({ branchId: branchId || undefined, startDate: startDate || undefined, endDate: endDate || undefined });
+
+  const disposals = (disposalsData?.data ?? []).filter((d) => d.status === 'APPROVED');
+  const expenses = (expensesData?.data ?? []).filter((e) => e.status === 'APPROVED');
+
+  // Calculate profit metrics
+  const metrics = useMemo(() => {
+    // Filter sales by date
+    let salesTotal = 0;
+    const salesPoints = salesData ?? [];
+    for (const p of salesPoints) {
+      if (startDate && p.date < startDate) continue;
+      if (endDate && p.date > endDate) continue;
+      salesTotal += p.total;
+    }
+
+    const expensesTotal = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+    const disposalLosses = disposals.reduce((sum, d) => sum + Number(d.value), 0);
+
+    // Note: COGS requires costPrice data from sales items which isn't
+    // available via the overview endpoint. For now, show revenue - expenses - disposals.
+    // Full COGS will be available when we add a dedicated profit API endpoint.
+    const netProfit = salesTotal - expensesTotal - disposalLosses;
+    const margin = salesTotal > 0 ? (netProfit / salesTotal) * 100 : 0;
+
+    return { salesTotal, expensesTotal, disposalLosses, netProfit, margin };
+  }, [salesData, expenses, disposals, startDate, endDate]);
+
+  const dateLabel = startDate && endDate
+    ? `${startDate} to ${endDate}`
+    : startDate ? `From ${startDate}` : endDate ? `Until ${endDate}` : 'All-Time';
+
+  async function handleExportProfit() {
+    setExporting(true);
+    try {
+      const { exportAllData } = await import('@/lib/export-all');
+      await exportAllData();
+    } catch {
+      // silently fail
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <div className="bg-card-bg border border-accent-primary/30 rounded-xl p-5 shadow-sm shadow-accent-primary/10">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div>
+          <p className="text-xs text-accent-primary font-semibold uppercase tracking-wider">Owner Only — Confidential</p>
+          <h2 className="text-lg font-bold text-text-primary">Profit & Loss ({dateLabel})</h2>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="px-2 py-1 border border-input-border rounded text-sm bg-input-bg">
+            <option value="">All Shops</option>
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="px-2 py-1 border border-input-border rounded text-sm bg-input-bg" />
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="px-2 py-1 border border-input-border rounded text-sm bg-input-bg" />
+          {(startDate || endDate) && (
+            <button onClick={() => { setStartDate(''); setEndDate(''); }} className="px-2 py-1 text-xs text-text-secondary border border-input-border rounded hover:bg-white/5">Clear</button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
+        <div>
+          <p className="text-[10px] text-text-muted uppercase">Revenue</p>
+          <p className="text-xl font-bold text-accent-green">{peso(metrics.salesTotal)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-text-muted uppercase">Expenses</p>
+          <p className="text-xl font-bold text-accent-red">{peso(metrics.expensesTotal)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-text-muted uppercase">Disposal Losses</p>
+          <p className="text-xl font-bold text-accent-orange">{peso(metrics.disposalLosses)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-text-muted uppercase">Net Profit</p>
+          <p className={`text-xl font-bold ${metrics.netProfit >= 0 ? 'text-accent-green' : 'text-accent-red'}`}>{peso(metrics.netProfit)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-text-muted uppercase">Margin</p>
+          <p className={`text-xl font-bold ${metrics.margin >= 0 ? 'text-accent-blue' : 'text-accent-red'}`}>{metrics.margin.toFixed(1)}%</p>
+        </div>
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-card-border flex justify-end">
+        <button
+          onClick={handleExportProfit}
+          disabled={exporting}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-primary text-white rounded-lg text-xs font-medium hover:opacity-90 transition disabled:opacity-60"
+        >
+          <Download size={13} /> {exporting ? 'Exporting...' : 'Export Profit Report'}
+        </button>
+      </div>
+    </div>
+  );
+}
