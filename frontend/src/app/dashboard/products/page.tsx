@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Upload, Download, RefreshCw, FileDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, Upload, Download, RefreshCw, FileDown, ClipboardList } from 'lucide-react';
 import {
   useProducts,
   useBrands,
@@ -20,6 +20,7 @@ import { generateRestockXlsx, parseRestockXlsx, matchSlugToShopName, readFileAsA
 import { fileToResizedDataUrl } from '@/lib/image';
 import { useAuthStore } from '@/lib/store';
 import type { Product, ImportResult, RestockResult } from '@/lib/types';
+import { StockHistoryModal } from '@/components/StockHistoryModal';
 
 const ENTRIES_OPTIONS = [5, 10, 25, 50, 100, 'All'] as const;
 
@@ -50,6 +51,7 @@ export default function ProductsPage() {
   const [showRestockModal, setShowRestockModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [archivingProduct, setArchivingProduct] = useState<Product | null>(null);
+  const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
 
   const [formName, setFormName] = useState('');
   const [formBrand, setFormBrand] = useState('');
@@ -244,6 +246,7 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-3 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button onClick={() => setHistoryProduct(product)} className="icon-btn text-text-secondary hover:bg-white/10" title="Stock History"><ClipboardList size={16} /></button>
                       <button onClick={() => openEditModal(product)} className="icon-btn text-accent-blue hover:bg-accent-blue/10"><Pencil size={16} /></button>
                       <button onClick={() => { setArchivingProduct(product); setFormError(null); setShowArchiveModal(true); }} className="icon-btn text-accent-red hover:bg-accent-red/10"><Trash2 size={16} /></button>
                     </div>
@@ -286,6 +289,7 @@ export default function ProductsPage() {
       )}
       {showImportModal && <ImportModal branches={branches} onClose={() => setShowImportModal(false)} />}
       {showRestockModal && <RestockModal products={products} branches={branches} onClose={() => setShowRestockModal(false)} />}
+      {historyProduct && <StockHistoryModal productId={historyProduct.id} productName={historyProduct.name} branches={branches} onClose={() => setHistoryProduct(null)} />}
     </div>
   );
 }

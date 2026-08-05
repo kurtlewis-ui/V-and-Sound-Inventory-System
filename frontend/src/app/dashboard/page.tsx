@@ -15,6 +15,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { useDashboardStats, useSalesOverview, useTopProducts, useBranches, useDisposals } from '@/lib/hooks';
+import { OwnerProfitSection } from '@/components/OwnerProfitSection';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -128,6 +129,9 @@ export default function DashboardPage() {
         <StatsCard href="/dashboard/sales/pending" icon={<PhilippinePeso size={24} />} value={v(stats?.pendingSales)} label="Pending Sales" subtitle={`${v(stats?.approvedSales)} Approved`} />
         <StatsCard href="/dashboard/users" icon={<Users size={24} />} value={v(stats?.staff)} label="Staff" subtitle={`${v(stats?.admins)} Admins`} />
       </div>
+
+      {/* Owner-only Profit & Loss section */}
+      <OwnerProfitSection />
 
       {/* Revenue Summary with date picker */}
       <div className="bg-card-bg border border-card-border rounded-xl p-5 shadow-sm shadow-black/20">

@@ -13,6 +13,7 @@ import {
 } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import { fileToResizedDataUrl } from '@/lib/image';
+import { useAuthStore } from '@/lib/store';
 import type { FullUser } from '@/lib/types';
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -56,6 +57,16 @@ export default function UsersPage() {
   const archiveUser = useArchiveUser();
 
   const users = data?.data ?? [];
+  const currentRole = useAuthStore((s) => s.user?.role?.name);
+  const isOwner = currentRole === 'Owner';
+
+  // Filter users based on current user's role:
+  // - Owner sees all (Owner + Admin + Staff)
+  // - Admin sees only Admin + Staff (Owner hidden)
+  const visibleUsers = isOwner ? users : users.filter((u) => u.role.name !== 'Owner');
+
+  // Filter roles in dropdown: Admin can't create Owner accounts
+  const availableRoles = isOwner ? roles : roles.filter((r) => r.name !== 'Owner');
 
   const [entriesPerPage, setEntriesPerPage] = useState<number | 'All'>(10);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -75,9 +86,9 @@ export default function UsersPage() {
   const selectedRoleName = roles.find((r) => r.id === formData.roleId)?.name;
   const isStaffRole = selectedRoleName === 'Staff';
 
-  const totalPages = entriesPerPage === 'All' ? 1 : Math.max(1, Math.ceil(users.length / entriesPerPage));
+  const totalPages = entriesPerPage === 'All' ? 1 : Math.max(1, Math.ceil(visibleUsers.length / entriesPerPage));
   const pageStart = entriesPerPage === 'All' ? 0 : (currentPage - 1) * entriesPerPage;
-  const displayedUsers = entriesPerPage === 'All' ? users : users.slice(pageStart, pageStart + entriesPerPage);
+  const displayedUsers = entriesPerPage === 'All' ? visibleUsers : visibleUsers.slice(pageStart, pageStart + entriesPerPage);
 
   const resetForm = () => {
     setFormData({
@@ -263,7 +274,7 @@ export default function UsersPage() {
           <label className="block text-sm font-medium text-text-primary mb-1">Role</label>
           <select value={formData.roleId} onChange={(e) => setFormData({ ...formData, roleId: e.target.value })} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus text-sm">
             <option value="">Select role</option>
-            {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            {availableRoles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </div>
       </div>

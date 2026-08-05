@@ -800,3 +800,28 @@ export function useChangeOwnPassword() {
       api.post('/auth/change-password', body).then((r) => r.data.data),
   });
 }
+
+
+// ===========================================================================
+// STOCK MOVEMENTS (product history per branch)
+// ===========================================================================
+export function useStockMovements(params?: { productId?: string; branchId?: string; page?: number; limit?: number }) {
+  return useQuery({
+    queryKey: ['stock-movements', params ?? {}],
+    queryFn: async () => {
+      const res = await api.get('/stock-movements', {
+        params: {
+          productId: params?.productId || undefined,
+          branchId: params?.branchId || undefined,
+          page: params?.page ?? 1,
+          limit: params?.limit ?? 50,
+        },
+      });
+      return {
+        data: (res.data.data ?? []) as import('./types').StockMovement[],
+        pagination: res.data.pagination as import('./types').Pagination | undefined,
+      };
+    },
+    enabled: !!params?.productId,
+  });
+}
