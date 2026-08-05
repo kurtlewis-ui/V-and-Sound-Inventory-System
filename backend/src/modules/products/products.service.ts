@@ -32,6 +32,7 @@ export class ProductsService {
         image: dto.image?.trim() || null,
         brandId: dto.brandId,
         sellingPrice: dto.sellingPrice,
+        costPrice: dto.costPrice ?? 0,
         quantityAlert: dto.quantityAlert ?? 0,
         inventory: dto.quantities?.length
           ? {
@@ -388,7 +389,7 @@ export class ProductsService {
     };
   }
 
-  private serialize(product: any) {
+  private serialize(product: any, includeOwnerFields = false) {
     const quantities = (product.inventory ?? []).map((inv: any) => ({
       branchId: inv.branchId,
       branchName: inv.branch?.name ?? null,
@@ -399,7 +400,7 @@ export class ProductsService {
       0,
     );
 
-    return {
+    const result: any = {
       id: product.id,
       name: product.name,
       slug: product.slug,
@@ -416,6 +417,13 @@ export class ProductsService {
       updatedAt: product.updatedAt,
       deletedAt: product.deletedAt,
     };
+
+    // Only include costPrice for Owner role (confidential)
+    if (includeOwnerFields) {
+      result.costPrice = Number(product.costPrice);
+    }
+
+    return result;
   }
 
   private paginate(page: number, limit: number, total: number) {

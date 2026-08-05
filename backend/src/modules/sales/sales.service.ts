@@ -429,11 +429,12 @@ export class SalesService {
   /** Build full sale item records (with payment resolved) from DTO input. */
   private buildSaleItems(
     dtoItems: { productId: string; quantity: number; discount?: number; paymentMethod: PaymentMethod; bankNote?: string; note?: string; paymentSplit?: { cash: number; gcash: number; bankTransfer: number; cashless: number } }[],
-    productMap: Map<string, { id: string; name: string; sellingPrice: Prisma.Decimal; brand: { name: string } }>,
+    productMap: Map<string, { id: string; name: string; sellingPrice: Prisma.Decimal; costPrice?: Prisma.Decimal; brand: { name: string } }>,
   ) {
     return dtoItems.map((item) => {
       const product = productMap.get(item.productId)!;
       const unitPrice = new Prisma.Decimal(product.sellingPrice);
+      const costPrice = new Prisma.Decimal(product.costPrice ?? 0);
       const lineTotal = unitPrice.mul(item.quantity);
       const discount = new Prisma.Decimal(item.discount || 0);
       if (discount.gt(lineTotal)) {
@@ -448,6 +449,7 @@ export class SalesService {
         brandName: product.brand.name,
         quantity: item.quantity,
         unitPrice,
+        costPrice,
         discount,
         subTotal,
         ...this.resolveItemPayment(item, subTotal, product.name),

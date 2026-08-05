@@ -20,7 +20,7 @@ export class UsersService {
     private config: ConfigService,
   ) {}
 
-  async create(createUserDto: CreateUserDto, createdBy: string) {
+  async create(createUserDto: CreateUserDto, createdBy: string, actorRole?: string) {
     // Check if email already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email: createUserDto.email },
@@ -37,6 +37,11 @@ export class UsersService {
 
     if (!role) {
       throw new NotFoundException('Role not found');
+    }
+
+    // Admin cannot create Owner accounts
+    if (actorRole === 'Admin' && role.name === 'Owner') {
+      throw new ForbiddenException('Admins cannot create Owner accounts');
     }
 
     // Verify branch exists if provided
@@ -95,7 +100,7 @@ export class UsersService {
     return userWithoutPassword;
   }
 
-  async findAll(query: QueryUserDto) {
+  async findAll(query: QueryUserDto, actorRole?: string) {
     const {
       page = 1,
       limit = 20,
@@ -111,6 +116,13 @@ export class UsersService {
     const where: any = {
       deletedAt: null,
     };
+
+    // Role-based visibility:
+    // - Owner sees all users (Owner + Admin + Staff)
+    // - Admin sees only Admin + Staff (Owner accounts are hidden)
+    if (actorRole === 'Admin') {
+      where.role = { name: { in: ['Admin', 'Staff'] } };
+    }
 
     if (search) {
       where.OR = [
@@ -192,7 +204,7 @@ export class UsersService {
     return userWithoutPassword;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto, updatedBy: string) {
+  async update(id: string, updateUserDto: UpdateUserDto, updatedBy: string, actorRole?: string) {
     // Get current user
     const currentUser = await this.prisma.user.findFirst({
       where: {
@@ -206,6 +218,11 @@ export class UsersService {
 
     if (!currentUser) {
       throw new NotFoundException('User not found');
+    }
+
+    // Admin cannot edit Owner accounts
+    if (actorRole === 'Admin' && currentUser.role.name === 'Owner') {
+      throw new ForbiddenException('Admins cannot edit Owner accounts');
     }
 
     // If changing role, verify new role exists
