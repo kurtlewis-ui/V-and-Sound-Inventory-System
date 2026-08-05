@@ -44,6 +44,13 @@ export class CreateProductDto {
   @Min(0)
   sellingPrice: number;
 
+  @ApiProperty({ required: false, example: 200, description: 'Cost/buying price in PHP (Owner-only, confidential)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  costPrice?: number;
+
   @ApiProperty({ required: false, default: 0, description: 'Low-stock alert threshold' })
   @IsOptional()
   @Type(() => Number)
