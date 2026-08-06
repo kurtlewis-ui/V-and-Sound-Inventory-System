@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useSalesOverview, useDisposals, useExpenses, useBranches } from '@/lib/hooks';
+import { useSalesOverview, useSalesRecords, useDisposals, useExpenses, useBranches } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/store';
 import { Download } from 'lucide-react';
 
@@ -32,34 +32,47 @@ function ProfitContent() {
 
   // Fetch sales overview for date range
   const { data: salesData } = useSalesOverview('daily', branchId || undefined);
+  const { data: salesRecordsData } = useSalesRecords({ branchId: branchId || undefined, startDate: startDate || undefined, endDate: endDate || undefined });
   const { data: disposalsData } = useDisposals({ branchId: branchId || undefined, startDate: startDate || undefined, endDate: endDate || undefined });
   const { data: expensesData } = useExpenses({ branchId: branchId || undefined, startDate: startDate || undefined, endDate: endDate || undefined });
 
+  const salesRecords = Array.isArray(salesRecordsData?.data) ? salesRecordsData.data : [];
   const disposals = (Array.isArray(disposalsData?.data) ? disposalsData.data : []).filter((d) => d.status === 'APPROVED');
   const expenses = (Array.isArray(expensesData?.data) ? expensesData.data : []).filter((e) => e.status === 'APPROVED');
 
-  // Calculate profit metrics
+  // Calculate profit metrics with COGS
   const metrics = useMemo(() => {
-    // Filter sales by date
-    let salesTotal = 0;
-    const salesPoints = salesData ?? [];
-    for (const p of salesPoints) {
-      if (startDate && p.date < startDate) continue;
-      if (endDate && p.date > endDate) continue;
-      salesTotal += p.total;
+    // Revenue from approved sales
+    let revenue = 0;
+    let cogs = 0;
+    for (const sale of salesRecords) {
+      if (sale.status !== 'APPROVED') continue;
+      revenue += Number(sale.total);
+      for (const item of sale.items ?? []) {
+        // costPrice is snapshotted per sale item (confidential, Owner-only)
+        const itemCost = Number(item.costPrice ?? 0);
+        cogs += itemCost * item.quantity;
+      }
     }
 
+    // If no sales records with costPrice data, fall back to overview totals
+    if (revenue === 0 && salesData) {
+      const salesPoints = Array.isArray(salesData) ? salesData : [];
+      for (const p of salesPoints) {
+        if (startDate && p.date < startDate) continue;
+        if (endDate && p.date > endDate) continue;
+        revenue += p.total;
+      }
+    }
+
+    const grossProfit = revenue - cogs;
     const expensesTotal = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
     const disposalLosses = disposals.reduce((sum, d) => sum + Number(d.value), 0);
+    const netProfit = grossProfit - expensesTotal - disposalLosses;
+    const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
-    // Note: COGS requires costPrice data from sales items which isn't
-    // available via the overview endpoint. For now, show revenue - expenses - disposals.
-    // Full COGS will be available when we add a dedicated profit API endpoint.
-    const netProfit = salesTotal - expensesTotal - disposalLosses;
-    const margin = salesTotal > 0 ? (netProfit / salesTotal) * 100 : 0;
-
-    return { salesTotal, expensesTotal, disposalLosses, netProfit, margin };
-  }, [salesData, expenses, disposals, startDate, endDate]);
+    return { revenue, cogs, grossProfit, expensesTotal, disposalLosses, netProfit, margin };
+  }, [salesRecords, salesData, expenses, disposals, startDate, endDate]);
 
   const dateLabel = startDate && endDate
     ? `${startDate} to ${endDate}`
@@ -97,26 +110,30 @@ function ProfitContent() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 text-center">
         <div>
           <p className="text-[10px] text-text-muted uppercase">Revenue</p>
-          <p className="text-xl font-bold text-accent-green">{peso(metrics.salesTotal)}</p>
+          <p className="text-lg font-bold text-accent-green">{peso(metrics.revenue)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-text-muted uppercase">COGS</p>
+          <p className="text-lg font-bold text-accent-orange">{peso(metrics.cogs)}</p>
         </div>
         <div>
           <p className="text-[10px] text-text-muted uppercase">Expenses</p>
-          <p className="text-xl font-bold text-accent-red">{peso(metrics.expensesTotal)}</p>
+          <p className="text-lg font-bold text-accent-red">{peso(metrics.expensesTotal)}</p>
         </div>
         <div>
           <p className="text-[10px] text-text-muted uppercase">Disposal Losses</p>
-          <p className="text-xl font-bold text-accent-orange">{peso(metrics.disposalLosses)}</p>
+          <p className="text-lg font-bold text-accent-orange">{peso(metrics.disposalLosses)}</p>
         </div>
         <div>
           <p className="text-[10px] text-text-muted uppercase">Net Profit</p>
-          <p className={`text-xl font-bold ${metrics.netProfit >= 0 ? 'text-accent-green' : 'text-accent-red'}`}>{peso(metrics.netProfit)}</p>
+          <p className={`text-lg font-bold ${metrics.netProfit >= 0 ? 'text-accent-green' : 'text-accent-red'}`}>{peso(metrics.netProfit)}</p>
         </div>
         <div>
           <p className="text-[10px] text-text-muted uppercase">Margin</p>
-          <p className={`text-xl font-bold ${metrics.margin >= 0 ? 'text-accent-blue' : 'text-accent-red'}`}>{metrics.margin.toFixed(1)}%</p>
+          <p className={`text-lg font-bold ${metrics.margin >= 0 ? 'text-accent-blue' : 'text-accent-red'}`}>{metrics.margin.toFixed(1)}%</p>
         </div>
       </div>
 
