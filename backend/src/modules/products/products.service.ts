@@ -46,6 +46,25 @@ export class ProductsService {
       include: this.includeFull(),
     });
 
+    // Log stock movements for initial quantities
+    if (dto.quantities?.length) {
+      for (const q of dto.quantities) {
+        if (q.quantity > 0) {
+          await this.prisma.stockMovement.create({
+            data: {
+              productId: product.id,
+              branchId: q.branchId,
+              userId: createdBy,
+              type: 'RESTOCK',
+              quantityChange: q.quantity,
+              quantityAfter: q.quantity,
+              description: 'Initial stock on product creation.',
+            },
+          });
+        }
+      }
+    }
+
     await this.audit(createdBy, 'PRODUCT_CREATED', product.id, null, {
       name: product.name,
       brand: brand.name,
@@ -312,15 +331,33 @@ export class ProductsService {
           },
         });
         for (const inv of invRows) {
+          const currentInv = await this.prisma.inventory.findUnique({
+            where: { productId_branchId: { productId: existing.id, branchId: inv.branchId } },
+          });
+          const oldQty = currentInv?.quantity ?? 0;
           await this.prisma.inventory.upsert({
             where: { productId_branchId: { productId: existing.id, branchId: inv.branchId } },
             create: { productId: existing.id, branchId: inv.branchId, quantity: inv.quantity },
             update: { quantity: inv.quantity },
           });
+          const diff = inv.quantity - oldQty;
+          if (diff !== 0) {
+            await this.prisma.stockMovement.create({
+              data: {
+                productId: existing.id,
+                branchId: inv.branchId,
+                userId,
+                type: 'ADJUSTMENT',
+                quantityChange: diff,
+                quantityAfter: inv.quantity,
+                description: 'Imported product quantity update.',
+              },
+            });
+          }
         }
         updated++;
       } else {
-        await this.prisma.product.create({
+        const newProduct = await this.prisma.product.create({
           data: {
             name,
             slug: slugify(name),
@@ -330,6 +367,22 @@ export class ProductsService {
             inventory: invRows.length ? { create: invRows } : undefined,
           },
         });
+        // Log stock movements for newly created products
+        for (const inv of invRows) {
+          if (inv.quantity > 0) {
+            await this.prisma.stockMovement.create({
+              data: {
+                productId: newProduct.id,
+                branchId: inv.branchId,
+                userId,
+                type: 'RESTOCK',
+                quantityChange: inv.quantity,
+                quantityAfter: inv.quantity,
+                description: 'Initial stock from import.',
+              },
+            });
+          }
+        }
         created++;
       }
     }
