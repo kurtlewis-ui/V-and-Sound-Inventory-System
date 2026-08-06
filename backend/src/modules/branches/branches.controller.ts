@@ -28,7 +28,7 @@ export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
 
   @Post()
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Create a new branch' })
   @ApiResponse({ status: 201, description: 'Branch created' })
   @ApiResponse({ status: 409, description: 'Branch name already exists' })
@@ -52,7 +52,7 @@ export class BranchesController {
   }
 
   @Get('archived')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'List archived (soft-deleted) branches' })
   @ApiResponse({ status: 200, description: 'Archived branches retrieved' })
   async findArchived() {
@@ -70,7 +70,7 @@ export class BranchesController {
   }
 
   @Post(':id/restore')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Restore an archived branch' })
   @ApiResponse({ status: 200, description: 'Branch restored' })
   @ApiResponse({ status: 404, description: 'Archived branch not found' })
@@ -83,7 +83,7 @@ export class BranchesController {
   }
 
   @Patch(':id')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Update a branch' })
   @ApiResponse({ status: 200, description: 'Branch updated' })
   @ApiResponse({ status: 404, description: 'Branch not found' })
@@ -97,7 +97,7 @@ export class BranchesController {
   }
 
   @Delete(':id')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a branch (soft delete)' })
   @ApiResponse({ status: 200, description: 'Branch deleted' })

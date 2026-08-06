@@ -32,7 +32,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Create new user' })
   @ApiResponse({ status: 201, description: 'User created successfully' })
   @ApiResponse({ status: 403, description: 'Forbidden - insufficient permissions' })
@@ -47,7 +47,7 @@ export class UsersController {
   }
 
   @Get()
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Get all users' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
   async findAll(@Query() query: QueryUserDto) {
@@ -61,7 +61,7 @@ export class UsersController {
   }
 
   @Get('roles')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Get all roles' })
   @ApiResponse({ status: 200, description: 'Roles retrieved successfully' })
   async getRoles() {
@@ -74,7 +74,7 @@ export class UsersController {
   }
 
   @Get('archived')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'List archived (soft-deleted) users' })
   @ApiResponse({ status: 200, description: 'Archived users retrieved' })
   async findArchived(@Query() query: QueryUserDto) {
@@ -106,7 +106,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Update user' })
   @ApiResponse({ status: 200, description: 'User updated successfully' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
@@ -125,7 +125,7 @@ export class UsersController {
   }
 
   @Patch(':id/password')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Reset a user password (Owner/Admin)' })
   @ApiResponse({ status: 200, description: 'Password updated successfully' })
   @ApiResponse({ status: 400, description: 'Passwords do not match or invalid' })
@@ -150,7 +150,7 @@ export class UsersController {
   }
 
   @Post(':id/restore')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Restore an archived user' })
   @ApiResponse({ status: 200, description: 'User restored successfully' })
   @ApiResponse({ status: 404, description: 'Archived user not found' })
@@ -167,7 +167,7 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete user (soft delete)' })
   @ApiResponse({ status: 204, description: 'User deleted successfully' })

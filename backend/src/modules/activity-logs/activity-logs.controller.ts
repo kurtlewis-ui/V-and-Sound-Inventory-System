@@ -13,7 +13,7 @@ export class ActivityLogsController {
   constructor(private readonly activityLogsService: ActivityLogsService) {}
 
   @Get()
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'List activity (audit) logs' })
   async findAll(@Query() query: QueryActivityLogDto) {
     const result = await this.activityLogsService.findAll(query);

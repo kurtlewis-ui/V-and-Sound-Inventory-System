@@ -63,7 +63,7 @@ export class DisposalsController {
   }
 
   @Post(':id/approve')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Approve a pending disposal (deducts stock)' })
   async approve(
     @Param('id', ParseUUIDPipe) id: string,
@@ -74,7 +74,7 @@ export class DisposalsController {
   }
 
   @Post(':id/decline')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Decline a pending disposal' })
   async decline(
     @Param('id', ParseUUIDPipe) id: string,

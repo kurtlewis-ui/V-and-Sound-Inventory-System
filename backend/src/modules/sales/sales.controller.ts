@@ -36,7 +36,7 @@ export class SalesController {
   // Draft-cart routes must come before ':id' so 'draft(s)' isn't swallowed
   // by the dynamic param route below.
   @Get('drafts')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: "List every staff member's current draft cart (Admin)" })
   async drafts(@Query('branchId') branchId?: string) {
     const data = await this.draftsService.findAll(branchId || undefined);
@@ -44,7 +44,7 @@ export class SalesController {
   }
 
   @Post('drafts/:staffId/save')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: "Submit a staff member's draft on their behalf (in case they forgot)" })
   async saveDraftForStaff(
     @Param('staffId', ParseUUIDPipe) staffId: string,
@@ -135,7 +135,7 @@ export class SalesController {
   }
 
   @Post(':id/approve')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Approve a pending sale (deducts stock)' })
   async approve(
     @Param('id', ParseUUIDPipe) id: string,
@@ -146,7 +146,7 @@ export class SalesController {
   }
 
   @Post(':id/decline')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Decline a pending sale' })
   async decline(
     @Param('id', ParseUUIDPipe) id: string,
