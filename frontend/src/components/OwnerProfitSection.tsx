@@ -116,7 +116,7 @@ function ProfitContent() {
           <p className="text-lg font-bold text-accent-green">{peso(metrics.revenue)}</p>
         </div>
         <div>
-          <p className="text-[10px] text-text-muted uppercase">COGS</p>
+          <p className="text-[10px] text-text-muted uppercase">Capital</p>
           <p className="text-lg font-bold text-accent-orange">{peso(metrics.cogs)}</p>
         </div>
         <div>
