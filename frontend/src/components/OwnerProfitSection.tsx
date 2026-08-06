@@ -105,7 +105,7 @@ function ProfitContent() {
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="px-2 py-1 border border-input-border rounded text-sm bg-input-bg" />
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="px-2 py-1 border border-input-border rounded text-sm bg-input-bg" />
           {(startDate || endDate) && (
-            <button onClick={() => { setStartDate(''); setEndDate(''); }} className="px-2 py-1 text-xs text-text-secondary border border-input-border rounded hover:bg-white/5">Clear</button>
+            <button onClick={() => { setStartDate(''); setEndDate(''); }} className="px-2 py-1 text-xs text-text-secondary border border-input-border rounded hover:opacity-80">Clear</button>
           )}
         </div>
       </div>

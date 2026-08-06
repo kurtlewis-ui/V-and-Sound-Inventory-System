@@ -219,7 +219,7 @@ export default function StaffDailyReportPage() {
                       <td className="px-4 py-3 text-sm text-text-secondary">{idx === 0 ? formatDate(sale.createdAt) : ''}</td>
                     </tr>
                   ))}
-                  <tr className="bg-accent-primary/10 border-t border-card-border">
+                  <tr className="bg-surface-muted border-t border-card-border">
                     <td colSpan={8} className="px-4 py-2 text-sm font-semibold text-accent-purple-light">
                       Total for Sale #{sale.number}: {peso(sale.total)}
                     </td>

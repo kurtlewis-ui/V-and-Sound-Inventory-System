@@ -52,7 +52,7 @@ export default function ShopsArchivePage() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-12"><div className="border-l-4 border-accent-orange pl-4"><p className="text-accent-orange font-medium">No archived shops found.</p></div></td></tr>
               ) : filtered.map((shop, idx) => (
-                <tr key={shop.id} className="border-b border-card-border hover:bg-white/5 transition">
+                <tr key={shop.id} className="border-b border-card-border transition">
                   <td className="px-4 py-3 text-sm text-text-primary">{idx + 1}</td>
                   <td className="px-4 py-3 text-sm text-text-primary font-medium">{shop.name}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary font-mono">{generateSlug(shop.name)}</td>

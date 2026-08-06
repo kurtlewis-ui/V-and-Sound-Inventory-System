@@ -121,7 +121,7 @@ export default function ShopsPage() {
               <tr><td colSpan={5} className="text-center py-8 text-text-muted">No shops found.</td></tr>
             ) : (
               filteredShops.map((shop, i) => (
-                <tr key={shop.id} className="border-t border-card-border hover:bg-white/5 transition-colors">
+                <tr key={shop.id} className="border-t border-card-border transition-colors">
                   <td className="px-4 py-3 text-sm text-accent-blue font-medium">{i + 1}</td>
                   <td className="px-4 py-3 text-sm text-accent-blue font-medium">{shop.name}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{shop.address || '—'}</td>
@@ -223,7 +223,7 @@ export default function ShopsPage() {
             </p>
             {formError && <p className="text-sm text-accent-red">{formError}</p>}
             <div className="flex justify-end gap-2">
-              <button onClick={() => { setShowArchiveModal(false); setArchivingShop(null); }} className="bg-white/10 text-text-primary px-4 py-2 rounded text-sm font-medium hover:opacity-90 transition">
+              <button onClick={() => { setShowArchiveModal(false); setArchivingShop(null); }} className="btn-secondary text-text-primary px-4 py-2 rounded text-sm font-medium">
                 Cancel
               </button>
               <button onClick={handleArchive} disabled={archiveBranch.isPending} className="bg-btn-danger text-white px-4 py-2 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-60">

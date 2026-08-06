@@ -140,7 +140,7 @@ export default function BrandsPage() {
               <tr><td colSpan={5} className="text-center py-8 text-text-muted">No brands found.</td></tr>
             ) : (
               displayBrands.map((brand, i) => (
-                <tr key={brand.id} className="border-t border-card-border hover:bg-white/5 transition-colors">
+                <tr key={brand.id} className="border-t border-card-border transition-colors">
                   <td className="px-4 py-3 text-sm text-accent-blue font-medium">{startIndex + i}</td>
                   <td className="px-4 py-3 text-sm text-text-muted">
                     {brand.coverImage ? (
@@ -183,10 +183,10 @@ export default function BrandsPage() {
           </p>
           {totalPages > 1 && (
             <div className="flex items-center gap-1">
-              <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 text-sm text-text-secondary rounded border border-card-border hover:bg-white/5 disabled:opacity-40">Previous</button>
+              <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 text-sm text-text-secondary rounded border border-card-border hover:opacity-80 disabled:opacity-40">Previous</button>
               <span className="rounded-lg bg-btn-primary px-3 py-1.5 text-sm font-medium text-btn-primary-text">{page}</span>
               <span className="px-1 text-sm text-text-muted">/ {totalPages}</span>
-              <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 text-sm text-text-secondary rounded border border-card-border hover:bg-white/5 disabled:opacity-40">Next</button>
+              <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 text-sm text-text-secondary rounded border border-card-border hover:opacity-80 disabled:opacity-40">Next</button>
             </div>
           )}
         </div>
@@ -230,7 +230,7 @@ export default function BrandsPage() {
             <p className="text-sm text-text-primary">Are you sure you want to archive <strong>{archivingBrand.name}</strong>?</p>
             {formError && <p className="text-sm text-accent-red">{formError}</p>}
             <div className="flex justify-end gap-2">
-              <button onClick={() => { setShowArchiveModal(false); setArchivingBrand(null); }} className="bg-white/10 text-text-primary px-4 py-2 rounded text-sm font-medium hover:opacity-90 transition">Cancel</button>
+              <button onClick={() => { setShowArchiveModal(false); setArchivingBrand(null); }} className="btn-secondary text-text-primary px-4 py-2 rounded text-sm font-medium">Cancel</button>
               <button onClick={handleArchive} disabled={archiveBrand.isPending} className="bg-btn-danger text-white px-4 py-2 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-60">{archiveBrand.isPending ? 'Archiving...' : 'Yes, Archive'}</button>
             </div>
           </div>

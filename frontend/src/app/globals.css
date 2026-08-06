@@ -36,9 +36,12 @@ body {
   --content-surface-muted: #f3f4f6;
   --content-input-bg: #f9fafb;
   --content-input-border: #e0e0e0;
-  --content-btn-primary: #1f2937;
+  --content-btn-primary: #000000;
   --content-btn-primary-text: #ffffff;
   --content-input-focus: #6b7280;
+  --content-row-alt: #f9fafb;
+  --content-row-hover: rgba(0, 0, 0, 0.02);
+  --content-secondary-btn-bg: rgba(0, 0, 0, 0.05);
   color-scheme: light;
 }
 
@@ -63,6 +66,28 @@ body {
 /* Light mode cards get subtle shadow for depth */
 .content-light .bg-card-bg {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+/* ----------------------------------------------------------------------
+   Alternating table rows + hover (both themes)
+   ---------------------------------------------------------------------- */
+table tbody tr:nth-child(even) {
+  background-color: var(--content-row-alt, rgba(255, 255, 255, 0.02));
+}
+
+table tbody tr:hover {
+  background-color: var(--content-row-hover, rgba(255, 255, 255, 0.04)) !important;
+}
+
+/* Secondary/cancel buttons — visible in both themes */
+.btn-secondary {
+  background-color: var(--content-secondary-btn-bg, rgba(255, 255, 255, 0.1));
+  border: 1px solid var(--content-input-border, #333333);
+  transition: all 0.15s ease;
+}
+
+.btn-secondary:hover {
+  opacity: 0.8;
 }
 
 /* Smooth transition when switching themes */

@@ -207,7 +207,7 @@ export function AddStaffModal({ open, onClose, roles, branches }: AddStaffModalP
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg border border-card-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-white/5 transition-colors"
+            className="rounded-lg border border-card-border px-4 py-2 text-sm font-medium text-text-secondary hover:opacity-80 transition-colors"
           >
             Cancel
           </button>

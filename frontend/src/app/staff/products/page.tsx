@@ -107,7 +107,7 @@ export default function StaffProductsPage() {
                 <tr><td colSpan={6} className="py-10 text-center text-text-muted">No products found.</td></tr>
               ) : (
                 products.map((p, i) => (
-                  <tr key={p.id} className="border-t border-card-border hover:bg-white/5 transition">
+                  <tr key={p.id} className="border-t border-card-border transition">
                     <td className="px-4 py-3 text-sm text-accent-blue font-medium">{startIndex + i}</td>
                     <td className="px-4 py-3">
                       {p.image ? (
@@ -140,7 +140,7 @@ export default function StaffProductsPage() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="rounded-lg px-3 py-1.5 text-sm text-text-secondary hover:bg-white/5 disabled:opacity-40"
+              className="rounded-lg px-3 py-1.5 text-sm text-text-secondary hover:opacity-80 disabled:opacity-40"
             >
               Previous
             </button>
@@ -149,7 +149,7 @@ export default function StaffProductsPage() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="rounded-lg px-3 py-1.5 text-sm text-text-secondary hover:bg-white/5 disabled:opacity-40"
+              className="rounded-lg px-3 py-1.5 text-sm text-text-secondary hover:opacity-80 disabled:opacity-40"
             >
               Next
             </button>

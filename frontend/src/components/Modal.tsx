@@ -32,7 +32,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1 text-2xl leading-none text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
+            className="rounded-lg p-1 text-2xl leading-none text-text-muted hover:text-text-primary hover:opacity-80 transition-colors"
           >
             &times;
           </button>

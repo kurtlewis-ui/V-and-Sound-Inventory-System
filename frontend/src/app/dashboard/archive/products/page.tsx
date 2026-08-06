@@ -50,7 +50,7 @@ export default function ProductsArchivePage() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={5} className="px-4 py-12"><div className="border-l-4 border-accent-orange pl-4"><p className="text-accent-orange font-medium">No archived products found.</p></div></td></tr>
               ) : filtered.map((product, idx) => (
-                <tr key={product.id} className="border-b border-card-border hover:bg-white/5 transition">
+                <tr key={product.id} className="border-b border-card-border transition">
                   <td className="px-4 py-3 text-sm text-text-primary">{idx + 1}</td>
                   <td className="px-4 py-3 text-sm text-text-primary font-medium">{product.name}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{product.brand?.name ?? '—'}</td>
