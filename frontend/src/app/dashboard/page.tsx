@@ -62,6 +62,11 @@ export default function DashboardPage() {
   const approvedExpenses = (Array.isArray(expensesData?.data) ? expensesData.data : []).filter((e) => e.status === 'APPROVED');
   const totalExpenses = approvedExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
+  // Disposals data for the Revenue card (all shops, date-filtered, approved only)
+  const { data: revenueDisposalsData } = useDisposals({ startDate: revenueStartDate || undefined, endDate: revenueEndDate || undefined });
+  const revenueDisposals = (Array.isArray(revenueDisposalsData?.data) ? revenueDisposalsData.data : []).filter((d) => d.status === 'APPROVED');
+  const totalDisposals = revenueDisposals.reduce((sum, d) => sum + Number(d.value), 0);
+
   // Compute top disposed products (group by product name, sum quantity)
   const disposedProducts = useMemo(() => {
     const map = new Map<string, { name: string; brandName: string; quantity: number; value: number }>();
@@ -161,7 +166,7 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
           <div>
             <p className="text-xs text-text-secondary">Total Sales</p>
             <p className="text-2xl font-bold text-accent-green">{peso(filteredRevenue.total)}</p>
@@ -171,8 +176,12 @@ export default function DashboardPage() {
             <p className="text-2xl font-bold text-accent-red">{peso(totalExpenses)}</p>
           </div>
           <div>
+            <p className="text-xs text-text-secondary">Disposal Losses</p>
+            <p className="text-2xl font-bold text-accent-orange">{peso(totalDisposals)}</p>
+          </div>
+          <div>
             <p className="text-xs text-text-secondary">Net Revenue</p>
-            <p className="text-2xl font-bold text-text-primary">{peso(filteredRevenue.total - totalExpenses)}</p>
+            <p className="text-2xl font-bold text-text-primary">{peso(filteredRevenue.total - totalExpenses - totalDisposals)}</p>
           </div>
         </div>
       </div>
