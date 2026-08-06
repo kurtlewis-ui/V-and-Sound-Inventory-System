@@ -14,7 +14,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts';
-import { useDashboardStats, useSalesOverview, useTopProducts, useBranches, useDisposals } from '@/lib/hooks';
+import { useDashboardStats, useSalesOverview, useTopProducts, useBranches, useDisposals, useExpenses } from '@/lib/hooks';
 import { OwnerProfitSection } from '@/components/OwnerProfitSection';
 
 function peso(n: number) {
@@ -46,6 +46,11 @@ export default function DashboardPage() {
   // Disposals data for "Most Disposed Products" chart
   const { data: disposalsData } = useDisposals({ branchId: disposalShop || undefined });
   const disposals = (Array.isArray(disposalsData?.data) ? disposalsData.data : []).filter((d) => d.status === 'APPROVED');
+
+  // Expenses data for the Revenue card
+  const { data: expensesData } = useExpenses({ startDate: revenueStartDate || undefined, endDate: revenueEndDate || undefined });
+  const approvedExpenses = (Array.isArray(expensesData?.data) ? expensesData.data : []).filter((e) => e.status === 'APPROVED');
+  const totalExpenses = approvedExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
   // Compute top disposed products (group by product name, sum quantity)
   const disposedProducts = useMemo(() => {
@@ -153,11 +158,11 @@ export default function DashboardPage() {
           </div>
           <div>
             <p className="text-xs text-text-secondary">Total Expenses</p>
-            <p className="text-2xl font-bold text-accent-red">—</p>
+            <p className="text-2xl font-bold text-accent-red">{peso(totalExpenses)}</p>
           </div>
           <div>
             <p className="text-xs text-text-secondary">Net Revenue</p>
-            <p className="text-2xl font-bold text-text-primary">{peso(filteredRevenue.total)}</p>
+            <p className="text-2xl font-bold text-text-primary">{peso(filteredRevenue.total - totalExpenses)}</p>
           </div>
         </div>
       </div>

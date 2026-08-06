@@ -26,16 +26,16 @@ function formatDateTime(iso: string): string {
 interface Props {
   productId: string;
   productName: string;
-  branches: { id: string; name: string }[];
+  branchId: string;
+  branchName: string;
   onClose: () => void;
 }
 
-export function StockHistoryModal({ productId, productName, branches, onClose }: Props) {
-  const [branchId, setBranchId] = useState(branches[0]?.id ?? '');
+export function StockHistoryModal({ productId, productName, branchId, branchName, onClose }: Props) {
   const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useStockMovements({ productId, branchId: branchId || undefined, page, limit: 50 });
-  const movements = data?.data ?? [];
+  const { data, isLoading } = useStockMovements({ productId, branchId, page, limit: 50 });
+  const movements = Array.isArray(data?.data) ? data.data : [];
   const pagination = data?.pagination;
 
   return (
@@ -46,13 +46,7 @@ export function StockHistoryModal({ productId, productName, branches, onClose }:
         <div className="flex items-center justify-between p-4 border-b border-card-border shrink-0">
           <div>
             <h3 className="text-lg font-bold text-text-primary">Product Activity Logs — {productName}</h3>
-            <select
-              value={branchId}
-              onChange={(e) => { setBranchId(e.target.value); setPage(1); }}
-              className="mt-1 px-2 py-1 border border-input-border rounded text-sm bg-input-bg"
-            >
-              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+            <p className="text-xs text-text-muted mt-0.5">{branchName}</p>
           </div>
           <button onClick={onClose} className="text-text-muted hover:text-text-primary transition"><X size={20} /></button>
         </div>

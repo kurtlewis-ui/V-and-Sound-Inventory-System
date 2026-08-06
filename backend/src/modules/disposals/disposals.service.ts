@@ -102,6 +102,24 @@ export class DisposalsService {
         include: this.includeFull(),
       });
 
+      // Log the stock movement for disposal
+      if (disposal.productId) {
+        const inv = await tx.inventory.findUnique({
+          where: { productId_branchId: { productId: disposal.productId, branchId: disposal.branchId } },
+        });
+        await tx.stockMovement.create({
+          data: {
+            productId: disposal.productId,
+            branchId: disposal.branchId,
+            userId: actor.userId,
+            type: 'DISPOSAL',
+            quantityChange: -disposal.quantity,
+            quantityAfter: inv?.quantity ?? 0,
+            description: 'Disposed product.',
+          },
+        });
+      }
+
       await tx.auditLog.create({
         data: {
           userId: actor.userId,
