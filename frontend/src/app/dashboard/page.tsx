@@ -45,7 +45,7 @@ export default function DashboardPage() {
 
   // Disposals data for "Most Disposed Products" chart
   const { data: disposalsData } = useDisposals({ branchId: disposalShop || undefined });
-  const disposals = (disposalsData?.data ?? []).filter((d) => d.status === 'APPROVED');
+  const disposals = (Array.isArray(disposalsData?.data) ? disposalsData.data : []).filter((d) => d.status === 'APPROVED');
 
   // Compute top disposed products (group by product name, sum quantity)
   const disposedProducts = useMemo(() => {
@@ -80,12 +80,12 @@ export default function DashboardPage() {
 
   const v = (n?: number) => (isLoading || n === undefined ? '—' : n.toLocaleString());
 
-  const overviewData = overview.map((p) => ({
+  const overviewData = (Array.isArray(overview) ? overview : []).map((p) => ({
     label: formatBucket(p.date, period),
     total: p.total,
   }));
 
-  const topData = topProducts.map((p) => ({ name: p.name, brand: p.brand, quantity: p.quantity, revenue: p.revenue }));
+  const topData = (Array.isArray(topProducts) ? topProducts : []).map((p) => ({ name: p.name, brand: p.brand, quantity: p.quantity, revenue: p.revenue }));
   const topDataPreview = topData.slice(0, 10);
   const disposedPreview = disposedProducts.slice(0, 10);
   const disposedChartData = disposedPreview.map((p) => ({ name: p.name, quantity: p.quantity }));

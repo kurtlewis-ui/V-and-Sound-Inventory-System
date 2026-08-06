@@ -35,8 +35,8 @@ function ProfitContent() {
   const { data: disposalsData } = useDisposals({ branchId: branchId || undefined, startDate: startDate || undefined, endDate: endDate || undefined });
   const { data: expensesData } = useExpenses({ branchId: branchId || undefined, startDate: startDate || undefined, endDate: endDate || undefined });
 
-  const disposals = (disposalsData?.data ?? []).filter((d) => d.status === 'APPROVED');
-  const expenses = (expensesData?.data ?? []).filter((e) => e.status === 'APPROVED');
+  const disposals = (Array.isArray(disposalsData?.data) ? disposalsData.data : []).filter((d) => d.status === 'APPROVED');
+  const expenses = (Array.isArray(expensesData?.data) ? expensesData.data : []).filter((e) => e.status === 'APPROVED');
 
   // Calculate profit metrics
   const metrics = useMemo(() => {
