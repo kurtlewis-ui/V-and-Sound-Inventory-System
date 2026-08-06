@@ -150,7 +150,8 @@ select optgroup {
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    @apply outline-none ring-2 ring-input-focus/40 ring-offset-2 ring-offset-page-bg;
+    @apply outline-none ring-2 ring-offset-2 ring-offset-page-bg;
+    --tw-ring-color: color-mix(in srgb, var(--content-input-focus, #ffffff) 40%, transparent);
   }
 }
 
