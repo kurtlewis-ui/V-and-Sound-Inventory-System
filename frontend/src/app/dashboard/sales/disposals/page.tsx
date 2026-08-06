@@ -85,7 +85,7 @@ export default function DisposalsPage() {
               ) : disposals.length === 0 ? (
                 <tr><td colSpan={10} className="px-4 py-12 text-center text-text-muted">No approved disposals yet.</td></tr>
               ) : disposals.map((d, idx) => (
-                <tr key={d.id} className="border-b border-card-border hover:bg-white/5 transition">
+                <tr key={d.id} className="border-b border-card-border transition">
                   <td className="px-4 py-3 text-sm text-text-primary">{idx + 1}</td>
                   <td className="px-4 py-3 text-sm text-text-primary">{d.name}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{d.brandName}</td>
@@ -180,7 +180,7 @@ function RecordDisposalModal({ branches, onClose }: { branches: { id: string; na
           </div>
           {error && <p className="text-sm text-accent-red">{error}</p>}
           <div className="flex justify-end gap-2">
-            <button onClick={onClose} className="bg-white/10 text-text-primary px-4 py-2 rounded text-sm font-medium">Cancel</button>
+            <button onClick={onClose} className="btn-secondary text-text-primary px-4 py-2 rounded text-sm font-medium">Cancel</button>
             <button onClick={submit} disabled={createDisposal.isPending} className="bg-btn-danger text-white px-4 py-2 rounded text-sm font-medium disabled:opacity-60">{createDisposal.isPending ? 'Submitting...' : 'Submit Request'}</button>
           </div>
         </div>

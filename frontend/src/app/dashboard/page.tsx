@@ -157,7 +157,7 @@ export default function DashboardPage() {
             <span className="text-xs text-text-muted">to</span>
             <input type="date" value={revenueEndDate} onChange={(e) => setRevenueEndDate(e.target.value)} className="px-2 py-1 border border-input-border rounded text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus" />
             {(revenueStartDate || revenueEndDate) && (
-              <button onClick={() => { setRevenueStartDate(''); setRevenueEndDate(''); }} className="px-2 py-1 text-xs text-text-secondary border border-input-border rounded hover:bg-white/5">Clear</button>
+              <button onClick={() => { setRevenueStartDate(''); setRevenueEndDate(''); }} className="px-2 py-1 text-xs text-text-secondary border border-input-border rounded hover:opacity-80">Clear</button>
             )}
           </div>
         </div>
@@ -298,7 +298,7 @@ export default function DashboardPage() {
                   </thead>
                   <tbody>
                     {topData.map((p, i) => (
-                      <tr key={`${p.name}-${i}`} className="border-t border-card-border hover:bg-white/5">
+                      <tr key={`${p.name}-${i}`} className="border-t border-card-border">
                         <td className="px-3 py-2 text-sm text-text-muted">{i + 1}</td>
                         <td className="px-3 py-2 text-sm font-medium text-text-primary">{p.name}</td>
                         <td className="px-3 py-2 text-sm text-text-secondary">{p.brand}</td>
@@ -360,7 +360,7 @@ export default function DashboardPage() {
                   </thead>
                   <tbody>
                     {disposedProducts.map((p, i) => (
-                      <tr key={`${p.name}-${i}`} className="border-t border-card-border hover:bg-white/5">
+                      <tr key={`${p.name}-${i}`} className="border-t border-card-border">
                         <td className="px-3 py-2 text-sm text-text-muted">{i + 1}</td>
                         <td className="px-3 py-2 text-sm font-medium text-text-primary">{p.name}</td>
                         <td className="px-3 py-2 text-sm text-text-secondary">{p.brandName}</td>

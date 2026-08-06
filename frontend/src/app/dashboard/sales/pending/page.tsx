@@ -272,7 +272,7 @@ export default function SalesPendingPage() {
               ) : sales.map((sale) => (
                 <Fragment key={sale.id}>
                   {sale.items.map((item, idx) => (
-                    <tr key={item.id} className="border-b border-card-border hover:bg-white/5 transition">
+                    <tr key={item.id} className="border-b border-card-border transition">
                       <td className="px-4 py-3 text-sm text-text-primary font-medium">
                         {idx === 0 && (
                           <>
@@ -362,7 +362,7 @@ export default function SalesPendingPage() {
               ) : drafts.length === 0 ? (
                 <tr><td colSpan={8} className="text-center py-6 text-text-muted">No staff currently building an order.</td></tr>
               ) : drafts.map((d) => (
-                <tr key={d.id} className="border-b border-card-border hover:bg-white/5 transition align-top">
+                <tr key={d.id} className="border-b border-card-border transition align-top">
                   <td className="px-4 py-3">
                     <p className="text-sm font-medium text-text-primary">{d.staff.name}</p>
                     <p className="text-xs text-text-muted">{d.staff.email}</p>
@@ -488,7 +488,7 @@ export default function SalesPendingPage() {
               ) : disposals.length === 0 ? (
                 <tr><td colSpan={9} className="text-center py-6 text-text-muted">No pending disposals.</td></tr>
               ) : disposals.map((d) => (
-                <tr key={d.id} className="border-b border-card-border hover:bg-white/5 transition">
+                <tr key={d.id} className="border-b border-card-border transition">
                   <td className="px-4 py-3 text-sm text-text-primary">{d.name}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{d.brandName}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{d.branch?.name ?? '—'}</td>
@@ -558,7 +558,7 @@ export default function SalesPendingPage() {
               ) : expenses.length === 0 ? (
                 <tr><td colSpan={6} className="text-center py-6 text-text-muted">No pending expenses.</td></tr>
               ) : expenses.map((e) => (
-                <tr key={e.id} className="border-b border-card-border hover:bg-white/5 transition">
+                <tr key={e.id} className="border-b border-card-border transition">
                   <td className="px-4 py-3 text-sm text-text-primary">{e.staff?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{e.branch?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-sm text-text-primary font-medium">{peso(e.amount)}</td>
@@ -601,7 +601,7 @@ export default function SalesPendingPage() {
             Delete pending sale <strong>#{deletingSale.number}</strong>? This cannot be undone.
           </p>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setDeletingSale(null)} className="px-4 py-2 border border-input-border rounded-lg text-sm text-text-primary hover:bg-white/5 transition">Cancel</button>
+            <button onClick={() => setDeletingSale(null)} className="px-4 py-2 border border-input-border rounded-lg text-sm text-text-primary hover:opacity-80 transition">Cancel</button>
             <button
               onClick={() => runSafe(async () => { await deleteSale.mutateAsync(deletingSale.id); setDeletingSale(null); })}
               disabled={deleteSale.isPending}
@@ -728,7 +728,7 @@ function EditSaleModal({
         {err && <p className="text-sm text-accent-red">{err}</p>}
 
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 border border-input-border rounded-lg text-sm text-text-primary hover:bg-white/5 transition">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 border border-input-border rounded-lg text-sm text-text-primary hover:opacity-80 transition">Cancel</button>
           <button onClick={handleSubmit} disabled={isSaving} className="btn-grad px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-60">
             {isSaving ? 'Saving...' : 'Save Changes'}
           </button>

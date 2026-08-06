@@ -380,7 +380,7 @@ export default function UsersPage() {
               ) : displayedUsers.length === 0 ? (
                 <tr><td colSpan={9} className="text-center py-8 text-text-muted">No users found.</td></tr>
               ) : displayedUsers.map((user, idx) => (
-                <tr key={user.id} className="border-b border-card-border hover:bg-white/5 transition">
+                <tr key={user.id} className="border-b border-card-border transition">
                   <td className="px-4 py-3 text-sm text-text-primary">{pageStart + idx + 1}</td>
                   <td className="px-4 py-3">
                     {user.avatarUrl ? (
@@ -430,11 +430,11 @@ export default function UsersPage() {
           <span>Showing {users.length === 0 ? 0 : pageStart + 1} to {pageStart + displayedUsers.length} of {users.length} entries</span>
           {totalPages > 1 && (
             <div className="flex items-center gap-1">
-              <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2.5 py-1 rounded-lg border border-card-border disabled:opacity-50 hover:bg-white/5 transition-colors">Previous</button>
+              <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2.5 py-1 rounded-lg border border-card-border disabled:opacity-50 hover:opacity-80 transition-colors">Previous</button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button key={p} onClick={() => setCurrentPage(p)} className={`px-2.5 py-1 rounded-lg transition-colors ${p === currentPage ? 'bg-btn-primary text-btn-primary-text' : 'border border-card-border hover:bg-white/5'}`}>{p}</button>
+                <button key={p} onClick={() => setCurrentPage(p)} className={`px-2.5 py-1 rounded-lg transition-colors ${p === currentPage ? 'bg-btn-primary text-btn-primary-text' : 'border border-card-border hover:opacity-80'}`}>{p}</button>
               ))}
-              <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-2.5 py-1 rounded-lg border border-card-border disabled:opacity-50 hover:bg-white/5 transition-colors">Next</button>
+              <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-2.5 py-1 rounded-lg border border-card-border disabled:opacity-50 hover:opacity-80 transition-colors">Next</button>
             </div>
           )}
         </div>
@@ -453,7 +453,7 @@ export default function UsersPage() {
           </p>
           {formError && <div className="rounded-lg bg-accent-red/10 border border-accent-red/30 px-3 py-2 text-sm text-accent-red mb-3">{formError}</div>}
           <div className="flex gap-3 justify-end">
-            <button onClick={() => setShowArchiveModal(false)} className="px-4 py-2 border border-input-border rounded-lg text-sm text-text-primary hover:bg-white/5 transition">Cancel</button>
+            <button onClick={() => setShowArchiveModal(false)} className="px-4 py-2 border border-input-border rounded-lg text-sm text-text-primary hover:opacity-80 transition">Cancel</button>
             <button onClick={confirmArchive} disabled={archiveUser.isPending} className="px-4 py-2 bg-accent-red text-white rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-60">
               {archiveUser.isPending ? 'Archiving...' : 'Yes, Archive'}
             </button>

@@ -168,7 +168,7 @@ export default function ProductsPage() {
           {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
         <button onClick={() => setShowRestockModal(true)} className="flex items-center gap-1 bg-btn-primary text-btn-primary-text px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><RefreshCw size={14} /> Restock</button>
-        <button onClick={handleTemplate} className="flex items-center gap-1 bg-white/10 text-text-primary px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><FileDown size={14} /> Restock Template</button>
+        <button onClick={handleTemplate} className="flex items-center gap-1 btn-secondary text-text-primary px-3 py-2 rounded-lg text-sm font-medium"><FileDown size={14} /> Restock Template</button>
       </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -205,7 +205,7 @@ export default function ProductsPage() {
               <tr><td colSpan={8} className="text-center py-8 text-text-muted">No products found. Add one or import a CSV.</td></tr>
             ) : (
               displayProducts.map((product, i) => (
-                <tr key={product.id} className="border-t border-card-border hover:bg-white/5 transition-colors align-top">
+                <tr key={product.id} className="border-t border-card-border transition-colors align-top">
                   <td className="px-3 py-3 text-sm text-accent-blue font-medium">{(entriesPerPage === 'All' ? 0 : (currentPage - 1) * (entriesPerPage as number)) + i + 1}</td>
                   <td className="px-3 py-3">
                     {product.image ? (
@@ -275,7 +275,7 @@ export default function ProductsPage() {
         {totalPages > 1 && (
           <div className="flex items-center gap-1">
             <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1} className="px-2 py-1 rounded border border-card-border disabled:opacity-50">Previous</button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (<button key={p} onClick={() => setCurrentPage(p)} className={`px-2.5 py-1 rounded ${p === currentPage ? 'bg-accent-blue text-white' : 'border border-card-border hover:bg-white/5'}`}>{p}</button>))}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (<button key={p} onClick={() => setCurrentPage(p)} className={`px-2.5 py-1 rounded ${p === currentPage ? 'bg-btn-primary text-btn-primary-text' : 'border border-card-border hover:opacity-80'}`}>{p}</button>))}
             <button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages} className="px-2 py-1 rounded border border-card-border disabled:opacity-50">Next</button>
           </div>
         )}
@@ -293,7 +293,7 @@ export default function ProductsPage() {
             <p className="text-sm text-text-primary">Are you sure you want to archive <strong>{archivingProduct.name}</strong>?</p>
             {formError && <p className="text-sm text-accent-red">{formError}</p>}
             <div className="flex justify-end gap-2">
-              <button onClick={() => { setShowArchiveModal(false); setArchivingProduct(null); }} className="bg-white/10 text-text-primary px-4 py-2 rounded text-sm font-medium">Cancel</button>
+              <button onClick={() => { setShowArchiveModal(false); setArchivingProduct(null); }} className="btn-secondary text-text-primary px-4 py-2 rounded text-sm font-medium">Cancel</button>
               <button onClick={handleArchive} disabled={archiveProduct.isPending} className="bg-btn-danger text-white px-4 py-2 rounded text-sm font-medium disabled:opacity-60">{archiveProduct.isPending ? 'Archiving...' : 'Yes, Archive'}</button>
             </div>
           </div>
@@ -367,7 +367,7 @@ function ImportModal({ branches, onClose }: { branches: { id: string; name: stri
           </div>
         )}
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="bg-white/10 text-text-primary px-4 py-2 rounded text-sm font-medium">{result ? 'Done' : 'Cancel'}</button>
+          <button onClick={onClose} className="btn-secondary text-text-primary px-4 py-2 rounded text-sm font-medium">{result ? 'Done' : 'Cancel'}</button>
           {!result && <button onClick={submit} disabled={importProducts.isPending || rows.length === 0} className="btn-grad px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-60">{importProducts.isPending ? 'Importing...' : `Import ${rows.length || ''}`}</button>}
         </div>
       </div>
@@ -523,7 +523,7 @@ function RestockModal({ products, branches, onClose }: { products: Product[]; br
           </div>
         )}
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="bg-white/10 text-text-primary px-4 py-2 rounded text-sm font-medium">{result ? 'Done' : 'Cancel'}</button>
+          <button onClick={onClose} className="btn-secondary text-text-primary px-4 py-2 rounded text-sm font-medium">{result ? 'Done' : 'Cancel'}</button>
           {!result && <button onClick={submit} disabled={restock.isPending || (mode === 'csv' && csvItems.length === 0)} className="btn-grad px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-60">{restock.isPending ? 'Restocking...' : 'Restock'}</button>}
         </div>
       </div>

@@ -73,7 +73,7 @@ export default function SalesRecordsPage() {
     <div className="p-6 bg-page-bg min-h-screen">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-text-primary">Sales Records</h1>
-        <button onClick={clearFilters} className="px-4 py-2 border border-input-border rounded-lg text-sm text-text-primary hover:bg-white/5 transition">
+        <button onClick={clearFilters} className="px-4 py-2 border border-input-border rounded-lg text-sm text-text-primary hover:opacity-80 transition">
           Clear Filter
         </button>
       </div>
@@ -153,7 +153,7 @@ export default function SalesRecordsPage() {
               ) : sales.map((sale) => (
                 <Fragment key={sale.id}>
                   {sale.items.map((item, idx) => (
-                    <tr key={item.id} className="border-b border-card-border hover:bg-white/5 transition">
+                    <tr key={item.id} className="border-b border-card-border transition">
                       <td className="px-4 py-3 text-sm text-text-primary font-medium">
                         {idx === 0 && (
                           <>

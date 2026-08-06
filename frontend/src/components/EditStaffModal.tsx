@@ -165,7 +165,7 @@ export function EditStaffModal({ user, onClose, roles, branches }: EditStaffModa
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-card-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-white/5 transition-colors"
+            className="rounded-lg border border-card-border px-4 py-2 text-sm font-medium text-text-secondary hover:opacity-80 transition-colors"
           >
             Cancel
           </button>

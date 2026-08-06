@@ -48,7 +48,7 @@ export default function ActivityLogsPage() {
         <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus" />
         <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus" />
         {(startDate || endDate) && (
-          <button onClick={() => { setStartDate(''); setEndDate(''); }} className="px-3 py-2 text-sm text-text-secondary border border-input-border rounded-lg hover:bg-white/5 transition">Clear dates</button>
+          <button onClick={() => { setStartDate(''); setEndDate(''); }} className="px-3 py-2 text-sm text-text-secondary border border-input-border rounded-lg hover:opacity-80 transition">Clear dates</button>
         )}
       </div>
 
@@ -90,7 +90,7 @@ export default function ActivityLogsPage() {
               ) : displayedLogs.length === 0 ? (
                 <tr><td colSpan={8} className="px-4 py-12 text-center"><p className="text-accent-primary font-medium">No activity logs found</p></td></tr>
               ) : displayedLogs.map((log, idx) => (
-                <tr key={log.id} className="border-b border-card-border hover:bg-white/5 transition">
+                <tr key={log.id} className="border-b border-card-border transition">
                   <td className="px-4 py-3 text-sm text-text-primary">{idx + 1}</td>
                   <td className="px-4 py-3">
                     <div>
