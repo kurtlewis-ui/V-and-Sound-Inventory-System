@@ -193,15 +193,15 @@ export default function DashboardPage() {
             <AreaChart data={overviewData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.5} />
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#ffffff" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={(n: any) => peso(Number(n))} width={70} />
-              <Tooltip formatter={(val: any) => peso(Number(val))} contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
-              <Area type="monotone" dataKey="total" stroke="#8b5cf6" fill="url(#salesGrad)" strokeWidth={2} name="Sales" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#888888' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#888888' }} tickFormatter={(n: any) => peso(Number(n))} width={70} />
+              <Tooltip formatter={(val: any) => peso(Number(val))} contentStyle={{ background: '#1a1a1a', border: '1px solid #333333', borderRadius: 8, color: '#f0f0f0' }} />
+              <Area type="monotone" dataKey="total" stroke="#ffffff" fill="url(#salesGrad)" strokeWidth={2} name="Sales" />
             </AreaChart>
           </ResponsiveContainer>
         )}
@@ -225,11 +225,11 @@ export default function DashboardPage() {
             {/* Bar chart preview — top 10 */}
             <ResponsiveContainer width="100%" height={Math.max(288, topDataPreview.length * 36)}>
               <BarChart data={topDataPreview} layout="vertical" margin={{ top: 0, right: 16, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} tickFormatter={(n: any) => peso(Number(n))} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} width={150} />
-                <Tooltip formatter={(val: any, name: any) => [name === 'revenue' ? peso(Number(val)) : `${val} units`, name === 'revenue' ? 'Revenue' : 'Sold']} contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
-                <Bar dataKey="revenue" fill="#10b981" radius={[0, 4, 4, 0]} name="revenue" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#888888' }} allowDecimals={false} tickFormatter={(n: any) => peso(Number(n))} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#888888' }} width={150} />
+                <Tooltip formatter={(val: any, name: any) => [name === 'revenue' ? peso(Number(val)) : `${val} units`, name === 'revenue' ? 'Revenue' : 'Sold']} contentStyle={{ background: '#1a1a1a', border: '1px solid #333333', borderRadius: 8, color: '#f0f0f0' }} />
+                <Bar dataKey="revenue" fill="#c0c0c0" radius={[0, 4, 4, 0]} name="revenue" />
               </BarChart>
             </ResponsiveContainer>
 
@@ -287,11 +287,11 @@ export default function DashboardPage() {
             {/* Bar chart preview — top 10 */}
             <ResponsiveContainer width="100%" height={Math.max(288, disposedPreview.length * 36)}>
               <BarChart data={disposedChartData} layout="vertical" margin={{ top: 0, right: 16, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} width={150} />
-                <Tooltip formatter={(val: any) => [`${val} units`, 'Disposed']} contentStyle={{ background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
-                <Bar dataKey="quantity" fill="#ef4444" radius={[0, 4, 4, 0]} name="Disposed" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#888888' }} allowDecimals={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#888888' }} width={150} />
+                <Tooltip formatter={(val: any) => [`${val} units`, 'Disposed']} contentStyle={{ background: '#1a1a1a', border: '1px solid #333333', borderRadius: 8, color: '#f0f0f0' }} />
+                <Bar dataKey="quantity" fill="#666666" radius={[0, 4, 4, 0]} name="Disposed" />
               </BarChart>
             </ResponsiveContainer>
 

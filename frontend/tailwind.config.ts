@@ -34,8 +34,8 @@ const config: Config = {
         'accent-red': '#cc6666',
         // Neutral surface for badges/hover
         'surface-muted': '#222222',
-        // Buttons — clean white primary, soft red for destructive
-        'btn-primary': '#ffffff',
+        // Buttons — dark primary (white text), soft red for destructive
+        'btn-primary': '#333333',
         'btn-danger': '#cc5555',
         'btn-success': '#6faa6f',
         // Input/form colors

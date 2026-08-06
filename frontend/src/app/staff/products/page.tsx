@@ -144,7 +144,7 @@ export default function StaffProductsPage() {
             >
               Previous
             </button>
-            <span className="rounded-lg bg-accent-primary px-3 py-1.5 text-sm font-medium text-white">{page}</span>
+            <span className="rounded-lg bg-btn-primary px-3 py-1.5 text-sm font-medium text-white">{page}</span>
             <span className="px-1 text-sm text-text-muted">/ {totalPages}</span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}

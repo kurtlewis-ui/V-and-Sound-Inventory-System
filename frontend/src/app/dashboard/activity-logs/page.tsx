@@ -35,7 +35,7 @@ export default function ActivityLogsPage() {
             key={cat}
             onClick={() => setActiveCategory(cat)}
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
-              activeCategory === cat ? 'bg-accent-primary text-white' : 'bg-gray-700 text-white opacity-70 hover:opacity-100'
+              activeCategory === cat ? 'bg-white text-black' : 'bg-white/10 text-text-secondary hover:text-text-primary hover:bg-white/15'
             }`}
           >
             {cat}
