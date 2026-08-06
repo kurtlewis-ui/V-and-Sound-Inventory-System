@@ -618,7 +618,7 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
         </div>
         {error && <p className="text-sm text-accent-red">{error}</p>}
         <div className="flex justify-end">
-          <button onClick={onSubmit} disabled={disabled} className="btn-grad text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-60">{buttonLabel}</button>
+          <button onClick={onSubmit} disabled={disabled} className="btn-grad px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-60">{buttonLabel}</button>
         </div>
       </div>
     </Modal>

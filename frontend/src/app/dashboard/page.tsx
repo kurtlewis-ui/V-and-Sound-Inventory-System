@@ -13,6 +13,9 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 import { useDashboardStats, useSalesOverview, useTopProducts, useBranches, useDisposals, useExpenses } from '@/lib/hooks';
 import { useThemeStore } from '@/lib/theme';
@@ -22,7 +25,9 @@ function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
-// Donut chart colors not used anymore — vertical bars are theme-aware
+// Chart colors — monochrome for dark, colorful for light
+const DONUT_COLORS_DARK = ['#ffffff', '#d4d4d4', '#a3a3a3', '#737373', '#e5e5e5', '#c0c0c0', '#f5f5f5', '#a0a0a0'];
+const DONUT_COLORS_LIGHT = ['#10b981', '#34d399', '#6ee7b7', '#60a5fa', '#a78bfa', '#f59e0b', '#f87171', '#94a3b8'];
 
 export default function DashboardPage() {
   const { contentTheme } = useThemeStore();
@@ -228,19 +233,51 @@ export default function DashboardPage() {
           <ChartPlaceholder message="No approved sales yet" />
         ) : (
           <>
-            {/* Vertical bar chart — top 10 products by revenue */}
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={topDataPreview} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'} vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: isDark ? '#666666' : '#888888' }} angle={-25} textAnchor="end" height={60} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: isDark ? '#666666' : '#888888' }} tickFormatter={(n: any) => peso(Number(n))} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(val: any) => peso(Number(val))} contentStyle={{ background: isDark ? 'rgba(20,20,20,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)', borderRadius: 10, color: isDark ? '#f0f0f0' : '#1a1a1a', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} />
-                <Bar dataKey="revenue" fill={isDark ? '#ffffff' : '#10b981'} radius={[4, 4, 0, 0]} name="Revenue" />
-              </BarChart>
-            </ResponsiveContainer>
+            {/* Ring/Donut chart — top 8 products by revenue */}
+            <div className="flex flex-col lg:flex-row items-center gap-6">
+              <div className="relative">
+                <ResponsiveContainer width={260} height={260}>
+                  <PieChart>
+                    <Pie
+                      data={topDataPreview.slice(0, 8)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={110}
+                      dataKey="revenue"
+                      nameKey="name"
+                      strokeWidth={2}
+                      stroke={isDark ? '#0f0f0f' : '#ffffff'}
+                    >
+                      {topDataPreview.slice(0, 8).map((_, i) => (
+                        <Cell key={i} fill={(isDark ? DONUT_COLORS_DARK : DONUT_COLORS_LIGHT)[i % 8]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(val: any) => peso(Number(val))} contentStyle={{ background: isDark ? 'rgba(20,20,20,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)', borderRadius: 10, color: isDark ? '#f0f0f0' : '#1a1a1a', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Center label */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <p className="text-xs text-text-muted">Total</p>
+                  <p className="text-lg font-bold text-text-primary">{peso(topData.reduce((s, p) => s + p.revenue, 0))}</p>
+                </div>
+              </div>
+              {/* Legend */}
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {topDataPreview.slice(0, 8).map((p, i) => (
+                  <div key={p.name} className="flex items-center gap-2.5">
+                    <div className="h-3 w-3 rounded-full shrink-0" style={{ background: (isDark ? DONUT_COLORS_DARK : DONUT_COLORS_LIGHT)[i % 8] }} />
+                    <div className="min-w-0">
+                      <p className="text-sm text-text-primary truncate">{p.name}</p>
+                      <p className="text-xs text-text-muted">{peso(p.revenue)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* View All / Show Less toggle */}
-            {topData.length > 10 && (
+            {topData.length > 8 && (
               <button onClick={() => setShowAllSelling(!showAllSelling)} className="mt-4 flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary">
                 {showAllSelling ? <><ChevronUp size={14} /> Show Less</> : <><ChevronDown size={14} /> View All ({topData.length} products)</>}
               </button>
@@ -290,14 +327,14 @@ export default function DashboardPage() {
           <ChartPlaceholder message="No approved disposals yet" />
         ) : (
           <>
-            {/* Vertical bar chart — disposed products */}
+            {/* Horizontal bar chart — disposed products */}
             <ResponsiveContainer width="100%" height={Math.max(288, disposedPreview.length * 40)}>
-              <BarChart data={disposedChartData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'} vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: isDark ? '#666666' : '#888888' }} angle={-25} textAnchor="end" height={60} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: isDark ? '#666666' : '#888888' }} allowDecimals={false} axisLine={false} tickLine={false} />
+              <BarChart data={disposedChartData} layout="vertical" margin={{ top: 0, right: 24, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'} horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: isDark ? '#666666' : '#888888' }} allowDecimals={false} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: isDark ? '#a0a0a0' : '#555555' }} width={140} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(val: any) => [`${val} units`, 'Disposed']} contentStyle={{ background: isDark ? 'rgba(20,20,20,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(239,68,68,0.2)', borderRadius: 10, color: isDark ? '#f0f0f0' : '#1a1a1a', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} />
-                <Bar dataKey="quantity" fill={isDark ? '#999999' : '#ef4444'} radius={[4, 4, 0, 0]} name="Disposed" />
+                <Bar dataKey="quantity" fill={isDark ? '#999999' : '#ef4444'} radius={[0, 4, 4, 0]} name="Disposed" />
               </BarChart>
             </ResponsiveContainer>
 

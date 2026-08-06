@@ -738,7 +738,7 @@ function DraftBag() {
                       </button>
                       <button
                         onClick={handleAddExpense}
-                        className="flex-1 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100 transition"
+                        className="flex-1 rounded-lg bg-btn-primary px-3 py-1.5 text-xs font-medium text-btn-primary-text hover:opacity-90 transition"
                       >
                         Add
                       </button>
@@ -898,7 +898,7 @@ function EditPaymentInline({
       )}
       <div className="flex gap-1.5">
         <button onClick={onCancel} className="flex-1 rounded bg-white/10 px-2 py-1 text-[10px] font-medium text-text-primary hover:bg-white/15">Cancel</button>
-        <button onClick={handleSave} disabled={method === 'Split' && overAllocated} className="flex-1 rounded bg-white px-2 py-1 text-[10px] font-medium text-black hover:bg-gray-100 disabled:opacity-50">Save</button>
+        <button onClick={handleSave} disabled={method === 'Split' && overAllocated} className="flex-1 rounded bg-btn-primary px-2 py-1 text-[10px] font-medium text-btn-primary-text hover:opacity-90 disabled:opacity-50">Save</button>
       </div>
     </div>
   );
