@@ -81,10 +81,10 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-page-bg">
       {/* Sidebar */}
       <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-[220px] flex-col bg-nav-bg border-r border-nav-border">
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-nav-border">
+        {/* Logo — larger, prominent */}
+        <div className="flex items-center gap-3 px-4 py-5 border-b border-nav-border">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Vape and Sounds" className="h-10 w-10 rounded-lg object-cover" />
+          <img src="/logo.png" alt="Vape and Sounds" className="h-12 w-12 rounded-xl object-cover shadow-lg shadow-black/30" />
           <div className="leading-tight">
             <p className="text-sm font-bold text-text-primary">Vape & Sounds</p>
             <p className="text-[10px] text-text-muted uppercase tracking-wider">Staff Portal</p>
@@ -101,11 +101,11 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
                 href={item.href}
                 className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
                   active
-                    ? 'bg-white/10 text-white'
-                    : 'text-nav-text hover:text-text-primary hover:bg-white/5'
+                    ? 'bg-accent-teal/10 text-white border-l-[3px] border-accent-teal'
+                    : 'text-nav-text hover:text-text-primary hover:bg-white/5 border-l-[3px] border-transparent'
                 }`}
               >
-                <span className={active ? 'text-white' : 'text-text-muted'}>{item.icon}</span>
+                <span className={active ? 'text-accent-teal' : 'text-text-muted'}>{item.icon}</span>
                 {item.label}
               </Link>
             );
@@ -505,13 +505,13 @@ function DraftBag() {
       {/* Floating button */}
       <button
         onClick={() => { setOpen((o) => !o); setSuccess(null); setError(null); }}
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/40 hover:bg-gray-100 transition"
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-accent-teal text-white shadow-lg shadow-accent-teal/30 hover:bg-accent-teal-light transition"
         title="Draft order"
         aria-label="Draft order"
       >
         <Briefcase size={22} />
         {mounted && count > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-black px-1.5 text-xs font-bold text-white border border-white/20">
+          <span className="absolute -top-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-accent-red px-1.5 text-xs font-bold text-white">
             {count}
           </span>
         )}

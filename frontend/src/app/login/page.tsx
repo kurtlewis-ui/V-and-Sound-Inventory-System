@@ -23,8 +23,6 @@ export default function LoginPage() {
   const [slow, setSlow] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Start waking the (free-tier) backend as soon as the page loads, so it's
-  // ready by the time credentials are submitted.
   useEffect(() => {
     warmUpBackend();
   }, []);
@@ -33,7 +31,6 @@ export default function LoginPage() {
     event.preventDefault();
     setError(null);
     setLoading(true);
-    // If it's taking a while, reassure the user the server is just waking up.
     const slowTimer = setTimeout(() => setSlow(true), 4000);
 
     try {
@@ -56,14 +53,18 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 bg-page-bg">
-      {/* Subtle radial glow — just a hint of light, no color */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-white/5 blur-3xl" />
+      {/* Subtle teal radial glow behind logo */}
+      <div className="pointer-events-none absolute -top-32 left-1/2 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-accent-teal/5 blur-3xl" />
 
       <div className="relative flex w-full max-w-[420px] flex-col items-center">
-        {/* Logo — large, prominent display of the brand */}
-        <div className="mb-8 w-full max-w-[180px] sm:max-w-[220px]">
+        {/* Logo — large with shimmer hover effect and glow */}
+        <div className="mb-10 logo-shimmer rounded-2xl shadow-2xl shadow-black/50 ring-1 ring-white/10">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Vape and Sounds" className="w-full h-auto rounded-2xl" />
+          <img
+            src="/logo.png"
+            alt="Vape and Sounds"
+            className="w-[200px] sm:w-[260px] h-auto rounded-2xl"
+          />
         </div>
 
         {/* Card */}
@@ -89,7 +90,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-input-border bg-input-bg pl-11 pr-4 py-3 text-text-primary placeholder-text-muted outline-none transition-all focus:border-white/40 focus:ring-2 focus:ring-white/10"
+                  className="w-full rounded-xl border border-input-border bg-input-bg pl-11 pr-4 py-3 text-text-primary placeholder-text-muted outline-none transition-all focus:border-accent-teal/50 focus:ring-2 focus:ring-accent-teal/20"
                   placeholder="you@example.com"
                 />
               </div>
@@ -110,7 +111,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-input-border bg-input-bg pl-11 pr-12 py-3 text-text-primary placeholder-text-muted outline-none transition-all focus:border-white/40 focus:ring-2 focus:ring-white/10"
+                  className="w-full rounded-xl border border-input-border bg-input-bg pl-11 pr-12 py-3 text-text-primary placeholder-text-muted outline-none transition-all focus:border-accent-teal/50 focus:ring-2 focus:ring-accent-teal/20"
                   placeholder="Enter your password"
                 />
                 <button
@@ -125,20 +126,20 @@ export default function LoginPage() {
 
             {/* Error Message */}
             {error && (
-              <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+              <div className="rounded-xl bg-accent-red/10 border border-accent-red/20 px-4 py-3 text-sm text-accent-red">
                 {error}
               </div>
             )}
 
-            {/* Submit Button */}
+            {/* Submit Button — teal */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-white px-4 py-3.5 font-semibold text-black shadow-sm transition-all hover:bg-gray-100 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-xl bg-accent-teal px-4 py-3.5 font-semibold text-white shadow-lg shadow-accent-teal/20 transition-all hover:bg-accent-teal-light active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <svg className="h-5 w-5 animate-spin text-black" viewBox="0 0 24 24">
+                  <svg className="h-5 w-5 animate-spin text-white" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>

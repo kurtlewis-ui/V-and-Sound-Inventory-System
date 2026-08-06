@@ -13,6 +13,9 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 import { useDashboardStats, useSalesOverview, useTopProducts, useBranches, useDisposals, useExpenses } from '@/lib/hooks';
 import { OwnerProfitSection } from '@/components/OwnerProfitSection';
@@ -20,6 +23,9 @@ import { OwnerProfitSection } from '@/components/OwnerProfitSection';
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
+
+// Donut chart color palette — teal shades + neutrals for variety
+const DONUT_COLORS = ['#10b981', '#34d399', '#6ee7b7', '#60a5fa', '#a78bfa', '#f59e0b', '#f87171', '#94a3b8'];
 
 export default function DashboardPage() {
   const { data: stats, isLoading } = useDashboardStats();
@@ -129,10 +135,10 @@ export default function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard href="/dashboard/shops" icon={<Store size={24} />} value={v(stats?.shops)} label="Shops" />
-        <StatsCard href="/dashboard/products" icon={<Package size={24} />} value={v(stats?.products)} label="Products" subtitle={`${v(stats?.brands)} brands`} />
-        <StatsCard href="/dashboard/sales/pending" icon={<PhilippinePeso size={24} />} value={v(stats?.pendingSales)} label="Pending Sales" subtitle={`${v(stats?.approvedSales)} Approved`} />
-        <StatsCard href="/dashboard/users" icon={<Users size={24} />} value={v(stats?.staff)} label="Staff" subtitle={`${v(stats?.admins)} Admins`} />
+        <StatsCard href="/dashboard/shops" icon={<Store size={24} />} value={v(stats?.shops)} label="Shops" accentColor="#10b981" />
+        <StatsCard href="/dashboard/products" icon={<Package size={24} />} value={v(stats?.products)} label="Products" subtitle={`${v(stats?.brands)} brands`} accentColor="#60a5fa" />
+        <StatsCard href="/dashboard/sales/pending" icon={<PhilippinePeso size={24} />} value={v(stats?.pendingSales)} label="Pending Sales" subtitle={`${v(stats?.approvedSales)} Approved`} accentColor="#f59e0b" />
+        <StatsCard href="/dashboard/users" icon={<Users size={24} />} value={v(stats?.staff)} label="Staff" subtitle={`${v(stats?.admins)} Admins`} accentColor="#a78bfa" />
       </div>
 
       {/* Owner-only Profit & Loss section */}
@@ -193,15 +199,16 @@ export default function DashboardPage() {
             <AreaChart data={overviewData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ffffff" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                  <stop offset="50%" stopColor="#10b981" stopOpacity={0.1} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#888888' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#888888' }} tickFormatter={(n: any) => peso(Number(n))} width={70} />
-              <Tooltip formatter={(val: any) => peso(Number(val))} contentStyle={{ background: '#1a1a1a', border: '1px solid #333333', borderRadius: 8, color: '#f0f0f0' }} />
-              <Area type="monotone" dataKey="total" stroke="#ffffff" fill="url(#salesGrad)" strokeWidth={2} name="Sales" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#666666' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: '#666666' }} tickFormatter={(n: any) => peso(Number(n))} width={70} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(val: any) => peso(Number(val))} contentStyle={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(8px)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 10, color: '#f0f0f0', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }} cursor={{ stroke: '#10b981', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              <Area type="monotone" dataKey="total" stroke="#10b981" fill="url(#salesGrad)" strokeWidth={2.5} name="Sales" dot={false} activeDot={{ r: 5, fill: '#10b981', stroke: '#0f0f0f', strokeWidth: 2 }} />
             </AreaChart>
           </ResponsiveContainer>
         )}
@@ -222,20 +229,52 @@ export default function DashboardPage() {
           <ChartPlaceholder message="No approved sales yet" />
         ) : (
           <>
-            {/* Bar chart preview — top 10 */}
-            <ResponsiveContainer width="100%" height={Math.max(288, topDataPreview.length * 36)}>
-              <BarChart data={topDataPreview} layout="vertical" margin={{ top: 0, right: 16, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#888888' }} allowDecimals={false} tickFormatter={(n: any) => peso(Number(n))} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#888888' }} width={150} />
-                <Tooltip formatter={(val: any, name: any) => [name === 'revenue' ? peso(Number(val)) : `${val} units`, name === 'revenue' ? 'Revenue' : 'Sold']} contentStyle={{ background: '#1a1a1a', border: '1px solid #333333', borderRadius: 8, color: '#f0f0f0' }} />
-                <Bar dataKey="revenue" fill="#c0c0c0" radius={[0, 4, 4, 0]} name="revenue" />
-              </BarChart>
-            </ResponsiveContainer>
+            {/* Donut chart — top 8 products by revenue */}
+            <div className="flex flex-col lg:flex-row items-center gap-6">
+              <div className="relative">
+                <ResponsiveContainer width={260} height={260}>
+                  <PieChart>
+                    <Pie
+                      data={topDataPreview.slice(0, 8)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={110}
+                      dataKey="revenue"
+                      nameKey="name"
+                      strokeWidth={2}
+                      stroke="#0f0f0f"
+                    >
+                      {topDataPreview.slice(0, 8).map((_, i) => (
+                        <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(val: any) => peso(Number(val))} contentStyle={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#f0f0f0', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Center label */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <p className="text-xs text-text-muted">Total</p>
+                  <p className="text-lg font-bold text-text-primary">{peso(topData.reduce((s, p) => s + p.revenue, 0))}</p>
+                </div>
+              </div>
+              {/* Legend */}
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {topDataPreview.slice(0, 8).map((p, i) => (
+                  <div key={p.name} className="flex items-center gap-2.5">
+                    <div className="h-3 w-3 rounded-full shrink-0" style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+                    <div className="min-w-0">
+                      <p className="text-sm text-text-primary truncate">{p.name}</p>
+                      <p className="text-xs text-text-muted">{peso(p.revenue)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* View All / Show Less toggle */}
-            {topData.length > 10 && (
-              <button onClick={() => setShowAllSelling(!showAllSelling)} className="mt-3 flex items-center gap-1.5 text-sm font-medium text-accent-blue hover:underline">
+            {topData.length > 8 && (
+              <button onClick={() => setShowAllSelling(!showAllSelling)} className="mt-4 flex items-center gap-1.5 text-sm font-medium text-accent-teal hover:underline">
                 {showAllSelling ? <><ChevronUp size={14} /> Show Less</> : <><ChevronDown size={14} /> View All ({topData.length} products)</>}
               </button>
             )}
@@ -284,20 +323,20 @@ export default function DashboardPage() {
           <ChartPlaceholder message="No approved disposals yet" />
         ) : (
           <>
-            {/* Bar chart preview — top 10 */}
-            <ResponsiveContainer width="100%" height={Math.max(288, disposedPreview.length * 36)}>
-              <BarChart data={disposedChartData} layout="vertical" margin={{ top: 0, right: 16, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#888888' }} allowDecimals={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#888888' }} width={150} />
-                <Tooltip formatter={(val: any) => [`${val} units`, 'Disposed']} contentStyle={{ background: '#1a1a1a', border: '1px solid #333333', borderRadius: 8, color: '#f0f0f0' }} />
-                <Bar dataKey="quantity" fill="#666666" radius={[0, 4, 4, 0]} name="Disposed" />
+            {/* Lollipop chart — thin bars with rounded dots at the end */}
+            <ResponsiveContainer width="100%" height={Math.max(288, disposedPreview.length * 40)}>
+              <BarChart data={disposedChartData} layout="vertical" margin={{ top: 0, right: 24, left: 10, bottom: 0 }} barSize={4}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#666666' }} allowDecimals={false} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#a0a0a0' }} width={140} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(val: any) => [`${val} units`, 'Disposed']} contentStyle={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(8px)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, color: '#f0f0f0', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
+                <Bar dataKey="quantity" fill="#ef4444" radius={[0, 8, 8, 0]} name="Disposed" />
               </BarChart>
             </ResponsiveContainer>
 
             {/* View All / Show Less toggle */}
             {disposedProducts.length > 10 && (
-              <button onClick={() => setShowAllDisposed(!showAllDisposed)} className="mt-3 flex items-center gap-1.5 text-sm font-medium text-accent-blue hover:underline">
+              <button onClick={() => setShowAllDisposed(!showAllDisposed)} className="mt-4 flex items-center gap-1.5 text-sm font-medium text-accent-red hover:underline">
                 {showAllDisposed ? <><ChevronUp size={14} /> Show Less</> : <><ChevronDown size={14} /> View All ({disposedProducts.length} products)</>}
               </button>
             )}
@@ -344,10 +383,11 @@ function formatBucket(iso: string, period: string) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function StatsCard({ href, icon, value, label, subtitle }: { href: string; icon: React.ReactNode; value: string; label: string; subtitle?: string }) {
+function StatsCard({ href, icon, value, label, subtitle, accentColor }: { href: string; icon: React.ReactNode; value: string; label: string; subtitle?: string; accentColor?: string }) {
   return (
-    <Link href={href} className="group bg-card-bg border border-card-border rounded-xl p-4 flex items-center gap-4 transition-colors duration-200 hover:border-accent-primary/40">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-primary/10"><span className="text-accent-primary">{icon}</span></div>
+    <Link href={href} className="group card-hover bg-card-bg border border-card-border rounded-xl p-4 flex items-center gap-4 relative overflow-hidden">
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r" style={{ background: accentColor || '#10b981' }} />
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/5"><span style={{ color: accentColor || '#10b981' }}>{icon}</span></div>
       <div>
         <p className="text-2xl font-bold text-text-primary leading-tight">{value}</p>
         <p className="text-sm font-medium text-text-secondary">{label}</p>
@@ -360,7 +400,7 @@ function StatsCard({ href, icon, value, label, subtitle }: { href: string; icon:
 function ChartPlaceholder({ message }: { message: string }) {
   return (
     <div className="h-72 flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-card-border text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-primary/10"><BarChart3 size={28} className="text-accent-primary" /></div>
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-teal/10"><BarChart3 size={28} className="text-accent-teal" /></div>
       <p className="text-sm font-medium text-text-secondary">{message}</p>
     </div>
   );

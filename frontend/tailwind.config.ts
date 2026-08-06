@@ -22,30 +22,43 @@ const config: Config = {
         'text-secondary': '#a0a0a0',
         'text-muted': '#666666',
         'text-link': '#d0d0d0',
-        // Accent colors — silver/white primary; muted status colors kept minimal
+        // Accent colors — teal as primary action color, with status colors
         'accent-primary': '#ffffff',
+        'accent-teal': '#10b981',
+        'accent-teal-light': '#34d399',
+        'accent-teal-dark': '#059669',
         'accent-purple': '#c0c0c0',
         'accent-purple-light': '#e0e0e0',
         'accent-pink': '#999999',
         'accent-cyan': '#a0a0a0',
-        'accent-green': '#8fcc8f',
-        'accent-orange': '#d4a054',
-        'accent-blue': '#b0b0b0',
-        'accent-red': '#cc6666',
+        'accent-green': '#10b981',
+        'accent-orange': '#f59e0b',
+        'accent-blue': '#60a5fa',
+        'accent-red': '#ef4444',
+        'accent-coral': '#f87171',
         // Neutral surface for badges/hover
         'surface-muted': '#222222',
-        // Buttons — dark primary (white text), soft red for destructive
-        'btn-primary': '#333333',
-        'btn-danger': '#cc5555',
-        'btn-success': '#6faa6f',
+        // Buttons — teal primary for actions, red for destructive
+        'btn-primary': '#10b981',
+        'btn-danger': '#ef4444',
+        'btn-success': '#10b981',
         // Input/form colors
         'input-bg': '#1a1a1a',
         'input-border': '#333333',
-        'input-focus': '#ffffff',
+        'input-focus': '#10b981',
       },
       borderRadius: {
         xl: '12px',
         '2xl': '16px',
+      },
+      keyframes: {
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
+      },
+      animation: {
+        shimmer: 'shimmer 1.5s ease-in-out',
       },
     },
   },
