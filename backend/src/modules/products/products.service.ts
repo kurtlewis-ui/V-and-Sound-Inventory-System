@@ -151,14 +151,37 @@ export class ProductsService {
 
     await this.prisma.product.update({ where: { id }, data });
 
-    // Upsert per-branch quantities when provided.
+    // Upsert per-branch quantities when provided, and log stock movements.
     if (dto.quantities?.length) {
       for (const q of dto.quantities) {
+        // Get current quantity before update
+        const currentInv = await this.prisma.inventory.findUnique({
+          where: { productId_branchId: { productId: id, branchId: q.branchId } },
+        });
+        const oldQty = currentInv?.quantity ?? 0;
+        const newQty = q.quantity;
+        const diff = newQty - oldQty;
+
         await this.prisma.inventory.upsert({
           where: { productId_branchId: { productId: id, branchId: q.branchId } },
           create: { productId: id, branchId: q.branchId, quantity: q.quantity },
           update: { quantity: q.quantity },
         });
+
+        // Log ADJUSTMENT if quantity actually changed
+        if (diff !== 0) {
+          await this.prisma.stockMovement.create({
+            data: {
+              productId: id,
+              branchId: q.branchId,
+              userId: updatedBy,
+              type: 'ADJUSTMENT',
+              quantityChange: diff,
+              quantityAfter: newQty,
+              description: 'Updated quantity.',
+            },
+          });
+        }
       }
     }
 
