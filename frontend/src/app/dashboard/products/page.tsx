@@ -69,6 +69,11 @@ export default function ProductsPage() {
   const totalPages = entriesPerPage === 'All' ? 1 : Math.max(1, Math.ceil(products.length / entriesPerPage));
   const displayProducts = entriesPerPage === 'All' ? products : products.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
   const branchesForForm = useMemo(() => branches, [branches]);
+  // When a specific shop is selected, only show that shop's quantity in the form
+  const branchesForEdit = useMemo(() => {
+    if (shopFilter) return branches.filter((b) => b.id === shopFilter);
+    return branches;
+  }, [branches, shopFilter]);
 
   function qtyForBranch(product: Product, branchId: string) {
     return product.quantities.find((q) => q.branchId === branchId)?.quantity ?? 0;
@@ -83,14 +88,16 @@ export default function ProductsPage() {
   function openEditModal(product: Product) {
     setEditingProduct(product);
     setFormName(product.name); setFormBrand(product.brand?.id ?? brands[0]?.id ?? '');
-    setFormPrice(product.sellingPrice.toString()); setFormAlert(product.quantityAlert.toString());
+    setFormPrice(product.sellingPrice.toString()); setFormCostPrice(''); setFormAlert(product.quantityAlert.toString());
     setFormImage(product.image ?? null);
     const q: Record<string, string> = {};
-    branchesForForm.forEach((b) => { q[b.id] = (product.quantities.find((x) => x.branchId === b.id)?.quantity ?? 0).toString(); });
+    branchesForEdit.forEach((b) => { q[b.id] = (product.quantities.find((x) => x.branchId === b.id)?.quantity ?? 0).toString(); });
     setFormQuantities(q); setFormError(null); setShowEditModal(true);
   }
   function buildQuantitiesPayload() {
-    return branchesForForm.map((b) => ({ branchId: b.id, quantity: parseInt(formQuantities[b.id] || '0') || 0 }));
+    // Only send quantities for branches shown in the form
+    const targetBranches = showEditModal ? branchesForEdit : branchesForForm;
+    return targetBranches.map((b) => ({ branchId: b.id, quantity: parseInt(formQuantities[b.id] || '0') || 0 }));
   }
   async function handleAdd() {
     if (!formName.trim()) { setFormError('Product name is required.'); return; }
@@ -278,7 +285,7 @@ export default function ProductsPage() {
         <ProductFormModal title="Add New Product" onClose={() => setShowAddModal(false)} onSubmit={handleAdd} error={formError} buttonLabel={createProduct.isPending ? 'Saving...' : 'Save Product'} disabled={createProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForForm} brands={brands} />
       )}
       {showEditModal && editingProduct && (
-        <ProductFormModal title="Edit Product" onClose={() => { setShowEditModal(false); setEditingProduct(null); }} onSubmit={handleEdit} error={formError} buttonLabel={updateProduct.isPending ? 'Saving...' : 'Update Product'} disabled={updateProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForForm} brands={brands} />
+        <ProductFormModal title="Edit Product" onClose={() => { setShowEditModal(false); setEditingProduct(null); }} onSubmit={handleEdit} error={formError} buttonLabel={updateProduct.isPending ? 'Saving...' : 'Update Product'} disabled={updateProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForEdit} brands={brands} />
       )}
       {showArchiveModal && archivingProduct && (
         <Modal title="Confirm Archive" onClose={() => { setShowArchiveModal(false); setArchivingProduct(null); }}>
