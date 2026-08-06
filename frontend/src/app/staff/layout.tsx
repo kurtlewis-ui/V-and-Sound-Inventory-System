@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { useDraftStore, type DraftItem } from '@/lib/draft';
+import { useThemeStore } from '@/lib/theme';
 import { useSaveDraft, useClearDraftSync, useSaveMyDraft, useMyDraftExists } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import type { PaymentMethod, PaymentSplit } from '@/lib/types';
@@ -23,6 +24,8 @@ import {
   Receipt,
   Settings as SettingsIcon,
   Edit2,
+  Moon,
+  Sun,
 } from 'lucide-react';
 
 function peso(n: number) {
@@ -39,7 +42,9 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, accessToken, logout } = useAuthStore();
+  const { contentTheme, toggleContentTheme } = useThemeStore();
   const [mounted, setMounted] = useState(false);
+  const [themeAnimKey, setThemeAnimKey] = useState(0);
 
   useEffect(() => setMounted(true), []);
 
@@ -78,20 +83,20 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-page-bg">
+    <div className="min-h-screen" style={{ background: '#0f0f0f' }}>
       {/* Sidebar */}
       <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-[220px] flex-col bg-nav-bg border-r border-nav-border">
-        {/* Logo — larger, prominent */}
+        {/* Logo — 64px */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-nav-border">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Vape and Sounds" className="h-12 w-12 rounded-xl object-cover shadow-lg shadow-black/30" />
+          <img src="/logo.png" alt="Vape and Sounds" className="h-16 w-16 rounded-xl object-cover shadow-lg shadow-black/30" />
           <div className="leading-tight">
-            <p className="text-sm font-bold text-text-primary">Vape & Sounds</p>
-            <p className="text-[10px] text-text-muted uppercase tracking-wider">Staff Portal</p>
+            <p className="text-sm font-bold text-white">Vape & Sounds</p>
+            <p className="text-[10px] text-[#666666] uppercase tracking-wider">Staff Portal</p>
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation — white active state */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {navItems.map((item) => {
             const active = isActive(item.href);
@@ -101,11 +106,11 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
                 href={item.href}
                 className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
                   active
-                    ? 'bg-accent-teal/10 text-white border-l-[3px] border-accent-teal'
-                    : 'text-nav-text hover:text-text-primary hover:bg-white/5 border-l-[3px] border-transparent'
+                    ? 'bg-white/10 text-white border-l-[3px] border-white'
+                    : 'text-nav-text hover:text-white hover:bg-white/5 border-l-[3px] border-transparent'
                 }`}
               >
-                <span className={active ? 'text-accent-teal' : 'text-text-muted'}>{item.icon}</span>
+                <span className={active ? 'text-white' : 'text-[#666666]'}>{item.icon}</span>
                 {item.label}
               </Link>
             );
@@ -114,7 +119,7 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
 
         {/* User section */}
         <div className="border-t border-nav-border px-4 py-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 relative">
             {user?.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={user.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover ring-1 ring-white/20" />
@@ -124,18 +129,29 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-text-primary truncate">
+              <p className="text-sm font-medium text-white truncate">
                 {user?.firstName} {user?.lastName}
               </p>
               {user?.branch?.name && (
-                <p className="text-[11px] text-text-muted truncate">{user.branch.name}</p>
+                <p className="text-[11px] text-[#666666] truncate">{user.branch.name}</p>
               )}
             </div>
+            {/* Theme toggle */}
+            <button
+              onClick={() => { toggleContentTheme(); setThemeAnimKey((k) => k + 1); }}
+              className="absolute top-0 right-0 p-1.5 rounded-lg text-[#999999] hover:text-white hover:bg-white/5 transition-colors"
+              title={contentTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label="Toggle theme"
+            >
+              <span key={themeAnimKey} className="theme-icon-enter inline-block">
+                {contentTheme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
+              </span>
+            </button>
           </div>
           <div className="flex items-center gap-2 mt-3">
             <Link
               href="/staff/settings"
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[#999999] hover:text-white hover:bg-white/5 transition-colors"
               title="Settings"
             >
               <SettingsIcon size={14} />
@@ -143,7 +159,7 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
             </Link>
             <button
               onClick={handleLogout}
-              className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-accent-red hover:bg-accent-red/10 transition-colors"
+              className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[#999999] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-colors"
               title="Logout"
               aria-label="Logout"
             >
@@ -154,11 +170,11 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Mobile header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-3 bg-nav-bg/90 backdrop-blur-md border-b border-nav-border">
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-3 bg-[#141414]/90 backdrop-blur-md border-b border-[#2a2a2a]">
         <div className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="Vape and Sounds" className="h-8 w-8 rounded-lg object-cover" />
-          <span className="text-sm font-bold text-text-primary">Vape & Sounds</span>
+          <span className="text-sm font-bold text-white">Vape & Sounds</span>
         </div>
         <div className="flex items-center gap-2">
           {navItems.map((item) => {
@@ -168,7 +184,7 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
                 key={item.href}
                 href={item.href}
                 className={`p-2 rounded-lg transition-colors ${
-                  active ? 'text-white bg-white/10' : 'text-text-muted hover:text-text-primary'
+                  active ? 'text-white bg-white/10' : 'text-[#666666] hover:text-white'
                 }`}
                 title={item.label}
               >
@@ -178,7 +194,7 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
           })}
           <button
             onClick={handleLogout}
-            className="p-2 rounded-lg text-text-muted hover:text-accent-red transition-colors"
+            className="p-2 rounded-lg text-[#666666] hover:text-[#ef4444] transition-colors"
             title="Logout"
           >
             <LogOut size={16} />
@@ -186,9 +202,9 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* Main content */}
-      <div className="flex-1 md:ml-[220px]">
-        <main className="px-6 py-6 pt-20 md:pt-6 max-w-[1200px] mx-auto">{children}</main>
+      {/* Main content — applies theme */}
+      <div className={`flex-1 md:ml-[220px] content-transition ${contentTheme === 'light' ? 'content-light' : ''}`}>
+        <main className="px-6 py-6 pt-20 md:pt-6 max-w-[1200px] mx-auto bg-page-bg min-h-screen">{children}</main>
       </div>
 
       <DraftBag />

@@ -8,20 +8,45 @@ body {
 }
 
 html {
-  /* Tell the browser to render native controls (select option lists,
-     date pickers, scrollbars) in dark mode so dropdowns stay readable. */
   color-scheme: dark;
 }
 
 body {
   @apply bg-page-bg text-text-primary antialiased;
-  /* Very subtle top gradient — just enough to give depth without distraction */
   background-image:
     radial-gradient(900px circle at 50% -15%, rgba(16, 185, 129, 0.03), transparent 45%);
   background-attachment: fixed;
 }
 
-/* Gradient text accent — silver/chrome shimmer matching the logo's metallic feel */
+/* ----------------------------------------------------------------------
+   Content area theme — CSS variable overrides.
+   Default (dark) values are set in Tailwind config fallbacks.
+   The .content-light class overrides them for light mode.
+   ---------------------------------------------------------------------- */
+.content-light {
+  --content-page-bg: #f5f5f5;
+  --content-card-bg: #ffffff;
+  --content-card-border: #e5e5e5;
+  --content-table-header: #f0f0f0;
+  --content-table-header-text: #555555;
+  --content-text-primary: #1a1a1a;
+  --content-text-secondary: #555555;
+  --content-text-muted: #888888;
+  --content-text-link: #333333;
+  --content-surface-muted: #f0f0f0;
+  --content-input-bg: #ffffff;
+  --content-input-border: #d4d4d4;
+  color-scheme: light;
+}
+
+/* Smooth transition when switching themes */
+.content-transition {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* ----------------------------------------------------------------------
+   Gradient text accent — silver/chrome shimmer
+   ---------------------------------------------------------------------- */
 .text-gradient {
   background-image: linear-gradient(120deg, #e0e0e0 0%, #888888 50%, #e0e0e0 100%);
   -webkit-background-clip: text;
@@ -30,14 +55,14 @@ body {
   color: transparent;
 }
 
-/* Native dropdown (select) option list — keep readable on dark theme. */
+/* Native dropdown (select) option list */
 select option,
 select optgroup {
-  background-color: #1a1a1a;
-  color: #f0f0f0;
+  background-color: var(--content-input-bg, #1a1a1a);
+  color: var(--content-text-primary, #f0f0f0);
 }
 
-/* Scrollbar styling — thin, minimal, monochrome */
+/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -57,8 +82,8 @@ select optgroup {
 }
 
 /* ----------------------------------------------------------------------
-   Logo shimmer effect — slow white sweep from left to right on hover.
-   Used on the login page logo for that chrome metallic shine.
+   Logo shimmer effect — white sweep from left to right on hover.
+   Faster (0.8s) and more noticeable (stronger opacity).
    ---------------------------------------------------------------------- */
 .logo-shimmer {
   position: relative;
@@ -72,16 +97,16 @@ select optgroup {
   inset: 0;
   background: linear-gradient(
     105deg,
-    transparent 40%,
-    rgba(255, 255, 255, 0.4) 50%,
-    transparent 60%
+    transparent 30%,
+    rgba(255, 255, 255, 0.6) 50%,
+    transparent 70%
   );
   transform: translateX(-100%);
   transition: none;
 }
 
 .logo-shimmer:hover::after {
-  animation: shimmer 1.5s ease-in-out;
+  animation: shimmer 0.8s ease-in-out;
 }
 
 @keyframes shimmer {
@@ -90,7 +115,19 @@ select optgroup {
 }
 
 /* ----------------------------------------------------------------------
-   Card hover lift — subtle elevation on hover for interactive cards.
+   Theme toggle icon animation — smooth rotate + scale
+   ---------------------------------------------------------------------- */
+.theme-icon-enter {
+  animation: theme-icon-in 0.4s ease-out;
+}
+
+@keyframes theme-icon-in {
+  0% { transform: rotate(-90deg) scale(0.5); opacity: 0; }
+  100% { transform: rotate(0deg) scale(1); opacity: 1; }
+}
+
+/* ----------------------------------------------------------------------
+   Card hover lift
    ---------------------------------------------------------------------- */
 .card-hover {
   @apply transition-all duration-200;
@@ -98,12 +135,11 @@ select optgroup {
 
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.08);
 }
 
 /* ----------------------------------------------------------------------
-   Accessibility — a clear, consistent keyboard focus ring on every
-   interactive element (mouse clicks stay unaffected via :focus-visible).
+   Accessibility — focus rings
    ---------------------------------------------------------------------- */
 @layer base {
   a:focus-visible,
@@ -117,42 +153,26 @@ select optgroup {
 }
 
 /* ----------------------------------------------------------------------
-   Reusable UI component classes — monochrome base with teal accents.
+   Reusable UI component classes
    ---------------------------------------------------------------------- */
 @layer components {
-  /* Primary call-to-action — teal, bold, clean. */
   .btn-grad {
     @apply bg-btn-primary text-white shadow-sm transition-all hover:brightness-110 active:scale-[0.97] font-medium;
   }
 
-  /* Small square icon button used for row actions (edit / archive). */
   .icon-btn {
     @apply inline-flex items-center justify-center rounded-lg p-1.5 transition-colors;
   }
 
-  /* Pill badge used for statuses, roles and tags. */
   .badge {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold;
   }
 
-  /* Neutral badge surface — keeps the UI calm. */
   .badge-neutral {
     @apply bg-surface-muted text-text-secondary border border-card-border;
   }
 
-  /* Tiny status indicator dot used inside a neutral badge. */
   .badge-dot {
     @apply h-1.5 w-1.5 rounded-full;
-  }
-
-  /* Frosted glass tooltip style (used via Recharts contentStyle) */
-  .chart-tooltip {
-    background: rgba(20, 20, 20, 0.9) !important;
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 10px !important;
-    color: #f0f0f0 !important;
-    padding: 10px 14px !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   }
 }

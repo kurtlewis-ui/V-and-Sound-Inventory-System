@@ -52,9 +52,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 bg-page-bg">
-      {/* Subtle teal radial glow behind logo */}
-      <div className="pointer-events-none absolute -top-32 left-1/2 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-accent-teal/5 blur-3xl" />
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10" style={{ background: '#0f0f0f' }}>
+      {/* Subtle radial glow behind logo */}
+      <div className="pointer-events-none absolute -top-32 left-1/2 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-white/[0.03] blur-3xl" />
 
       <div className="relative flex w-full max-w-[420px] flex-col items-center">
         {/* Logo — large with shimmer hover effect and glow */}
@@ -68,21 +68,21 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="w-full rounded-2xl bg-card-bg/80 backdrop-blur border border-card-border p-8 shadow-xl shadow-black/40">
+        <div className="w-full rounded-2xl bg-[#1a1a1a]/80 backdrop-blur border border-[#2a2a2a] p-8 shadow-xl shadow-black/40">
           <div className="text-center mb-6">
-            <h1 className="text-lg font-bold text-text-primary">Welcome Back</h1>
-            <p className="text-sm text-text-muted mt-1">Sign in to your account</p>
+            <h1 className="text-lg font-bold text-white">Welcome Back</h1>
+            <p className="text-sm text-[#666666] mt-1">Sign in to your account</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="mb-2 block text-sm font-medium text-text-secondary">
+              <label htmlFor="email" className="mb-2 block text-sm font-medium text-[#a0a0a0]">
                 Email Address
               </label>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                  <Mail size={18} className="text-text-muted" />
+                  <Mail size={18} className="text-[#666666]" />
                 </div>
                 <input
                   id="email"
@@ -90,7 +90,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-input-border bg-input-bg pl-11 pr-4 py-3 text-text-primary placeholder-text-muted outline-none transition-all focus:border-accent-teal/50 focus:ring-2 focus:ring-accent-teal/20"
+                  className="w-full rounded-xl border border-[#333333] bg-[#1a1a1a] pl-11 pr-4 py-3 text-white placeholder-[#666666] outline-none transition-all focus:border-white/40 focus:ring-2 focus:ring-white/10"
                   placeholder="you@example.com"
                 />
               </div>
@@ -98,12 +98,12 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div>
-              <label htmlFor="password" className="mb-2 block text-sm font-medium text-text-secondary">
+              <label htmlFor="password" className="mb-2 block text-sm font-medium text-[#a0a0a0]">
                 Password
               </label>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                  <Lock size={18} className="text-text-muted" />
+                  <Lock size={18} className="text-[#666666]" />
                 </div>
                 <input
                   id="password"
@@ -111,13 +111,13 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-input-border bg-input-bg pl-11 pr-12 py-3 text-text-primary placeholder-text-muted outline-none transition-all focus:border-accent-teal/50 focus:ring-2 focus:ring-accent-teal/20"
+                  className="w-full rounded-xl border border-[#333333] bg-[#1a1a1a] pl-11 pr-12 py-3 text-white placeholder-[#666666] outline-none transition-all focus:border-white/40 focus:ring-2 focus:ring-white/10"
                   placeholder="Enter your password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-text-muted hover:text-text-secondary transition-colors"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-[#666666] hover:text-[#a0a0a0] transition-colors"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -126,20 +126,20 @@ export default function LoginPage() {
 
             {/* Error Message */}
             {error && (
-              <div className="rounded-xl bg-accent-red/10 border border-accent-red/20 px-4 py-3 text-sm text-accent-red">
+              <div className="rounded-xl bg-[#ef4444]/10 border border-[#ef4444]/20 px-4 py-3 text-sm text-[#ef4444]">
                 {error}
               </div>
             )}
 
-            {/* Submit Button — teal */}
+            {/* Submit Button — white */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-accent-teal px-4 py-3.5 font-semibold text-white shadow-lg shadow-accent-teal/20 transition-all hover:bg-accent-teal-light active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-xl bg-white px-4 py-3.5 font-semibold text-black shadow-lg shadow-white/10 transition-all hover:bg-gray-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <svg className="h-5 w-5 animate-spin text-white" viewBox="0 0 24 24">
+                  <svg className="h-5 w-5 animate-spin text-black" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
@@ -153,7 +153,7 @@ export default function LoginPage() {
         </div>
 
         {/* Footer branding */}
-        <p className="mt-6 text-[11px] text-text-muted tracking-wider uppercase">
+        <p className="mt-6 text-[11px] text-[#666666] tracking-wider uppercase">
           Vape & Sounds &middot; Est. 2021
         </p>
       </div>

@@ -6,22 +6,22 @@ const config: Config = {
     extend: {
       colors: {
         // Primary backgrounds — deep blacks inspired by the logo's dark faceted background
-        'page-bg': '#0f0f0f',
-        'card-bg': '#1a1a1a',
-        'card-border': '#2a2a2a',
+        'page-bg': 'var(--content-page-bg, #0f0f0f)',
+        'card-bg': 'var(--content-card-bg, #1a1a1a)',
+        'card-border': 'var(--content-card-border, #2a2a2a)',
         // Subtle table header
-        'table-header': '#1e1e1e',
-        'table-header-text': '#c0c0c0',
-        // Nav — dark charcoal sidebar
+        'table-header': 'var(--content-table-header, #1e1e1e)',
+        'table-header-text': 'var(--content-table-header-text, #c0c0c0)',
+        // Nav — dark charcoal sidebar (never changes)
         'nav-bg': '#141414',
         'nav-border': '#2a2a2a',
         'nav-text': '#999999',
         'nav-active': '#ffffff',
-        // Text colors — silver/white hierarchy
-        'text-primary': '#f0f0f0',
-        'text-secondary': '#a0a0a0',
-        'text-muted': '#666666',
-        'text-link': '#d0d0d0',
+        // Text colors — adapt to content theme
+        'text-primary': 'var(--content-text-primary, #f0f0f0)',
+        'text-secondary': 'var(--content-text-secondary, #a0a0a0)',
+        'text-muted': 'var(--content-text-muted, #666666)',
+        'text-link': 'var(--content-text-link, #d0d0d0)',
         // Accent colors — teal as primary action color, with status colors
         'accent-primary': '#ffffff',
         'accent-teal': '#10b981',
@@ -37,14 +37,14 @@ const config: Config = {
         'accent-red': '#ef4444',
         'accent-coral': '#f87171',
         // Neutral surface for badges/hover
-        'surface-muted': '#222222',
+        'surface-muted': 'var(--content-surface-muted, #222222)',
         // Buttons — teal primary for actions, red for destructive
         'btn-primary': '#10b981',
         'btn-danger': '#ef4444',
         'btn-success': '#10b981',
-        // Input/form colors
-        'input-bg': '#1a1a1a',
-        'input-border': '#333333',
+        // Input/form colors — adapt to content theme
+        'input-bg': 'var(--content-input-bg, #1a1a1a)',
+        'input-border': 'var(--content-input-border, #333333)',
         'input-focus': '#10b981',
       },
       borderRadius: {
@@ -58,7 +58,7 @@ const config: Config = {
         },
       },
       animation: {
-        shimmer: 'shimmer 1.5s ease-in-out',
+        shimmer: 'shimmer 0.8s ease-in-out',
       },
     },
   },
