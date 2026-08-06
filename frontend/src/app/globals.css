@@ -24,22 +24,45 @@ body {
    Light: black buttons, dark glows, colorful charts
    ---------------------------------------------------------------------- */
 .content-light {
-  --content-page-bg: #f5f5f5;
+  --content-page-bg: #f8f9fa;
   --content-card-bg: #ffffff;
-  --content-card-border: #e5e5e5;
-  --content-table-header: #f0f0f0;
-  --content-table-header-text: #555555;
-  --content-text-primary: #1a1a1a;
-  --content-text-secondary: #555555;
-  --content-text-muted: #888888;
-  --content-text-link: #333333;
-  --content-surface-muted: #f0f0f0;
-  --content-input-bg: #ffffff;
-  --content-input-border: #d4d4d4;
-  --content-btn-primary: #1a1a1a;
+  --content-card-border: #e8e8e8;
+  --content-table-header: #f3f4f6;
+  --content-table-header-text: #4b5563;
+  --content-text-primary: #1f2937;
+  --content-text-secondary: #4b5563;
+  --content-text-muted: #9ca3af;
+  --content-text-link: #374151;
+  --content-surface-muted: #f3f4f6;
+  --content-input-bg: #f9fafb;
+  --content-input-border: #e0e0e0;
+  --content-btn-primary: #1f2937;
   --content-btn-primary-text: #ffffff;
-  --content-input-focus: #1a1a1a;
+  --content-input-focus: #6b7280;
   color-scheme: light;
+}
+
+/* Force all form elements in light mode to use dark text */
+.content-light input,
+.content-light select,
+.content-light textarea,
+.content-light option {
+  color: #1f2937 !important;
+}
+
+.content-light input::placeholder,
+.content-light textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+.content-light select option {
+  background-color: #ffffff;
+  color: #1f2937;
+}
+
+/* Light mode cards get subtle shadow for depth */
+.content-light .bg-card-bg {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 /* Smooth transition when switching themes */
@@ -72,16 +95,16 @@ select optgroup {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f0f0f;
+  background: var(--content-page-bg, #0f0f0f);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333333;
+  background: var(--content-input-border, #333333);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a4a4a;
+  background: var(--content-text-muted, #4a4a4a);
 }
 
 /* ----------------------------------------------------------------------
@@ -151,7 +174,7 @@ select optgroup {
   select:focus-visible,
   textarea:focus-visible {
     @apply outline-none ring-2 ring-offset-2 ring-offset-page-bg;
-    --tw-ring-color: color-mix(in srgb, var(--content-input-focus, #ffffff) 40%, transparent);
+    --tw-ring-color: color-mix(in srgb, var(--content-input-focus, #ffffff) 30%, transparent);
   }
 }
 
