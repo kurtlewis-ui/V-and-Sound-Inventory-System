@@ -817,9 +817,13 @@ export function useStockMovements(params?: { productId?: string; branchId?: stri
           limit: params?.limit ?? 50,
         },
       });
+      // The backend wraps via TransformInterceptor: { success, data: { data: [...], pagination } }
+      const body = res.data?.data ?? res.data;
+      const movements = Array.isArray(body?.data) ? body.data : Array.isArray(body) ? body : [];
+      const pagination = body?.pagination ?? res.data?.pagination;
       return {
-        data: (res.data.data ?? []) as import('./types').StockMovement[],
-        pagination: res.data.pagination as import('./types').Pagination | undefined,
+        data: movements as import('./types').StockMovement[],
+        pagination: pagination as import('./types').Pagination | undefined,
       };
     },
     enabled: !!params?.productId,
