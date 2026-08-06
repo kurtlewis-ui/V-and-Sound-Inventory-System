@@ -35,7 +35,10 @@ export default function ProductsPage() {
   const { data: brandData } = useBrands();
   const branches = branchData?.data ?? [];
   const brands = brandData?.data ?? [];
-  const isAdmin = useAuthStore((s) => s.user?.role?.name === 'Admin');
+  const isAdmin = useAuthStore((s) => {
+    const role = s.user?.role?.name;
+    return role === 'Admin' || role === 'Owner';
+  });
 
   const { data, isLoading, isError, error } = useProducts({ search, brandId: brandFilter || undefined });
   const products = data?.data ?? [];

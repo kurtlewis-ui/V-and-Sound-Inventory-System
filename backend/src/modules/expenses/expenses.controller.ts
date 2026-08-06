@@ -44,7 +44,7 @@ export class ExpensesController {
   }
 
   @Post(':id/approve')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Approve a pending expense' })
   async approve(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     const data = await this.expensesService.approve(id, user);
@@ -52,7 +52,7 @@ export class ExpensesController {
   }
 
   @Post(':id/decline')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Decline a pending expense' })
   async decline(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     const data = await this.expensesService.decline(id, user);

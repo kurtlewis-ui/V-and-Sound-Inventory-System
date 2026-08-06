@@ -30,7 +30,7 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Create a new product' })
   async create(@Body() dto: CreateProductDto, @CurrentUser() user: RequestUser) {
     const data = await this.productsService.create(dto, user.userId);
@@ -45,7 +45,7 @@ export class ProductsController {
   }
 
   @Post('import')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Bulk import products (creates/updates; auto-creates brands)' })
   async importProducts(@Body() dto: ImportProductsDto, @CurrentUser() user: RequestUser) {
     const data = await this.productsService.importProducts(dto.products, user.userId);
@@ -53,7 +53,7 @@ export class ProductsController {
   }
 
   @Post('restock')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Add stock to products at branches' })
   async restock(@Body() dto: RestockDto, @CurrentUser() user: RequestUser) {
     const data = await this.productsService.restock(dto.items, user.userId);
@@ -61,7 +61,7 @@ export class ProductsController {
   }
 
   @Get('archived')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'List archived (soft-deleted) products' })
   async findArchived(@Query() query: QueryProductDto) {
     const result = await this.productsService.findArchived(query);
@@ -76,7 +76,7 @@ export class ProductsController {
   }
 
   @Patch(':id')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Update a product (and per-branch stock)' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -88,7 +88,7 @@ export class ProductsController {
   }
 
   @Post(':id/restore')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Restore an archived product' })
   async restore(
     @Param('id', ParseUUIDPipe) id: string,
@@ -99,7 +99,7 @@ export class ProductsController {
   }
 
   @Delete(':id')
-  @Roles('Admin')
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Archive (soft-delete) a product' })
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
