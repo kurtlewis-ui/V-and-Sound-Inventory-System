@@ -24,24 +24,24 @@ body {
    Light: black buttons, dark glows, colorful charts
    ---------------------------------------------------------------------- */
 .content-light {
-  --content-page-bg: #f8f9fa;
-  --content-card-bg: #ffffff;
-  --content-card-border: #e8e8e8;
-  --content-table-header: #f3f4f6;
-  --content-table-header-text: #4b5563;
-  --content-text-primary: #1f2937;
-  --content-text-secondary: #4b5563;
-  --content-text-muted: #9ca3af;
-  --content-text-link: #374151;
-  --content-surface-muted: #f3f4f6;
-  --content-input-bg: #f9fafb;
-  --content-input-border: #e0e0e0;
+  --content-page-bg: #eef0f2;
+  --content-card-bg: #f8f9fa;
+  --content-card-border: #dfe1e5;
+  --content-table-header: #e8eaed;
+  --content-table-header-text: #3c4043;
+  --content-text-primary: #202124;
+  --content-text-secondary: #5f6368;
+  --content-text-muted: #80868b;
+  --content-text-link: #3c4043;
+  --content-surface-muted: #e8eaed;
+  --content-input-bg: #f1f3f4;
+  --content-input-border: #dadce0;
   --content-btn-primary: #000000;
   --content-btn-primary-text: #ffffff;
-  --content-input-focus: #6b7280;
-  --content-row-alt: #f9fafb;
-  --content-row-hover: rgba(0, 0, 0, 0.02);
-  --content-secondary-btn-bg: rgba(0, 0, 0, 0.05);
+  --content-input-focus: #5f6368;
+  --content-row-alt: #f1f3f4;
+  --content-row-hover: rgba(0, 0, 0, 0.03);
+  --content-secondary-btn-bg: rgba(0, 0, 0, 0.04);
   color-scheme: light;
 }
 
@@ -50,17 +50,17 @@ body {
 .content-light select,
 .content-light textarea,
 .content-light option {
-  color: #1f2937 !important;
+  color: #202124 !important;
 }
 
 .content-light input::placeholder,
 .content-light textarea::placeholder {
-  color: #9ca3af !important;
+  color: #80868b !important;
 }
 
 .content-light select option {
-  background-color: #ffffff;
-  color: #1f2937;
+  background-color: #f8f9fa;
+  color: #202124;
 }
 
 /* Light mode cards get subtle shadow for depth */
