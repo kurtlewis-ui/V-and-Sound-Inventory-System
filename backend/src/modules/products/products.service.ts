@@ -360,6 +360,23 @@ export class ProductsService {
         create: { productId: product.id, branchId: branch.id, quantity: Math.max(0, item.quantity) },
         update: { quantity: { increment: item.quantity } },
       });
+
+      // Log the stock movement
+      const inv = await this.prisma.inventory.findUnique({
+        where: { productId_branchId: { productId: product.id, branchId: branch.id } },
+      });
+      await this.prisma.stockMovement.create({
+        data: {
+          productId: product.id,
+          branchId: branch.id,
+          userId: userId,
+          type: 'RESTOCK',
+          quantityChange: item.quantity,
+          quantityAfter: inv?.quantity ?? item.quantity,
+          description: 'Restocked product.',
+        },
+      });
+
       updated++;
     }
 

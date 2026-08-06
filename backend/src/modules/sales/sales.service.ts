@@ -45,7 +45,7 @@ export class SalesService {
     );
 
     const sale = await this.prisma.$transaction(async (tx) => {
-      await this.reserveStock(tx, branchId, items);
+      await this.reserveStock(tx, branchId, items, actor.userId);
       const number = await this.nextDailyNumber(tx, branchId);
 
       const created = await tx.sale.create({
@@ -292,8 +292,8 @@ export class SalesService {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (newItems) {
-        await this.restoreStock(tx, sale.branchId, sale.items);
-        await this.reserveStock(tx, sale.branchId, newItems);
+        await this.restoreStock(tx, sale.branchId, sale.items, actor.userId);
+        await this.reserveStock(tx, sale.branchId, newItems, actor.userId);
       }
 
       const result = await tx.sale.update({
@@ -344,7 +344,7 @@ export class SalesService {
       }
 
       // Release the stock that was reserved when this sale was created.
-      await this.restoreStock(tx, sale.branchId, sale.items);
+      await this.restoreStock(tx, sale.branchId, sale.items, actor.userId);
 
       // Copy the declined items back into the staff's draft cart, merged
       // with whatever's already staged, so they can fix and resubmit
@@ -409,7 +409,7 @@ export class SalesService {
       // DECLINED sale already had its stock restored when it was declined,
       // so restoring again here would double-credit the inventory.
       if (sale.status === SaleStatus.PENDING) {
-        await this.restoreStock(tx, sale.branchId, sale.items);
+        await this.restoreStock(tx, sale.branchId, sale.items, actor.userId);
       }
       await tx.sale.delete({ where: { id } });
       await tx.auditLog.create({
@@ -524,6 +524,7 @@ export class SalesService {
     tx: Prisma.TransactionClient,
     branchId: string,
     items: { productId: string | null; name: string; quantity: number }[],
+    userId?: string,
   ) {
     for (const item of items) {
       if (!item.productId) continue;
@@ -543,6 +544,21 @@ export class SalesService {
           `Insufficient stock for "${item.name}" (need ${item.quantity}, have ${inv?.quantity ?? 0})`,
         );
       }
+      // Log stock movement
+      const inv = await tx.inventory.findUnique({
+        where: { productId_branchId: { productId: item.productId, branchId } },
+      });
+      await tx.stockMovement.create({
+        data: {
+          productId: item.productId,
+          branchId,
+          userId: userId ?? null,
+          type: 'SALE',
+          quantityChange: -item.quantity,
+          quantityAfter: inv?.quantity ?? 0,
+          description: 'Added orders.',
+        },
+      });
     }
   }
 
@@ -551,12 +567,28 @@ export class SalesService {
     tx: Prisma.TransactionClient,
     branchId: string,
     items: { productId: string | null; quantity: number }[],
+    userId?: string,
   ) {
     for (const item of items) {
       if (!item.productId) continue;
       await tx.inventory.updateMany({
         where: { productId: item.productId, branchId },
         data: { quantity: { increment: item.quantity } },
+      });
+      // Log stock movement
+      const inv = await tx.inventory.findUnique({
+        where: { productId_branchId: { productId: item.productId, branchId } },
+      });
+      await tx.stockMovement.create({
+        data: {
+          productId: item.productId,
+          branchId,
+          userId: userId ?? null,
+          type: 'RETURN',
+          quantityChange: item.quantity,
+          quantityAfter: inv?.quantity ?? 0,
+          description: 'Restored product quantity after clearing orders.',
+        },
       });
     }
   }

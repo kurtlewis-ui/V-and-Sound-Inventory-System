@@ -39,6 +39,7 @@ export default function ProductsPage() {
     const role = s.user?.role?.name;
     return role === 'Admin' || role === 'Owner';
   });
+  const isOwner = useAuthStore((s) => s.user?.role?.name === 'Owner');
 
   const { data, isLoading, isError, error } = useProducts({ search, brandId: brandFilter || undefined });
   const products = data?.data ?? [];
@@ -59,6 +60,7 @@ export default function ProductsPage() {
   const [formName, setFormName] = useState('');
   const [formBrand, setFormBrand] = useState('');
   const [formPrice, setFormPrice] = useState('');
+  const [formCostPrice, setFormCostPrice] = useState('');
   const [formAlert, setFormAlert] = useState('0');
   const [formImage, setFormImage] = useState<string | null>(null);
   const [formQuantities, setFormQuantities] = useState<Record<string, string>>({});
@@ -249,7 +251,7 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-3 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => setHistoryProduct(product)} className="icon-btn text-text-secondary hover:bg-white/10" title="Stock History"><ClipboardList size={16} /></button>
+                      {shopFilter && <button onClick={() => setHistoryProduct(product)} className="icon-btn text-text-secondary hover:bg-white/10" title="Stock History"><ClipboardList size={16} /></button>}
                       <button onClick={() => openEditModal(product)} className="icon-btn text-accent-blue hover:bg-accent-blue/10"><Pencil size={16} /></button>
                       <button onClick={() => { setArchivingProduct(product); setFormError(null); setShowArchiveModal(true); }} className="icon-btn text-accent-red hover:bg-accent-red/10"><Trash2 size={16} /></button>
                     </div>
@@ -292,7 +294,7 @@ export default function ProductsPage() {
       )}
       {showImportModal && <ImportModal branches={branches} onClose={() => setShowImportModal(false)} />}
       {showRestockModal && <RestockModal products={products} branches={branches} onClose={() => setShowRestockModal(false)} />}
-      {historyProduct && <StockHistoryModal productId={historyProduct.id} productName={historyProduct.name} branches={branches} onClose={() => setHistoryProduct(null)} />}
+      {historyProduct && shopFilter && <StockHistoryModal productId={historyProduct.id} productName={historyProduct.name} branchId={shopFilter} branchName={branches.find((b) => b.id === shopFilter)?.name ?? ''} onClose={() => setHistoryProduct(null)} />}
     </div>
   );
 }
@@ -597,6 +599,12 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
           <label className="block text-sm font-medium text-text-primary mb-1">Selling Price (₱)</label>
           <input type="number" step="0.01" min="0" value={formPrice} onChange={(e) => setFormPrice(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
         </div>
+        {isOwner && (
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">Cost Price (₱) <span className="text-[10px] text-accent-primary font-normal">Owner Only — Confidential</span></label>
+            <input type="number" step="0.01" min="0" value={formCostPrice} onChange={(e) => setFormCostPrice(e.target.value)} placeholder="0" className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1">Quantity Alert</label>
           <input type="number" min="0" value={formAlert} onChange={(e) => setFormAlert(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
