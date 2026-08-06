@@ -184,7 +184,7 @@ export default function BrandsPage() {
           {totalPages > 1 && (
             <div className="flex items-center gap-1">
               <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 text-sm text-text-secondary rounded border border-card-border hover:bg-white/5 disabled:opacity-40">Previous</button>
-              <span className="rounded-lg bg-btn-primary px-3 py-1.5 text-sm font-medium text-white">{page}</span>
+              <span className="rounded-lg bg-btn-primary px-3 py-1.5 text-sm font-medium text-btn-primary-text">{page}</span>
               <span className="px-1 text-sm text-text-muted">/ {totalPages}</span>
               <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 text-sm text-text-secondary rounded border border-card-border hover:bg-white/5 disabled:opacity-40">Next</button>
             </div>
@@ -266,7 +266,7 @@ function CoverImageField({ coverImage, setCoverImage }: { coverImage: string | n
           )}
         </div>
         <div className="flex-1 space-y-1">
-          <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} className="w-full text-xs text-text-secondary file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-btn-primary file:text-white file:text-xs" />
+          <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} className="w-full text-xs text-text-secondary file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-btn-primary file:text-btn-primary-text file:text-xs" />
           {coverImage && (
             <button type="button" onClick={() => { setCoverImage(null); setImageError(null); }} className="text-xs text-accent-red hover:underline">Remove image</button>
           )}

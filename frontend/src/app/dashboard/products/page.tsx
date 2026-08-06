@@ -156,8 +156,8 @@ export default function ProductsPage() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-2xl font-bold text-text-primary">Products</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => setShowImportModal(true)} className="flex items-center gap-1 bg-btn-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><Upload size={14} /> Import</button>
-          <button onClick={handleExport} className="flex items-center gap-1 bg-btn-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><Download size={14} /> Export</button>
+          <button onClick={() => setShowImportModal(true)} className="flex items-center gap-1 bg-btn-primary text-btn-primary-text px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><Upload size={14} /> Import</button>
+          <button onClick={handleExport} className="flex items-center gap-1 bg-btn-primary text-btn-primary-text px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><Download size={14} /> Export</button>
           <button onClick={openAddModal} className="flex items-center gap-1 btn-grad px-3 py-2 rounded-lg text-sm font-medium"><Plus size={14} /> Add Product</button>
         </div>
       </div>
@@ -167,7 +167,7 @@ export default function ProductsPage() {
           <option value="">All Shops</option>
           {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        <button onClick={() => setShowRestockModal(true)} className="flex items-center gap-1 bg-btn-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><RefreshCw size={14} /> Restock</button>
+        <button onClick={() => setShowRestockModal(true)} className="flex items-center gap-1 bg-btn-primary text-btn-primary-text px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><RefreshCw size={14} /> Restock</button>
         <button onClick={handleTemplate} className="flex items-center gap-1 bg-white/10 text-text-primary px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><FileDown size={14} /> Restock Template</button>
       </div>
 
@@ -474,8 +474,8 @@ function RestockModal({ products, branches, onClose }: { products: Product[]; br
     <Modal title="Restock Products" onClose={onClose}>
       <div className="space-y-4">
         <div className="flex gap-1 p-1 bg-white/5 rounded-lg w-fit">
-          <button onClick={() => { setMode('manual'); setError(null); setResult(null); }} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${mode === 'manual' ? 'bg-accent-teal text-white' : 'text-text-secondary hover:text-text-primary'}`}>Manual</button>
-          <button onClick={() => { setMode('csv'); setError(null); setResult(null); }} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${mode === 'csv' ? 'bg-accent-teal text-white' : 'text-text-secondary hover:text-text-primary'}`}>Upload exported CSV</button>
+          <button onClick={() => { setMode('manual'); setError(null); setResult(null); }} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${mode === 'manual' ? 'bg-btn-primary text-btn-primary-text' : 'text-text-secondary hover:text-text-primary'}`}>Manual</button>
+          <button onClick={() => { setMode('csv'); setError(null); setResult(null); }} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${mode === 'csv' ? 'bg-btn-primary text-btn-primary-text' : 'text-text-secondary hover:text-text-primary'}`}>Upload exported CSV</button>
         </div>
 
         {mode === 'manual' ? (
@@ -571,7 +571,7 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
             </div>
             {isAdmin ? (
               <div className="flex-1 space-y-1">
-                <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleImageFile(e.target.files[0])} className="w-full text-xs text-text-secondary file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-btn-primary file:text-white file:text-xs" />
+                <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleImageFile(e.target.files[0])} className="w-full text-xs text-text-secondary file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-btn-primary file:text-btn-primary-text file:text-xs" />
                 {formImage && (
                   <button type="button" onClick={() => { setFormImage(null); setImageError(null); }} className="text-xs text-accent-red hover:underline">Remove image</button>
                 )}

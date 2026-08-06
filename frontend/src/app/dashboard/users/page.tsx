@@ -223,7 +223,7 @@ export default function UsersPage() {
           </div>
         )}
         <div className="text-sm">
-          <label className="inline-block cursor-pointer bg-btn-primary text-white px-3 py-1.5 rounded-lg hover:opacity-90">
+          <label className="inline-block cursor-pointer bg-btn-primary text-btn-primary-text px-3 py-1.5 rounded-lg hover:opacity-90">
             Upload Photo
             <input
               type="file"
@@ -432,7 +432,7 @@ export default function UsersPage() {
             <div className="flex items-center gap-1">
               <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2.5 py-1 rounded-lg border border-card-border disabled:opacity-50 hover:bg-white/5 transition-colors">Previous</button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button key={p} onClick={() => setCurrentPage(p)} className={`px-2.5 py-1 rounded-lg transition-colors ${p === currentPage ? 'bg-btn-primary text-white' : 'border border-card-border hover:bg-white/5'}`}>{p}</button>
+                <button key={p} onClick={() => setCurrentPage(p)} className={`px-2.5 py-1 rounded-lg transition-colors ${p === currentPage ? 'bg-btn-primary text-btn-primary-text' : 'border border-card-border hover:bg-white/5'}`}>{p}</button>
               ))}
               <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-2.5 py-1 rounded-lg border border-card-border disabled:opacity-50 hover:bg-white/5 transition-colors">Next</button>
             </div>

@@ -812,7 +812,7 @@ function DraftBag() {
                   ) : (
                     <button onClick={handleClear} disabled={isSaving} className="flex-1 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-text-primary hover:bg-white/15 transition disabled:opacity-60">Clear</button>
                   )}
-                  <button onClick={handleSave} disabled={isSaving} className="flex-[2] btn-grad rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60">
+                  <button onClick={handleSave} disabled={isSaving} className="flex-[2] bg-accent-teal text-white rounded-lg px-4 py-2 text-sm font-medium hover:brightness-110 active:scale-[0.97] transition disabled:opacity-60">
                     {isSaving ? 'Saving...' : 'Save Order'}
                   </button>
                 </div>

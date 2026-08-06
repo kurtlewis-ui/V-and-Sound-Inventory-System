@@ -421,7 +421,7 @@ export default function SalesPendingPage() {
                         });
                       }}
                       disabled={saveDraftForStaff.isPending}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium hover:opacity-90 transition disabled:opacity-70 ${confirmAction === `save-draft-${d.staff.id}` ? 'bg-accent-orange text-black' : 'bg-btn-primary text-white'}`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium hover:opacity-90 transition disabled:opacity-70 ${confirmAction === `save-draft-${d.staff.id}` ? 'bg-accent-orange text-black' : 'bg-accent-teal text-white'}`}
                       title="Submit this staff member's draft on their behalf"
                     >
                       <Send size={13} /> {confirmAction === `save-draft-${d.staff.id}` ? 'Confirm Submit?' : 'Save Draft'}
