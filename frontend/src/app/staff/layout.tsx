@@ -78,75 +78,120 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-page-bg">
-      <header className="sticky top-0 z-40 bg-nav-bg/80 backdrop-blur-md border-b border-nav-border shadow-sm shadow-black/20">
-        <div className="flex items-center justify-between px-6 py-3">
-          <Link href="/staff" className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-primary text-sm font-bold text-white">
-              V
-            </span>
-            <span className="text-lg font-bold text-text-primary">Vape Shop</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              {user?.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-primary text-xs font-bold text-white">
-                  {user?.firstName?.[0]}
-                  {user?.lastName?.[0]}
-                </div>
-              )}
-              <div className="hidden sm:block leading-tight">
-                <p className="text-sm font-medium text-text-primary">
-                  {user?.firstName} {user?.lastName}
-                </p>
-                {user?.branch?.name && (
-                  <p className="text-xs text-text-muted">{user.branch.name}</p>
-                )}
-              </div>
-            </div>
-            <Link
-              href="/staff/settings"
-              className="flex items-center rounded-lg p-2 text-sm text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
-              title="Settings"
-              aria-label="Settings"
-            >
-              <SettingsIcon size={16} />
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1 rounded-lg p-2 text-sm text-text-secondary hover:text-accent-red hover:bg-accent-red/10 transition-colors"
-              title="Logout"
-              aria-label="Logout"
-            >
-              <LogOut size={16} />
-            </button>
+    <div className="min-h-screen bg-page-bg flex">
+      {/* Sidebar */}
+      <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-[220px] flex-col bg-nav-bg border-r border-nav-border">
+        {/* Logo */}
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-nav-border">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white">
+            <span className="text-sm font-black text-black">VS</span>
+          </div>
+          <div className="leading-tight">
+            <p className="text-sm font-bold text-text-primary">Vape & Sounds</p>
+            <p className="text-[10px] text-text-muted uppercase tracking-wider">Staff Portal</p>
           </div>
         </div>
-        <nav className="flex flex-wrap items-center justify-center gap-1 px-6 pb-2">
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {navItems.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
+                className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
                   active
-                    ? 'bg-accent-primary/15 text-accent-purple-light shadow-sm shadow-accent-primary/10'
+                    ? 'bg-white/10 text-white'
                     : 'text-nav-text hover:text-text-primary hover:bg-white/5'
                 }`}
               >
-                <span className="text-accent-primary">{item.icon}</span>
+                <span className={active ? 'text-white' : 'text-text-muted'}>{item.icon}</span>
                 {item.label}
               </Link>
             );
           })}
         </nav>
+
+        {/* User section */}
+        <div className="border-t border-nav-border px-4 py-4">
+          <div className="flex items-center gap-3">
+            {user?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover ring-1 ring-white/20" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white ring-1 ring-white/20">
+                {user?.firstName?.[0]}{user?.lastName?.[0]}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-text-primary truncate">
+                {user?.firstName} {user?.lastName}
+              </p>
+              {user?.branch?.name && (
+                <p className="text-[11px] text-text-muted truncate">{user.branch.name}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            <Link
+              href="/staff/settings"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
+              title="Settings"
+            >
+              <SettingsIcon size={14} />
+              Settings
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-accent-red hover:bg-accent-red/10 transition-colors"
+              title="Logout"
+              aria-label="Logout"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Mobile header */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-3 bg-nav-bg/90 backdrop-blur-md border-b border-nav-border">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
+            <span className="text-xs font-black text-black">VS</span>
+          </div>
+          <span className="text-sm font-bold text-text-primary">Vape & Sounds</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {navItems.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`p-2 rounded-lg transition-colors ${
+                  active ? 'text-white bg-white/10' : 'text-text-muted hover:text-text-primary'
+                }`}
+                title={item.label}
+              >
+                {item.icon}
+              </Link>
+            );
+          })}
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-lg text-text-muted hover:text-accent-red transition-colors"
+            title="Logout"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
       </header>
 
-      <main className="px-6 py-6 max-w-[1200px] mx-auto">{children}</main>
+      {/* Main content */}
+      <div className="flex-1 md:ml-[220px]">
+        <main className="px-6 py-6 pt-20 md:pt-6 max-w-[1200px] mx-auto">{children}</main>
+      </div>
 
       <DraftBag />
     </div>
@@ -462,13 +507,13 @@ function DraftBag() {
       {/* Floating button */}
       <button
         onClick={() => { setOpen((o) => !o); setSuccess(null); setError(null); }}
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-accent-primary text-white shadow-lg shadow-accent-primary/30 hover:brightness-110 transition"
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/40 hover:bg-gray-100 transition"
         title="Draft order"
         aria-label="Draft order"
       >
         <Briefcase size={22} />
         {mounted && count > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-accent-red px-1.5 text-xs font-bold text-white">
+          <span className="absolute -top-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-black px-1.5 text-xs font-bold text-white border border-white/20">
             {count}
           </span>
         )}
@@ -679,7 +724,7 @@ function DraftBag() {
                       </button>
                       <button
                         onClick={handleAddExpense}
-                        className="flex-1 rounded-lg bg-btn-primary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition"
+                        className="flex-1 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100 transition"
                       >
                         Add
                       </button>
@@ -839,7 +884,7 @@ function EditPaymentInline({
       )}
       <div className="flex gap-1.5">
         <button onClick={onCancel} className="flex-1 rounded bg-white/10 px-2 py-1 text-[10px] font-medium text-text-primary hover:bg-white/15">Cancel</button>
-        <button onClick={handleSave} disabled={method === 'Split' && overAllocated} className="flex-1 rounded bg-btn-primary px-2 py-1 text-[10px] font-medium text-white hover:opacity-90 disabled:opacity-50">Save</button>
+        <button onClick={handleSave} disabled={method === 'Split' && overAllocated} className="flex-1 rounded bg-white px-2 py-1 text-[10px] font-medium text-black hover:bg-gray-100 disabled:opacity-50">Save</button>
       </div>
     </div>
   );

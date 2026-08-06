@@ -18,6 +18,7 @@ import {
   LogOut,
   Menu,
   X,
+  Settings,
 } from 'lucide-react';
 
 interface NavItem {
@@ -28,26 +29,26 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
-  { label: 'Shops', href: '/dashboard/shops', icon: <Store size={16} /> },
-  { label: 'Products', href: '/dashboard/products', icon: <Package size={16} /> },
-  { label: 'Brands', href: '/dashboard/brands', icon: <Tag size={16} /> },
+  { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={18} /> },
+  { label: 'Shops', href: '/dashboard/shops', icon: <Store size={18} /> },
+  { label: 'Products', href: '/dashboard/products', icon: <Package size={18} /> },
+  { label: 'Brands', href: '/dashboard/brands', icon: <Tag size={18} /> },
   {
     label: 'Sales',
     href: '/dashboard/sales',
-    icon: <PhilippinePeso size={16} />,
+    icon: <PhilippinePeso size={18} />,
     dropdown: [
       { label: 'Records', href: '/dashboard/sales/records' },
       { label: 'Pending', href: '/dashboard/sales/pending' },
       { label: 'Disposals', href: '/dashboard/sales/disposals' },
     ],
   },
-  { label: 'Users', href: '/dashboard/users', icon: <Users size={16} /> },
-  { label: 'Activity Logs', href: '/dashboard/activity-logs', icon: <ClipboardList size={16} /> },
+  { label: 'Users', href: '/dashboard/users', icon: <Users size={18} /> },
+  { label: 'Activity Logs', href: '/dashboard/activity-logs', icon: <ClipboardList size={18} /> },
   {
     label: 'Archive',
     href: '/dashboard/archive',
-    icon: <Archive size={16} />,
+    icon: <Archive size={18} />,
     dropdown: [
       { label: 'Users Archive', href: '/dashboard/archive/users' },
       { label: 'Shops Archive', href: '/dashboard/archive/shops' },
@@ -63,7 +64,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, accessToken, logout } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
 
   // Close the open dropdown when clicking outside the nav or pressing Escape.
@@ -88,7 +89,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // Always close the dropdown when navigating to another page.
   useEffect(() => {
     setOpenDropdown(null);
-    setMobileNavOpen(false);
+    setSidebarOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -99,14 +100,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (mounted && !accessToken) {
       router.replace('/login');
     } else if (mounted && user && user.role?.name === 'Staff') {
-      // Staff have their own portal; keep them out of the admin dashboard.
       router.replace('/staff');
     }
   }, [mounted, accessToken, user, router]);
 
   function handleLogout() {
     logout();
-    // Clear any leftover staff draft cart on shared devices (see staff/layout.tsx).
     useDraftStore.getState().clear();
     router.replace('/login');
   }
@@ -120,11 +119,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-page-bg">
         <div className="flex items-center gap-3">
-          <svg className="h-6 w-6 animate-spin text-accent-primary" viewBox="0 0 24 24">
+          <svg className="h-5 w-5 animate-spin text-white" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
-          <p className="text-text-secondary">Loading...</p>
+          <p className="text-text-secondary text-sm">Loading...</p>
         </div>
       </main>
     );
@@ -135,111 +134,159 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-page-bg">
-      {/* Top Header */}
-      <header className="sticky top-0 z-50 bg-nav-bg/80 backdrop-blur-md border-b border-nav-border shadow-sm shadow-black/20">
-        {/* Top bar: Logo + User */}
-        <div className="flex items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setMobileNavOpen(!mobileNavOpen)}
-              className="md:hidden flex items-center rounded-lg p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
-              aria-label="Toggle navigation"
-            >
-              {mobileNavOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
-            <Link href="/dashboard" className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-primary text-sm font-bold text-white">
-                V
-              </span>
-              <span className="text-lg font-bold text-text-primary">Vape Shop</span>
-            </Link>
+    <div className="min-h-screen bg-page-bg flex">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        ref={navRef}
+        className={`fixed inset-y-0 left-0 z-50 flex w-[240px] flex-col bg-nav-bg border-r border-nav-border transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-nav-border">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white">
+            <span className="text-sm font-black text-black">VS</span>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard/settings" className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 transition-colors" title="Settings">
-              {user?.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-primary text-xs font-bold text-white">
-                  {user?.firstName?.[0]}{user?.lastName?.[0]}
-                </div>
-              )}
-              <span className="text-sm font-medium text-text-primary hidden sm:inline">
-                {user?.firstName} {user?.lastName}
-              </span>
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1 rounded-lg p-2 text-sm text-text-secondary hover:text-accent-red hover:bg-accent-red/10 transition-colors"
-              title="Logout"
-              aria-label="Logout"
-            >
-              <LogOut size={16} />
-            </button>
+          <div className="leading-tight">
+            <p className="text-sm font-bold text-text-primary">Vape & Sounds</p>
+            <p className="text-[10px] text-text-muted uppercase tracking-wider">EST. 2021</p>
           </div>
         </div>
 
-        {/* Navigation Bar */}
-        <nav ref={navRef} className={`${mobileNavOpen ? 'flex' : 'hidden'} md:flex flex-wrap items-center justify-center gap-1 px-6 pb-2`}>
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {navItems.map((item) => {
             const active = isActive(item);
             const hasDropdown = !!item.dropdown;
+            const isOpen = openDropdown === item.label;
 
             return (
-              <div key={item.label} className="relative">
+              <div key={item.label}>
                 {hasDropdown ? (
                   <button
-                    onClick={() => setOpenDropdown(openDropdown === item.label ? null : item.label)}
+                    onClick={() => setOpenDropdown(isOpen ? null : item.label)}
                     aria-haspopup="true"
-                    aria-expanded={openDropdown === item.label}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
+                    aria-expanded={isOpen}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
                       active
-                        ? 'bg-accent-primary/15 text-accent-purple-light shadow-sm shadow-accent-primary/10'
+                        ? 'bg-white/10 text-white'
                         : 'text-nav-text hover:text-text-primary hover:bg-white/5'
                     }`}
                   >
-                    <span className="text-accent-primary">{item.icon}</span>
-                    {item.label}
-                    <ChevronDown size={12} />
+                    <span className={active ? 'text-white' : 'text-text-muted'}>{item.icon}</span>
+                    <span className="flex-1 text-left">{item.label}</span>
+                    <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
                 ) : (
                   <Link
                     href={item.href}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
+                    className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
                       active
-                        ? 'bg-accent-primary/15 text-accent-purple-light shadow-sm shadow-accent-primary/10'
+                        ? 'bg-white/10 text-white'
                         : 'text-nav-text hover:text-text-primary hover:bg-white/5'
                     }`}
                   >
-                    <span className="text-accent-primary">{item.icon}</span>
+                    <span className={active ? 'text-white' : 'text-text-muted'}>{item.icon}</span>
                     {item.label}
                   </Link>
                 )}
 
-                {/* Dropdown menu */}
-                {hasDropdown && openDropdown === item.label && (
-                  <div className="absolute top-full left-0 mt-1 bg-card-bg border border-card-border rounded-lg shadow-lg py-1 z-50 min-w-[180px]">
-                    {item.dropdown!.map((sub) => (
-                      <Link
-                        key={sub.href}
-                        href={sub.href}
-                        className="block px-4 py-2 text-sm text-text-primary hover:bg-white/5 transition-colors"
-                        onClick={() => setOpenDropdown(null)}
-                      >
-                        {sub.label}
-                      </Link>
-                    ))}
+                {/* Dropdown sub-items */}
+                {hasDropdown && isOpen && (
+                  <div className="ml-9 mt-1 space-y-0.5">
+                    {item.dropdown!.map((sub) => {
+                      const subActive = pathname === sub.href;
+                      return (
+                        <Link
+                          key={sub.href}
+                          href={sub.href}
+                          className={`block px-3 py-2 text-sm rounded-md transition-colors ${
+                            subActive
+                              ? 'text-white bg-white/5'
+                              : 'text-text-muted hover:text-text-primary hover:bg-white/5'
+                          }`}
+                        >
+                          {sub.label}
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             );
           })}
         </nav>
-      </header>
 
-      {/* Page Content */}
-      <main className="px-6 py-6 max-w-[1200px] mx-auto">{children}</main>
+        {/* User section at bottom */}
+        <div className="border-t border-nav-border px-4 py-4">
+          <div className="flex items-center gap-3">
+            {user?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover ring-1 ring-white/20" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white ring-1 ring-white/20">
+                {user?.firstName?.[0]}{user?.lastName?.[0]}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-text-primary truncate">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="text-[11px] text-text-muted truncate">{user?.role?.name}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            <Link
+              href="/dashboard/settings"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
+              title="Settings"
+            >
+              <Settings size={14} />
+              Settings
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-accent-red hover:bg-accent-red/10 transition-colors"
+              title="Logout"
+              aria-label="Logout"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top bar (mobile toggle only on small screens, minimal on desktop) */}
+        <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-4 bg-page-bg/80 backdrop-blur-md border-b border-nav-border lg:border-none">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="lg:hidden flex items-center rounded-lg p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
+            aria-label="Toggle navigation"
+          >
+            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+          {/* Spacer for desktop — keeps layout consistent */}
+          <div className="hidden lg:block" />
+          <div className="flex items-center gap-3 lg:hidden">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
+              <span className="text-xs font-black text-black">VS</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1 px-6 py-6 max-w-[1200px] w-full mx-auto">{children}</main>
+      </div>
     </div>
   );
 }

@@ -5,43 +5,43 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Primary backgrounds (soft, lifted dark — easier on the eyes than near-black)
-        'page-bg': '#1b1d24',
-        'card-bg': '#242732',
-        'card-border': '#343845',
+        // Primary backgrounds — deep blacks inspired by the logo's dark faceted background
+        'page-bg': '#0f0f0f',
+        'card-bg': '#1a1a1a',
+        'card-border': '#2a2a2a',
         // Subtle table header
-        'table-header': '#2c303b',
-        'table-header-text': '#d3d8e2',
-        // Nav
-        'nav-bg': '#21242e',
-        'nav-border': '#343845',
-        'nav-text': '#b6bcca',
-        'nav-active': '#8b7df7',
-        // Text colors (a touch brighter for clarity)
-        'text-primary': '#f1f3f8',
-        'text-secondary': '#b4bac8',
-        'text-muted': '#828a99',
-        'text-link': '#b3a4fb',
-        // Accent colors — purple-led; others kept only for the small status dots
-        'accent-primary': '#8b7df7',
-        'accent-purple': '#a78bfa',
-        'accent-purple-light': '#c4b5fd',
-        'accent-pink': '#f472b6',
-        'accent-cyan': '#2dd4bf',
-        'accent-green': '#3fbf8f',
-        'accent-orange': '#e0a35e',
-        'accent-blue': '#6f9be0',
-        'accent-red': '#ea6a62',
-        // Neutral surface for badges/hover (replaces the old white/x guesses)
-        'surface-muted': '#2e323d',
-        // Buttons (purple primary, red kept for destructive)
-        'btn-primary': '#8b7df7',
-        'btn-danger': '#e5675e',
-        'btn-success': '#3fbf8f',
+        'table-header': '#1e1e1e',
+        'table-header-text': '#c0c0c0',
+        // Nav — dark charcoal sidebar
+        'nav-bg': '#141414',
+        'nav-border': '#2a2a2a',
+        'nav-text': '#999999',
+        'nav-active': '#ffffff',
+        // Text colors — silver/white hierarchy
+        'text-primary': '#f0f0f0',
+        'text-secondary': '#a0a0a0',
+        'text-muted': '#666666',
+        'text-link': '#d0d0d0',
+        // Accent colors — silver/white primary; muted status colors kept minimal
+        'accent-primary': '#ffffff',
+        'accent-purple': '#c0c0c0',
+        'accent-purple-light': '#e0e0e0',
+        'accent-pink': '#999999',
+        'accent-cyan': '#a0a0a0',
+        'accent-green': '#8fcc8f',
+        'accent-orange': '#d4a054',
+        'accent-blue': '#b0b0b0',
+        'accent-red': '#cc6666',
+        // Neutral surface for badges/hover
+        'surface-muted': '#222222',
+        // Buttons — clean white primary, soft red for destructive
+        'btn-primary': '#ffffff',
+        'btn-danger': '#cc5555',
+        'btn-success': '#6faa6f',
         // Input/form colors
-        'input-bg': '#272a35',
-        'input-border': '#3b3f4d',
-        'input-focus': '#8b7df7',
+        'input-bg': '#1a1a1a',
+        'input-border': '#333333',
+        'input-focus': '#ffffff',
       },
       borderRadius: {
         xl: '12px',
