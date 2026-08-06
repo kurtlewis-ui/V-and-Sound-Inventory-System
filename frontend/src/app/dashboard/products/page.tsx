@@ -599,12 +599,6 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
           <label className="block text-sm font-medium text-text-primary mb-1">Selling Price (₱)</label>
           <input type="number" step="0.01" min="0" value={formPrice} onChange={(e) => setFormPrice(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
         </div>
-        {isOwner && (
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">Cost Price (₱) <span className="text-[10px] text-accent-primary font-normal">Owner Only — Confidential</span></label>
-            <input type="number" step="0.01" min="0" value={formCostPrice} onChange={(e) => setFormCostPrice(e.target.value)} placeholder="0" className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
-          </div>
-        )}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1">Quantity Alert</label>
           <input type="number" min="0" value={formAlert} onChange={(e) => setFormAlert(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
