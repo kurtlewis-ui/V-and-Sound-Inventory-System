@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { StockMovementType, Prisma } from '@prisma/client';
 import { QueryStockMovementDto } from './dto/query-stock-movement.dto';
 
 @Injectable()
@@ -14,12 +14,12 @@ export class StockMovementsService {
     productId: string;
     branchId: string;
     userId?: string;
-    type: StockMovementType;
+    type: string;
     quantityChange: number;
     quantityAfter: number;
     description?: string;
   }) {
-    return this.prisma.stockMovement.create({ data });
+    return this.prisma.stockMovement.create({ data: data as any });
   }
 
   /**
