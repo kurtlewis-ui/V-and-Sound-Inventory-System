@@ -185,6 +185,7 @@ export interface ProductMutationInput {
   name: string;
   brandId: string;
   sellingPrice: number;
+  costPrice?: number;
   quantityAlert?: number;
   image?: string;
   quantities?: { branchId: string; quantity: number }[];

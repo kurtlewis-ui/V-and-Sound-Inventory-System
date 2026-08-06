@@ -142,6 +142,7 @@ export interface SaleLineItem {
   brandName: string;
   quantity: number;
   unitPrice: number;
+  costPrice?: number;
   // Fixed ₱ amount knocked off this line. subTotal already reflects it.
   discount: number;
   subTotal: number;
