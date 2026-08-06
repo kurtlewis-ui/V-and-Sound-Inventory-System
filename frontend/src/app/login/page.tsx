@@ -56,17 +56,25 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 bg-page-bg">
-      {/* A single soft glow keeps the screen modern without visual clutter */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-accent-primary/15 blur-3xl" />
+      {/* Subtle radial glow — just a hint of light, no color */}
+      <div className="pointer-events-none absolute -top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-white/5 blur-3xl" />
 
       <div className="relative flex w-full max-w-[400px] flex-col items-center">
-        {/* Circular logo template (300 x 300) — outside the card. Replace with your own <img> */}
-        <div className="mb-8 flex aspect-square w-full max-w-[150px] items-center justify-center rounded-full border border-dashed border-card-border bg-card-bg/50">
-          <span className="text-xs font-medium uppercase tracking-widest text-text-muted">Logo</span>
+        {/* Logo area — circular container matching the brand's aesthetic */}
+        <div className="mb-8 flex aspect-square w-full max-w-[140px] items-center justify-center rounded-full border border-white/10 bg-card-bg/80 shadow-xl shadow-black/30">
+          <div className="text-center">
+            <span className="text-2xl font-black text-white tracking-tight">VS</span>
+            <p className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-0.5">Est. 2021</p>
+          </div>
         </div>
 
         {/* Card */}
-        <div className="w-full rounded-2xl bg-card-bg/80 backdrop-blur border border-card-border p-8 shadow-xl shadow-black/30">
+        <div className="w-full rounded-2xl bg-card-bg/80 backdrop-blur border border-card-border p-8 shadow-xl shadow-black/40">
+          <div className="text-center mb-6">
+            <h1 className="text-lg font-bold text-text-primary">Welcome Back</h1>
+            <p className="text-sm text-text-muted mt-1">Sign in to your account</p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Field */}
             <div>
@@ -83,7 +91,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-input-border bg-input-bg pl-11 pr-4 py-3 text-text-primary placeholder-text-muted outline-none transition-all focus:border-input-focus focus:ring-2 focus:ring-input-focus/30"
+                  className="w-full rounded-xl border border-input-border bg-input-bg pl-11 pr-4 py-3 text-text-primary placeholder-text-muted outline-none transition-all focus:border-white/40 focus:ring-2 focus:ring-white/10"
                   placeholder="you@example.com"
                 />
               </div>
@@ -104,7 +112,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-input-border bg-input-bg pl-11 pr-12 py-3 text-text-primary placeholder-text-muted outline-none transition-all focus:border-input-focus focus:ring-2 focus:ring-input-focus/30"
+                  className="w-full rounded-xl border border-input-border bg-input-bg pl-11 pr-12 py-3 text-text-primary placeholder-text-muted outline-none transition-all focus:border-white/40 focus:ring-2 focus:ring-white/10"
                   placeholder="Enter your password"
                 />
                 <button
@@ -119,7 +127,7 @@ export default function LoginPage() {
 
             {/* Error Message */}
             {error && (
-              <div className="rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400">
+              <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
                 {error}
               </div>
             )}
@@ -128,22 +136,27 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-gradient-to-r from-accent-primary to-accent-pink px-4 py-3.5 font-semibold text-white shadow-sm transition-all hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-xl bg-white px-4 py-3.5 font-semibold text-black shadow-sm transition-all hover:bg-gray-100 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24">
+                  <svg className="h-5 w-5 animate-spin text-black" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                   {slow ? 'Waking the server…' : 'Logging in...'}
                 </span>
               ) : (
-                'LOG-IN'
+                'LOG IN'
               )}
             </button>
           </form>
         </div>
+
+        {/* Footer branding */}
+        <p className="mt-6 text-[11px] text-text-muted tracking-wider uppercase">
+          Vape & Sounds &middot; Est. 2021
+        </p>
       </div>
     </main>
   );
