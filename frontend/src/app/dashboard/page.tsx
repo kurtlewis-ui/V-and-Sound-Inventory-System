@@ -13,21 +13,20 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  PieChart,
-  Pie,
-  Cell,
 } from 'recharts';
 import { useDashboardStats, useSalesOverview, useTopProducts, useBranches, useDisposals, useExpenses } from '@/lib/hooks';
+import { useThemeStore } from '@/lib/theme';
 import { OwnerProfitSection } from '@/components/OwnerProfitSection';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
-// Donut chart color palette — teal shades + neutrals for variety
-const DONUT_COLORS = ['#10b981', '#34d399', '#6ee7b7', '#60a5fa', '#a78bfa', '#f59e0b', '#f87171', '#94a3b8'];
+// Donut chart colors not used anymore — vertical bars are theme-aware
 
 export default function DashboardPage() {
+  const { contentTheme } = useThemeStore();
+  const isDark = contentTheme === 'dark';
   const { data: stats, isLoading } = useDashboardStats();
   const { data: branchData } = useBranches();
   const branches = branchData?.data ?? [];
@@ -125,7 +124,7 @@ export default function DashboardPage() {
             }
           }}
           disabled={exporting}
-          className="flex items-center gap-2 bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-60"
+          className="flex items-center gap-2 bg-btn-primary text-btn-primary-text px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-60"
         >
           <Download size={16} /> {exporting ? exportStatus || 'Exporting...' : 'Export All Data'}
         </button>
@@ -199,16 +198,16 @@ export default function DashboardPage() {
             <AreaChart data={overviewData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                  <stop offset="50%" stopColor="#10b981" stopOpacity={0.1} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  <stop offset="5%" stopColor={isDark ? '#ffffff' : '#10b981'} stopOpacity={isDark ? 0.3 : 0.4} />
+                  <stop offset="50%" stopColor={isDark ? '#ffffff' : '#10b981'} stopOpacity={0.1} />
+                  <stop offset="95%" stopColor={isDark ? '#ffffff' : '#10b981'} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#666666' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#666666' }} tickFormatter={(n: any) => peso(Number(n))} width={70} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(val: any) => peso(Number(val))} contentStyle={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(8px)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 10, color: '#f0f0f0', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }} cursor={{ stroke: '#10b981', strokeWidth: 1, strokeDasharray: '4 4' }} />
-              <Area type="monotone" dataKey="total" stroke="#10b981" fill="url(#salesGrad)" strokeWidth={2.5} name="Sales" dot={false} activeDot={{ r: 5, fill: '#10b981', stroke: '#0f0f0f', strokeWidth: 2 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: isDark ? '#666666' : '#888888' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: isDark ? '#666666' : '#888888' }} tickFormatter={(n: any) => peso(Number(n))} width={70} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(val: any) => peso(Number(val))} contentStyle={{ background: isDark ? 'rgba(20,20,20,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)', borderRadius: 10, color: isDark ? '#f0f0f0' : '#1a1a1a', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} cursor={{ stroke: isDark ? '#ffffff' : '#10b981', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              <Area type="monotone" dataKey="total" stroke={isDark ? '#ffffff' : '#10b981'} fill="url(#salesGrad)" strokeWidth={2.5} name="Sales" dot={false} activeDot={{ r: 5, fill: isDark ? '#ffffff' : '#10b981', stroke: isDark ? '#0f0f0f' : '#ffffff', strokeWidth: 2 }} />
             </AreaChart>
           </ResponsiveContainer>
         )}
@@ -229,52 +228,20 @@ export default function DashboardPage() {
           <ChartPlaceholder message="No approved sales yet" />
         ) : (
           <>
-            {/* Donut chart — top 8 products by revenue */}
-            <div className="flex flex-col lg:flex-row items-center gap-6">
-              <div className="relative">
-                <ResponsiveContainer width={260} height={260}>
-                  <PieChart>
-                    <Pie
-                      data={topDataPreview.slice(0, 8)}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={70}
-                      outerRadius={110}
-                      dataKey="revenue"
-                      nameKey="name"
-                      strokeWidth={2}
-                      stroke="#0f0f0f"
-                    >
-                      {topDataPreview.slice(0, 8).map((_, i) => (
-                        <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(val: any) => peso(Number(val))} contentStyle={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#f0f0f0', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-                {/* Center label */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <p className="text-xs text-text-muted">Total</p>
-                  <p className="text-lg font-bold text-text-primary">{peso(topData.reduce((s, p) => s + p.revenue, 0))}</p>
-                </div>
-              </div>
-              {/* Legend */}
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {topDataPreview.slice(0, 8).map((p, i) => (
-                  <div key={p.name} className="flex items-center gap-2.5">
-                    <div className="h-3 w-3 rounded-full shrink-0" style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }} />
-                    <div className="min-w-0">
-                      <p className="text-sm text-text-primary truncate">{p.name}</p>
-                      <p className="text-xs text-text-muted">{peso(p.revenue)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Vertical bar chart — top 10 products by revenue */}
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={topDataPreview} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'} vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: isDark ? '#666666' : '#888888' }} angle={-25} textAnchor="end" height={60} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: isDark ? '#666666' : '#888888' }} tickFormatter={(n: any) => peso(Number(n))} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(val: any) => peso(Number(val))} contentStyle={{ background: isDark ? 'rgba(20,20,20,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)', borderRadius: 10, color: isDark ? '#f0f0f0' : '#1a1a1a', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} />
+                <Bar dataKey="revenue" fill={isDark ? '#ffffff' : '#10b981'} radius={[4, 4, 0, 0]} name="Revenue" />
+              </BarChart>
+            </ResponsiveContainer>
 
             {/* View All / Show Less toggle */}
-            {topData.length > 8 && (
-              <button onClick={() => setShowAllSelling(!showAllSelling)} className="mt-4 flex items-center gap-1.5 text-sm font-medium text-accent-teal hover:underline">
+            {topData.length > 10 && (
+              <button onClick={() => setShowAllSelling(!showAllSelling)} className="mt-4 flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary">
                 {showAllSelling ? <><ChevronUp size={14} /> Show Less</> : <><ChevronDown size={14} /> View All ({topData.length} products)</>}
               </button>
             )}
@@ -323,20 +290,20 @@ export default function DashboardPage() {
           <ChartPlaceholder message="No approved disposals yet" />
         ) : (
           <>
-            {/* Lollipop chart — thin bars with rounded dots at the end */}
+            {/* Vertical bar chart — disposed products */}
             <ResponsiveContainer width="100%" height={Math.max(288, disposedPreview.length * 40)}>
-              <BarChart data={disposedChartData} layout="vertical" margin={{ top: 0, right: 24, left: 10, bottom: 0 }} barSize={4}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#666666' }} allowDecimals={false} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#a0a0a0' }} width={140} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(val: any) => [`${val} units`, 'Disposed']} contentStyle={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(8px)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, color: '#f0f0f0', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
-                <Bar dataKey="quantity" fill="#ef4444" radius={[0, 8, 8, 0]} name="Disposed" />
+              <BarChart data={disposedChartData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'} vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: isDark ? '#666666' : '#888888' }} angle={-25} textAnchor="end" height={60} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: isDark ? '#666666' : '#888888' }} allowDecimals={false} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(val: any) => [`${val} units`, 'Disposed']} contentStyle={{ background: isDark ? 'rgba(20,20,20,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(239,68,68,0.2)', borderRadius: 10, color: isDark ? '#f0f0f0' : '#1a1a1a', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} />
+                <Bar dataKey="quantity" fill={isDark ? '#999999' : '#ef4444'} radius={[4, 4, 0, 0]} name="Disposed" />
               </BarChart>
             </ResponsiveContainer>
 
             {/* View All / Show Less toggle */}
             {disposedProducts.length > 10 && (
-              <button onClick={() => setShowAllDisposed(!showAllDisposed)} className="mt-4 flex items-center gap-1.5 text-sm font-medium text-accent-red hover:underline">
+              <button onClick={() => setShowAllDisposed(!showAllDisposed)} className="mt-4 flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary">
                 {showAllDisposed ? <><ChevronUp size={14} /> Show Less</> : <><ChevronDown size={14} /> View All ({disposedProducts.length} products)</>}
               </button>
             )}

@@ -22,12 +22,12 @@ const config: Config = {
         'text-secondary': 'var(--content-text-secondary, #a0a0a0)',
         'text-muted': 'var(--content-text-muted, #666666)',
         'text-link': 'var(--content-text-link, #d0d0d0)',
-        // Accent colors — teal as primary action color, with status colors
+        // Accent colors — kept for charts/status in light mode & sales buttons
         'accent-primary': '#ffffff',
         'accent-teal': '#10b981',
         'accent-teal-light': '#34d399',
         'accent-teal-dark': '#059669',
-        'accent-purple': '#c0c0c0',
+        'accent-purple': '#a78bfa',
         'accent-purple-light': '#e0e0e0',
         'accent-pink': '#999999',
         'accent-cyan': '#a0a0a0',
@@ -38,14 +38,15 @@ const config: Config = {
         'accent-coral': '#f87171',
         // Neutral surface for badges/hover
         'surface-muted': 'var(--content-surface-muted, #222222)',
-        // Buttons — teal primary for actions, red for destructive
-        'btn-primary': '#10b981',
+        // Buttons — theme-aware (white in dark, black in light)
+        'btn-primary': 'var(--content-btn-primary, #ffffff)',
+        'btn-primary-text': 'var(--content-btn-primary-text, #000000)',
         'btn-danger': '#ef4444',
         'btn-success': '#10b981',
         // Input/form colors — adapt to content theme
         'input-bg': 'var(--content-input-bg, #1a1a1a)',
         'input-border': 'var(--content-input-border, #333333)',
-        'input-focus': '#10b981',
+        'input-focus': 'var(--content-input-focus, #ffffff)',
       },
       borderRadius: {
         xl: '12px',

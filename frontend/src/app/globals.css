@@ -14,14 +14,14 @@ html {
 body {
   @apply bg-page-bg text-text-primary antialiased;
   background-image:
-    radial-gradient(900px circle at 50% -15%, rgba(16, 185, 129, 0.03), transparent 45%);
+    radial-gradient(900px circle at 50% -15%, rgba(255, 255, 255, 0.02), transparent 45%);
   background-attachment: fixed;
 }
 
 /* ----------------------------------------------------------------------
    Content area theme — CSS variable overrides.
-   Default (dark) values are set in Tailwind config fallbacks.
-   The .content-light class overrides them for light mode.
+   Default (dark): white buttons, white glows, monochrome charts
+   Light: black buttons, dark glows, colorful charts
    ---------------------------------------------------------------------- */
 .content-light {
   --content-page-bg: #f5f5f5;
@@ -36,6 +36,9 @@ body {
   --content-surface-muted: #f0f0f0;
   --content-input-bg: #ffffff;
   --content-input-border: #d4d4d4;
+  --content-btn-primary: #1a1a1a;
+  --content-btn-primary-text: #ffffff;
+  --content-input-focus: #1a1a1a;
   color-scheme: light;
 }
 
@@ -83,7 +86,6 @@ select optgroup {
 
 /* ----------------------------------------------------------------------
    Logo shimmer effect — white sweep from left to right on hover.
-   Faster (0.8s) and more noticeable (stronger opacity).
    ---------------------------------------------------------------------- */
 .logo-shimmer {
   position: relative;
@@ -127,7 +129,7 @@ select optgroup {
 }
 
 /* ----------------------------------------------------------------------
-   Card hover lift
+   Card hover lift — uses theme-aware glow
    ---------------------------------------------------------------------- */
 .card-hover {
   @apply transition-all duration-200;
@@ -135,11 +137,11 @@ select optgroup {
 
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.08);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3);
 }
 
 /* ----------------------------------------------------------------------
-   Accessibility — focus rings
+   Accessibility — focus rings (theme-aware: white in dark, dark in light)
    ---------------------------------------------------------------------- */
 @layer base {
   a:focus-visible,
@@ -148,7 +150,7 @@ select optgroup {
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    @apply outline-none ring-2 ring-accent-teal/40 ring-offset-2 ring-offset-page-bg;
+    @apply outline-none ring-2 ring-input-focus/40 ring-offset-2 ring-offset-page-bg;
   }
 }
 
@@ -156,8 +158,9 @@ select optgroup {
    Reusable UI component classes
    ---------------------------------------------------------------------- */
 @layer components {
+  /* Primary action button — white in dark mode, black in light mode */
   .btn-grad {
-    @apply bg-btn-primary text-white shadow-sm transition-all hover:brightness-110 active:scale-[0.97] font-medium;
+    @apply bg-btn-primary text-btn-primary-text shadow-sm transition-all hover:opacity-90 active:scale-[0.97] font-medium;
   }
 
   .icon-btn {

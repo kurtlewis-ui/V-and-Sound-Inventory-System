@@ -137,7 +137,7 @@ export default function AccountSettings() {
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="absolute -bottom-1 -right-1 bg-btn-primary text-white rounded-full p-1.5 shadow hover:opacity-90"
+                  className="absolute -bottom-1 -right-1 bg-btn-primary text-btn-primary-text rounded-full p-1.5 shadow hover:opacity-90"
                   title="Change photo"
                 >
                   <Camera size={14} />
@@ -210,7 +210,7 @@ export default function AccountSettings() {
             {pwOk && <p className="text-sm text-accent-green">{pwOk}</p>}
 
             <div className="flex justify-end">
-              <button onClick={savePassword} disabled={changePassword.isPending} className="flex items-center gap-2 bg-btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-60">
+              <button onClick={savePassword} disabled={changePassword.isPending} className="flex items-center gap-2 bg-btn-primary text-btn-primary-text px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-60">
                 <KeyRound size={15} /> {changePassword.isPending ? 'Updating…' : 'Update Password'}
               </button>
             </div>
