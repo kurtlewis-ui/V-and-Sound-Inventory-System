@@ -17,7 +17,7 @@ body {
   @apply bg-page-bg text-text-primary antialiased;
   /* Very subtle top gradient — just enough to give depth without distraction */
   background-image:
-    radial-gradient(900px circle at 50% -15%, rgba(255, 255, 255, 0.02), transparent 45%);
+    radial-gradient(900px circle at 50% -15%, rgba(16, 185, 129, 0.03), transparent 45%);
   background-attachment: fixed;
 }
 
@@ -57,6 +57,51 @@ select optgroup {
 }
 
 /* ----------------------------------------------------------------------
+   Logo shimmer effect — slow white sweep from left to right on hover.
+   Used on the login page logo for that chrome metallic shine.
+   ---------------------------------------------------------------------- */
+.logo-shimmer {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+}
+
+.logo-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 60%
+  );
+  transform: translateX(-100%);
+  transition: none;
+}
+
+.logo-shimmer:hover::after {
+  animation: shimmer 1.5s ease-in-out;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ----------------------------------------------------------------------
+   Card hover lift — subtle elevation on hover for interactive cards.
+   ---------------------------------------------------------------------- */
+.card-hover {
+  @apply transition-all duration-200;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(16, 185, 129, 0.1);
+}
+
+/* ----------------------------------------------------------------------
    Accessibility — a clear, consistent keyboard focus ring on every
    interactive element (mouse clicks stay unaffected via :focus-visible).
    ---------------------------------------------------------------------- */
@@ -67,17 +112,17 @@ select optgroup {
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    @apply outline-none ring-2 ring-white/40 ring-offset-2 ring-offset-page-bg;
+    @apply outline-none ring-2 ring-accent-teal/40 ring-offset-2 ring-offset-page-bg;
   }
 }
 
 /* ----------------------------------------------------------------------
-   Reusable UI component classes — minimal monochrome design system.
+   Reusable UI component classes — monochrome base with teal accents.
    ---------------------------------------------------------------------- */
 @layer components {
-  /* Primary call-to-action — white on black, clean and bold. */
+  /* Primary call-to-action — teal, bold, clean. */
   .btn-grad {
-    @apply bg-white text-black shadow-sm transition-all hover:bg-gray-100 active:scale-[0.98] font-medium;
+    @apply bg-btn-primary text-white shadow-sm transition-all hover:brightness-110 active:scale-[0.97] font-medium;
   }
 
   /* Small square icon button used for row actions (edit / archive). */
@@ -98,5 +143,16 @@ select optgroup {
   /* Tiny status indicator dot used inside a neutral badge. */
   .badge-dot {
     @apply h-1.5 w-1.5 rounded-full;
+  }
+
+  /* Frosted glass tooltip style (used via Recharts contentStyle) */
+  .chart-tooltip {
+    background: rgba(20, 20, 20, 0.9) !important;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 10px !important;
+    color: #f0f0f0 !important;
+    padding: 10px 14px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   }
 }

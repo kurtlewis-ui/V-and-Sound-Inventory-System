@@ -474,8 +474,8 @@ function RestockModal({ products, branches, onClose }: { products: Product[]; br
     <Modal title="Restock Products" onClose={onClose}>
       <div className="space-y-4">
         <div className="flex gap-1 p-1 bg-white/5 rounded-lg w-fit">
-          <button onClick={() => { setMode('manual'); setError(null); setResult(null); }} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${mode === 'manual' ? 'bg-white text-black' : 'text-text-secondary hover:text-text-primary'}`}>Manual</button>
-          <button onClick={() => { setMode('csv'); setError(null); setResult(null); }} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${mode === 'csv' ? 'bg-white text-black' : 'text-text-secondary hover:text-text-primary'}`}>Upload exported CSV</button>
+          <button onClick={() => { setMode('manual'); setError(null); setResult(null); }} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${mode === 'manual' ? 'bg-accent-teal text-white' : 'text-text-secondary hover:text-text-primary'}`}>Manual</button>
+          <button onClick={() => { setMode('csv'); setError(null); setResult(null); }} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${mode === 'csv' ? 'bg-accent-teal text-white' : 'text-text-secondary hover:text-text-primary'}`}>Upload exported CSV</button>
         </div>
 
         {mode === 'manual' ? (

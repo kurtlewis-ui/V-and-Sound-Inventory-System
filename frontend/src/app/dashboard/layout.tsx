@@ -150,10 +150,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-nav-border">
+        {/* Logo — larger, prominent */}
+        <div className="flex items-center gap-3 px-4 py-5 border-b border-nav-border">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Vape and Sounds" className="h-10 w-10 rounded-lg object-cover" />
+          <img src="/logo.png" alt="Vape and Sounds" className="h-12 w-12 rounded-xl object-cover shadow-lg shadow-black/30" />
           <div className="leading-tight">
             <p className="text-sm font-bold text-text-primary">Vape & Sounds</p>
             <p className="text-[10px] text-text-muted uppercase tracking-wider">EST. 2021</p>
@@ -176,11 +176,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                     aria-expanded={isOpen}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
                       active
-                        ? 'bg-white/10 text-white'
-                        : 'text-nav-text hover:text-text-primary hover:bg-white/5'
+                        ? 'bg-accent-teal/10 text-white border-l-[3px] border-accent-teal'
+                        : 'text-nav-text hover:text-text-primary hover:bg-white/5 border-l-[3px] border-transparent'
                     }`}
                   >
-                    <span className={active ? 'text-white' : 'text-text-muted'}>{item.icon}</span>
+                    <span className={active ? 'text-accent-teal' : 'text-text-muted'}>{item.icon}</span>
                     <span className="flex-1 text-left">{item.label}</span>
                     <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -189,11 +189,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                     href={item.href}
                     className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
                       active
-                        ? 'bg-white/10 text-white'
-                        : 'text-nav-text hover:text-text-primary hover:bg-white/5'
+                        ? 'bg-accent-teal/10 text-white border-l-[3px] border-accent-teal'
+                        : 'text-nav-text hover:text-text-primary hover:bg-white/5 border-l-[3px] border-transparent'
                     }`}
                   >
-                    <span className={active ? 'text-white' : 'text-text-muted'}>{item.icon}</span>
+                    <span className={active ? 'text-accent-teal' : 'text-text-muted'}>{item.icon}</span>
                     {item.label}
                   </Link>
                 )}
