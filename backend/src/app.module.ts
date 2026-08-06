@@ -15,6 +15,7 @@ import { DisposalsModule } from './modules/disposals/disposals.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { ActivityLogsModule } from './modules/activity-logs/activity-logs.module';
 import { StatsModule } from './modules/stats/stats.module';
+import { StockMovementsModule } from './modules/stock-movements/stock-movements.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 
 @Module({
@@ -47,6 +48,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
     ExpensesModule,
     ActivityLogsModule,
     StatsModule,
+    StockMovementsModule,
   ],
   controllers: [AppController],
   providers: [
