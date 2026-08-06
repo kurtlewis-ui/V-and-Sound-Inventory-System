@@ -218,7 +218,7 @@ export default function UsersPage() {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={formData.avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover border border-card-border" />
         ) : (
-          <div className="w-16 h-16 rounded-full bg-accent-primary flex items-center justify-center text-white text-lg font-bold">
+          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-white text-lg font-bold border border-card-border">
             {(formData.firstName[0] ?? '').toUpperCase()}{(formData.lastName[0] ?? '').toUpperCase()}
           </div>
         )}

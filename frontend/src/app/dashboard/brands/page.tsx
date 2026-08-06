@@ -184,7 +184,7 @@ export default function BrandsPage() {
           {totalPages > 1 && (
             <div className="flex items-center gap-1">
               <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 text-sm text-text-secondary rounded border border-card-border hover:bg-white/5 disabled:opacity-40">Previous</button>
-              <span className="rounded-lg bg-accent-primary px-3 py-1.5 text-sm font-medium text-white">{page}</span>
+              <span className="rounded-lg bg-btn-primary px-3 py-1.5 text-sm font-medium text-white">{page}</span>
               <span className="px-1 text-sm text-text-muted">/ {totalPages}</span>
               <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 text-sm text-text-secondary rounded border border-card-border hover:bg-white/5 disabled:opacity-40">Next</button>
             </div>

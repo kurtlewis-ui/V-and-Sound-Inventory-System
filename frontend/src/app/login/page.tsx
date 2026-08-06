@@ -59,13 +59,11 @@ export default function LoginPage() {
       {/* Subtle radial glow — just a hint of light, no color */}
       <div className="pointer-events-none absolute -top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-white/5 blur-3xl" />
 
-      <div className="relative flex w-full max-w-[400px] flex-col items-center">
-        {/* Logo area — circular container matching the brand's aesthetic */}
-        <div className="mb-8 flex aspect-square w-full max-w-[140px] items-center justify-center rounded-full border border-white/10 bg-card-bg/80 shadow-xl shadow-black/30">
-          <div className="text-center">
-            <span className="text-2xl font-black text-white tracking-tight">VS</span>
-            <p className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-0.5">Est. 2021</p>
-          </div>
+      <div className="relative flex w-full max-w-[420px] flex-col items-center">
+        {/* Logo — large, prominent display of the brand */}
+        <div className="mb-8 w-full max-w-[180px] sm:max-w-[220px]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Vape and Sounds" className="w-full h-auto rounded-2xl" />
         </div>
 
         {/* Card */}

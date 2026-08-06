@@ -134,7 +134,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-page-bg flex">
+    <div className="min-h-screen bg-page-bg">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -143,18 +143,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — always fixed, never scrolls */}
       <aside
         ref={navRef}
-        className={`fixed inset-y-0 left-0 z-50 flex w-[240px] flex-col bg-nav-bg border-r border-nav-border transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[240px] flex-col bg-nav-bg border-r border-nav-border transition-transform duration-200 lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-nav-border">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white">
-            <span className="text-sm font-black text-black">VS</span>
-          </div>
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-nav-border">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Vape and Sounds" className="h-10 w-10 rounded-lg object-cover" />
           <div className="leading-tight">
             <p className="text-sm font-bold text-text-primary">Vape & Sounds</p>
             <p className="text-[10px] text-text-muted uppercase tracking-wider">EST. 2021</p>
@@ -264,28 +263,27 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar (mobile toggle only on small screens, minimal on desktop) */}
-        <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-4 bg-page-bg/80 backdrop-blur-md border-b border-nav-border lg:border-none">
+      {/* Main content area — offset by sidebar width on desktop, scrolls independently */}
+      <div className="lg:ml-[240px] flex-1 flex flex-col min-h-screen">
+        {/* Top bar (mobile only) */}
+        <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-4 bg-page-bg/90 backdrop-blur-md border-b border-nav-border lg:hidden">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden flex items-center rounded-lg p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
+            className="flex items-center rounded-lg p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
             aria-label="Toggle navigation"
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          {/* Spacer for desktop — keeps layout consistent */}
-          <div className="hidden lg:block" />
-          <div className="flex items-center gap-3 lg:hidden">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
-              <span className="text-xs font-black text-black">VS</span>
-            </div>
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Vape and Sounds" className="h-8 w-8 rounded-lg object-cover" />
+            <span className="text-sm font-bold text-text-primary">Vape & Sounds</span>
           </div>
+          <div className="w-9" /> {/* Spacer for centering */}
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 px-6 py-6 max-w-[1200px] w-full mx-auto">{children}</main>
+        {/* Page Content — this is the only section that scrolls */}
+        <main className="flex-1 overflow-y-auto px-6 py-6 max-w-[1200px] w-full mx-auto">{children}</main>
       </div>
     </div>
   );

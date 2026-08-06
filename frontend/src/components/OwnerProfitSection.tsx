@@ -141,7 +141,7 @@ function ProfitContent() {
         <button
           onClick={handleExportProfit}
           disabled={exporting}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-primary text-white rounded-lg text-xs font-medium hover:opacity-90 transition disabled:opacity-60"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-btn-primary text-white rounded-lg text-xs font-medium hover:opacity-90 transition disabled:opacity-60"
         >
           <Download size={13} /> {exporting ? 'Exporting...' : 'Export Profit Report'}
         </button>
