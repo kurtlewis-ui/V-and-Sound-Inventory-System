@@ -247,6 +247,7 @@ function formatAddedTime(iso?: string): string {
 
 function DraftBag() {
   const router = useRouter();
+  const { contentTheme } = useThemeStore();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const {
@@ -518,10 +519,10 @@ function DraftBag() {
 
   return (
     <>
-      {/* Floating button */}
+      {/* Floating button — themed */}
       <button
         onClick={() => { setOpen((o) => !o); setSuccess(null); setError(null); }}
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-btn-primary text-btn-primary-text shadow-lg shadow-black/30 hover:opacity-90 transition"
+        className={`fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg shadow-black/30 hover:opacity-90 transition ${contentTheme === 'light' ? 'bg-black text-white' : 'bg-white text-black'}`}
         title="Draft order"
         aria-label="Draft order"
       >
@@ -536,7 +537,7 @@ function DraftBag() {
       {open && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setOpen(false)} />
-          <div className="fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col bg-card-bg border-l border-card-border shadow-2xl">
+          <div className={`fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col bg-card-bg border-l border-card-border shadow-2xl content-transition ${contentTheme === 'light' ? 'content-light' : ''}`}>
             <div className="flex items-center justify-between border-b border-card-border p-4">
               <h3 className="text-lg font-bold text-text-primary flex items-center gap-2">
                 <Briefcase size={18} /> Draft Order
