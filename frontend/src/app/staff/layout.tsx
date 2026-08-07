@@ -521,7 +521,7 @@ function DraftBag() {
       {/* Floating button */}
       <button
         onClick={() => { setOpen((o) => !o); setSuccess(null); setError(null); }}
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-accent-teal text-white shadow-lg shadow-accent-teal/30 hover:bg-accent-teal-light transition"
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-btn-primary text-btn-primary-text shadow-lg shadow-black/30 hover:opacity-90 transition"
         title="Draft order"
         aria-label="Draft order"
       >
