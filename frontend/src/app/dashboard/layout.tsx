@@ -285,10 +285,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       {/* Main content area — offset by sidebar width, applies theme */}
       <div className={`lg:ml-[240px] flex-1 flex flex-col min-h-screen content-transition ${contentTheme === 'light' ? 'content-light' : ''}`}>
         {/* Top bar (mobile only) */}
-        <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-4 bg-page-bg/90 backdrop-blur-md border-b border-card-border lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-4 bg-[#141414]/95 backdrop-blur-md border-b border-[#2a2a2a] lg:hidden">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex items-center rounded-lg p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
+            className="flex items-center rounded-lg p-2 text-[#999999] hover:text-white hover:bg-white/5 transition-colors"
             aria-label="Toggle navigation"
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
@@ -296,7 +296,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Vape and Sounds" className="h-8 w-8 rounded-lg object-cover" />
-            <span className="text-sm font-bold text-text-primary">Vape & Sounds</span>
+            <span className="text-sm font-bold text-white">Vape & Sounds</span>
           </div>
           <div className="w-9" />
         </header>
