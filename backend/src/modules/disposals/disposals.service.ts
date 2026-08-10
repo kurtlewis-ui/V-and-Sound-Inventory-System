@@ -102,7 +102,10 @@ export class DisposalsService {
         include: this.includeFull(),
       });
 
-      // Log the stock movement for disposal
+      // Log a confirmation stock movement. Stock was already deducted at
+      // creation time (reserveStock), so quantityChange is 0 here — this
+      // entry exists purely so the movement history shows when the disposal
+      // was officially approved and what the inventory level was at that point.
       if (disposal.productId) {
         const inv = await tx.inventory.findUnique({
           where: { productId_branchId: { productId: disposal.productId, branchId: disposal.branchId } },
@@ -113,9 +116,9 @@ export class DisposalsService {
             branchId: disposal.branchId,
             userId: actor.userId,
             type: 'DISPOSAL',
-            quantityChange: -disposal.quantity,
+            quantityChange: 0,
             quantityAfter: inv?.quantity ?? 0,
-            description: 'Disposed product.',
+            description: 'Disposal approved (stock was already reserved at request time).',
           },
         });
       }

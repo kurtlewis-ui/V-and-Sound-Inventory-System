@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { SaleStatus, ExpenseStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestUser } from '../../common/interfaces/request-user.interface';
+import { startOfTodayPH } from '../../common/utils/date.util';
 
 @Injectable()
 export class StatsService {
@@ -117,8 +118,7 @@ export class StatsService {
   async branchSummary(branchId: string | undefined, actor: RequestUser) {
     const resolvedBranchId = await this.resolveBranchForActor(actor, branchId);
 
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    const start = startOfTodayPH();
 
     const [salesAgg, expensesAgg] = await Promise.all([
       this.prisma.sale.aggregate({

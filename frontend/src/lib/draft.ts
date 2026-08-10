@@ -47,9 +47,9 @@ interface DraftState {
   expenses: DraftExpense[];
   customerName: string;
   addItem: (item: Omit<DraftItem, 'quantity' | 'addedAt'>, quantity?: number) => void;
-  setQuantity: (productId: string, quantity: number) => void;
-  removeItem: (productId: string) => void;
-  updateItemPayment: (productId: string, updates: {
+  setQuantity: (index: number, quantity: number) => void;
+  removeItem: (index: number) => void;
+  updateItemPayment: (index: number, updates: {
     paymentMethod: PaymentMethod;
     bankNote?: string | null;
     paymentSplit?: PaymentSplit | null;
@@ -93,10 +93,10 @@ export const useDraftStore = create<DraftState>()(
           }
           return { items: [...state.items, { ...item, quantity, addedAt: new Date().toISOString() }] };
         }),
-      setQuantity: (productId, quantity) =>
+      setQuantity: (index, quantity) =>
         set((state) => ({
-          items: state.items.map((i) => {
-            if (i.productId !== productId) return i;
+          items: state.items.map((i, idx) => {
+            if (idx !== index) return i;
             const newQty = Math.max(1, quantity);
             // If the item has a split payment, reset it when quantity changes
             // because the original split amounts are now stale (they were
@@ -107,13 +107,13 @@ export const useDraftStore = create<DraftState>()(
             return { ...i, quantity: newQty };
           }),
         })),
-      removeItem: (productId) =>
-        set((state) => ({ items: state.items.filter((i) => i.productId !== productId) })),
+      removeItem: (index) =>
+        set((state) => ({ items: state.items.filter((_, idx) => idx !== index) })),
 
-      updateItemPayment: (productId, updates) =>
+      updateItemPayment: (index, updates) =>
         set((state) => ({
-          items: state.items.map((i) =>
-            i.productId === productId ? { ...i, ...updates } : i,
+          items: state.items.map((i, idx) =>
+            idx === index ? { ...i, ...updates } : i,
           ),
         })),
 

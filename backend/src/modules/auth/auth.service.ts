@@ -39,6 +39,11 @@ export class AuthService {
       throw new ForbiddenException('Account is disabled');
     }
 
+    // Check if account is locked
+    if (user.isLocked) {
+      throw new ForbiddenException('Account is locked');
+    }
+
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
