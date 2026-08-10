@@ -50,8 +50,16 @@ export class StatsService {
    * Approved-sales totals bucketed over time for the Sales Overview chart.
    */
   async salesOverview(period: string, branchId?: string) {
-    const unit = period === 'monthly' ? 'month' : period === 'weekly' ? 'week' : 'day';
-    const sinceDays = period === 'monthly' ? 365 : period === 'weekly' ? 84 : 14;
+    const unit =
+      period === 'yearly' ? 'month' :
+      period === 'monthly' ? 'month' :
+      period === 'weekly' ? 'week' :
+      'day';
+    const sinceDays =
+      period === 'yearly' ? 730 :
+      period === 'monthly' ? 365 :
+      period === 'weekly' ? 84 :
+      14;
 
     const params: any[] = [];
     let branchClause = '';

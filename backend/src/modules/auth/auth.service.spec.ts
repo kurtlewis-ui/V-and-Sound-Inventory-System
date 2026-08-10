@@ -159,7 +159,7 @@ describe('AuthService', () => {
   describe('changePassword', () => {
     it('should throw BadRequestException when passwords do not match', async () => {
       await expect(
-        service.changePassword('user-uuid', {
+        service.changePassword('user-uuid', 'session-uuid', {
           currentPassword: 'old',
           newPassword: 'NewPass123!',
           confirmPassword: 'Different123!',
@@ -172,7 +172,7 @@ describe('AuthService', () => {
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
 
       await expect(
-        service.changePassword('user-uuid', {
+        service.changePassword('user-uuid', 'session-uuid', {
           currentPassword: 'wrong',
           newPassword: 'NewPass123!',
           confirmPassword: 'NewPass123!',
