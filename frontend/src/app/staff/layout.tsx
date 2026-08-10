@@ -595,22 +595,22 @@ function DraftBag() {
                             )}
                           </div>
                           <div className="flex items-center gap-1">
-                            <button onClick={() => setQuantity(item.productId, item.quantity - 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Decrease"><Minus size={14} /></button>
+                            <button onClick={() => setQuantity(idx, item.quantity - 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Decrease"><Minus size={14} /></button>
                             <input
                               type="number"
                               min="1"
                               value={item.quantity}
-                              onChange={(e) => setQuantity(item.productId, parseInt(e.target.value) || 1)}
+                              onChange={(e) => setQuantity(idx, parseInt(e.target.value) || 1)}
                               className="w-12 rounded border border-input-border bg-input-bg px-1 py-1 text-center text-sm"
                             />
-                            <button onClick={() => setQuantity(item.productId, item.quantity + 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Increase"><Plus size={14} /></button>
+                            <button onClick={() => setQuantity(idx, item.quantity + 1)} className="rounded p-1 text-text-secondary hover:bg-white/10" aria-label="Increase"><Plus size={14} /></button>
                           </div>
-                          <button onClick={() => removeItem(item.productId)} className="rounded p-1.5 text-accent-red hover:bg-accent-red/10" title="Remove"><Trash2 size={15} /></button>
+                          <button onClick={() => removeItem(idx)} className="rounded p-1.5 text-accent-red hover:bg-accent-red/10" title="Remove"><Trash2 size={15} /></button>
                         </div>
                         {editingPaymentIdx === idx && (
                           <EditPaymentInline
                             item={item}
-                            onSave={(updates) => { updateItemPayment(item.productId, updates); setEditingPaymentIdx(null); }}
+                            onSave={(updates) => { updateItemPayment(idx, updates); setEditingPaymentIdx(null); }}
                             onCancel={() => setEditingPaymentIdx(null)}
                           />
                         )}

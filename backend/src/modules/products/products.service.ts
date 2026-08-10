@@ -73,9 +73,10 @@ export class ProductsService {
     return this.serialize(product);
   }
 
-  async findAll(query: QueryProductDto) {
+  async findAll(query: QueryProductDto, role?: string) {
     const { page = 1, limit = 20, search, brandId, branchId } = query;
     const skip = (page - 1) * limit;
+    const includeOwnerFields = role === 'Owner' || role === 'Admin';
 
     const where: any = { deletedAt: null };
     if (search) {
@@ -97,14 +98,15 @@ export class ProductsService {
     ]);
 
     return {
-      data: products.map((p) => this.serialize(p)),
+      data: products.map((p) => this.serialize(p, includeOwnerFields)),
       pagination: this.paginate(page, limit, total),
     };
   }
 
-  async findArchived(query: QueryProductDto) {
+  async findArchived(query: QueryProductDto, role?: string) {
     const { page = 1, limit = 20, search } = query;
     const skip = (page - 1) * limit;
+    const includeOwnerFields = role === 'Owner' || role === 'Admin';
 
     const where: any = { deletedAt: { not: null } };
     if (search) {
@@ -123,12 +125,12 @@ export class ProductsService {
     ]);
 
     return {
-      data: products.map((p) => this.serialize(p)),
+      data: products.map((p) => this.serialize(p, includeOwnerFields)),
       pagination: this.paginate(page, limit, total),
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, role?: string) {
     const product = await this.prisma.product.findFirst({
       where: { id, deletedAt: null },
       include: this.includeFull(),
@@ -136,7 +138,8 @@ export class ProductsService {
     if (!product) {
       throw new NotFoundException('Product not found');
     }
-    return this.serialize(product);
+    const includeOwnerFields = role === 'Owner' || role === 'Admin';
+    return this.serialize(product, includeOwnerFields);
   }
 
   async update(id: string, dto: UpdateProductDto, updatedBy: string) {
@@ -244,7 +247,7 @@ export class ProductsService {
     return { message: 'Product archived successfully' };
   }
 
-  async restore(id: string, restoredBy: string) {
+  async restore(id: string, restoredBy: string, role?: string) {
     const product = await this.prisma.product.findFirst({
       where: { id, deletedAt: { not: null } },
       include: { brand: true },
@@ -267,7 +270,7 @@ export class ProductsService {
       name: product.name,
     });
 
-    return this.findOne(id);
+    return this.findOne(id, role);
   }
 
   /**
