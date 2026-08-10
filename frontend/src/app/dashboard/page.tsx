@@ -85,10 +85,14 @@ export default function DashboardPage() {
     if (!revenueStartDate && !revenueEndDate) {
       return { total: stats?.approvedSalesTotal ?? 0, label: 'All-Time' };
     }
-    // Filter overview data by date range
+    // Filter overview data by date range.
+    // p.date is an ISO timestamp from the backend (e.g. "2026-07-01T00:00:00.000Z")
+    // while revenueStartDate/revenueEndDate are plain "YYYY-MM-DD" from <input type="date">.
+    // Normalize p.date to YYYY-MM-DD before comparing so both sides match.
     const filtered = (revData ?? []).filter((p) => {
-      if (revenueStartDate && p.date < revenueStartDate) return false;
-      if (revenueEndDate && p.date > revenueEndDate) return false;
+      const dateStr = new Date(p.date).toISOString().slice(0, 10);
+      if (revenueStartDate && dateStr < revenueStartDate) return false;
+      if (revenueEndDate && dateStr > revenueEndDate) return false;
       return true;
     });
     const total = filtered.reduce((sum, p) => sum + p.total, 0);

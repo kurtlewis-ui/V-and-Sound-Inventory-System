@@ -43,11 +43,17 @@ export class AuthController {
 
     const result = await this.authService.login(loginDto, ipAddress, userAgent);
 
-    // Set refresh token in HTTP-only cookie
+    // Set refresh token in HTTP-only cookie.
+    // In development the frontend (port 3000) and backend (port 4000) are on
+    // different origins — 'strict' would prevent the browser from including
+    // this cookie on cross-origin refresh requests, breaking token renewal.
+    // 'lax' is safe (still blocks cross-site POST from foreign domains) and
+    // allows same-site requests across ports during local development.
+    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -113,7 +119,7 @@ export class AuthController {
     @CurrentUser() user: RequestUser,
     @Body() changePasswordDto: ChangePasswordDto,
   ) {
-    const result = await this.authService.changePassword(user.userId, changePasswordDto);
+    const result = await this.authService.changePassword(user.userId, user.sessionId, changePasswordDto);
 
     return {
       success: true,

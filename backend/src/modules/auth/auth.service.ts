@@ -233,7 +233,7 @@ export class AuthService {
     };
   }
 
-  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+  async changePassword(userId: string, currentSessionId: string | undefined, changePasswordDto: ChangePasswordDto) {
     const { currentPassword, newPassword, confirmPassword } = changePasswordDto;
 
     if (newPassword !== confirmPassword) {
@@ -275,17 +275,18 @@ export class AuthService {
       },
     });
 
-    // Invalidate all sessions except current (force re-login)
+    // Invalidate all sessions except current (force re-login on other devices)
     await this.prisma.session.deleteMany({
       where: {
         userId,
+        ...(currentSessionId ? { NOT: { id: currentSessionId } } : {}),
       },
     });
 
     // Create audit log
     await this.createAuditLog(userId, 'PASSWORD_CHANGED', null, null);
 
-    return { message: 'Password changed successfully. Please login again.' };
+    return { message: 'Password changed successfully. Other sessions have been logged out.' };
   }
 
   private async handleFailedLogin(userId: string) {
