@@ -1,5 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { StatsService } from './stats.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/interfaces/request-user.interface';
@@ -35,6 +36,7 @@ export class StatsController {
   }
 
   @Get('branch-summary')
+  @SkipThrottle()
   @ApiOperation({ summary: "Today's approved Total Sales / Total Expenses / Net for a branch" })
   async branchSummary(@Query('branchId') branchId: string | undefined, @CurrentUser() user: RequestUser) {
     const data = await this.statsService.branchSummary(branchId || undefined, user);

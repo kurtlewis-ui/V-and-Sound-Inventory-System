@@ -25,24 +25,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis Cache & Sessions
-  redis:
-    image: redis:7-alpine
-    container_name: vape-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-    ports:
-      - '6379:6379'
-    volumes:
-      - redis_data:/data
-    networks:
-      - vape-network
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # Backend API (NestJS)
   backend:
     build:
@@ -53,14 +35,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 4000
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-vape_shop_db}?schema=public
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production-min-32-characters}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-this-refresh-secret-min-32-characters}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
@@ -105,5 +83,4 @@ networks:
 
 volumes:
   postgres_data:
-  redis_data:
   nginx_logs:

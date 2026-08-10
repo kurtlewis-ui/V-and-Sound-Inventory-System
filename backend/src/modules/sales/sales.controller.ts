@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { SalesService } from './sales.service';
 import { DraftsService } from './drafts.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
@@ -36,6 +37,7 @@ export class SalesController {
   // Draft-cart routes must come before ':id' so 'draft(s)' isn't swallowed
   // by the dynamic param route below.
   @Get('drafts')
+  @SkipThrottle()
   @Roles('Owner', 'Admin')
   @ApiOperation({ summary: "List every staff member's current draft cart (Admin)" })
   async drafts(@Query('branchId') branchId?: string) {
@@ -55,6 +57,7 @@ export class SalesController {
   }
 
   @Get('draft')
+  @SkipThrottle()
   @ApiOperation({ summary: 'Whether a draft still exists server-side for you (detects admin Save Draft)' })
   async myDraftExists(@CurrentUser() user: RequestUser) {
     const data = await this.draftsService.existsForMine(user);
@@ -102,6 +105,7 @@ export class SalesController {
   }
 
   @Get('pending')
+  @SkipThrottle()
   @ApiOperation({ summary: 'List pending sales awaiting approval' })
   async pending(@Query() query: QuerySaleDto, @CurrentUser() user: RequestUser) {
     const result = await this.salesService.findPending(query, user);

@@ -3,7 +3,7 @@
  * disposals, expenses, and inventory. Admin-only feature.
  * Uses pagination to fetch ALL records regardless of backend limit.
  */
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import { api } from './api';
 
 function formatSplitBreakdown(split: { cash: number; gcash: number; bankTransfer: number; cashless: number } | null): string {

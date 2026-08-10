@@ -9,7 +9,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
 import { ImportProductRowDto } from './dto/import-products.dto';
 import { RestockItemDto } from './dto/restock.dto';
-import { slugify } from '../../common/utils/string.util';
+import { slugify, uniqueSlug } from '../../common/utils/string.util';
 
 @Injectable()
 export class ProductsService {
@@ -28,7 +28,7 @@ export class ProductsService {
     const product = await this.prisma.product.create({
       data: {
         name: dto.name.trim(),
-        slug: slugify(dto.name),
+        slug: uniqueSlug(dto.name),
         image: dto.image?.trim() || null,
         brandId: dto.brandId,
         sellingPrice: dto.sellingPrice,
@@ -164,7 +164,7 @@ export class ProductsService {
     const data: any = {};
     if (dto.name !== undefined) {
       data.name = dto.name.trim();
-      data.slug = slugify(dto.name);
+      data.slug = uniqueSlug(dto.name);
     }
     if (dto.image !== undefined) data.image = dto.image?.trim() || null;
     if (dto.brandId !== undefined) data.brandId = dto.brandId;
@@ -305,7 +305,7 @@ export class ProductsService {
       });
       if (!brand) {
         brand = await this.prisma.brand.create({
-          data: { name: brandName, slug: slugify(brandName) },
+          data: { name: brandName, slug: uniqueSlug(brandName) },
         });
       }
 
@@ -363,7 +363,7 @@ export class ProductsService {
         const newProduct = await this.prisma.product.create({
           data: {
             name,
-            slug: slugify(name),
+            slug: uniqueSlug(name),
             brandId: brand.id,
             sellingPrice: row.sellingPrice,
             quantityAlert: row.quantityAlert ?? 0,
@@ -434,26 +434,28 @@ export class ProductsService {
         continue;
       }
 
-      await this.prisma.inventory.upsert({
-        where: { productId_branchId: { productId: product.id, branchId: branch.id } },
-        create: { productId: product.id, branchId: branch.id, quantity: Math.max(0, item.quantity) },
-        update: { quantity: { increment: item.quantity } },
-      });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.inventory.upsert({
+          where: { productId_branchId: { productId: product.id, branchId: branch.id } },
+          create: { productId: product.id, branchId: branch.id, quantity: Math.max(0, item.quantity) },
+          update: { quantity: { increment: item.quantity } },
+        });
 
-      // Log the stock movement
-      const inv = await this.prisma.inventory.findUnique({
-        where: { productId_branchId: { productId: product.id, branchId: branch.id } },
-      });
-      await this.prisma.stockMovement.create({
-        data: {
-          productId: product.id,
-          branchId: branch.id,
-          userId: userId,
-          type: 'RESTOCK',
-          quantityChange: item.quantity,
-          quantityAfter: inv?.quantity ?? item.quantity,
-          description: 'Restocked product.',
-        },
+        // Log the stock movement (read inside same transaction for accuracy)
+        const inv = await tx.inventory.findUnique({
+          where: { productId_branchId: { productId: product.id, branchId: branch.id } },
+        });
+        await tx.stockMovement.create({
+          data: {
+            productId: product.id,
+            branchId: branch.id,
+            userId: userId,
+            type: 'RESTOCK',
+            quantityChange: item.quantity,
+            quantityAfter: inv?.quantity ?? item.quantity,
+            description: 'Restocked product.',
+          },
+        });
       });
 
       updated++;

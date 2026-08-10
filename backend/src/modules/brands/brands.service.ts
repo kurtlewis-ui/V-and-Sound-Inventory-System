@@ -7,7 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateBrandDto } from './dto/create-brand.dto';
 import { UpdateBrandDto } from './dto/update-brand.dto';
 import { QueryBrandDto } from './dto/query-brand.dto';
-import { slugify } from '../../common/utils/string.util';
+import { uniqueSlug } from '../../common/utils/string.util';
 
 type BrandRow = {
   id: string;
@@ -38,7 +38,7 @@ export class BrandsService {
     const brand = await this.prisma.brand.create({
       data: {
         name,
-        slug: slugify(name),
+        slug: uniqueSlug(name),
         coverImage: dto.coverImage?.trim() || null,
         isActive: dto.isActive ?? true,
       },
@@ -142,7 +142,7 @@ export class BrandsService {
         }
       }
       data.name = name;
-      data.slug = slugify(name);
+      data.slug = uniqueSlug(name);
     }
     if (dto.coverImage !== undefined) {
       data.coverImage = dto.coverImage?.trim() || null;
