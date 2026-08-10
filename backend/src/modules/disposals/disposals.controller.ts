@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { DisposalStatus } from '@prisma/client';
 import { DisposalsService } from './disposals.service';
 import { CreateDisposalDto } from './dto/create-disposal.dto';
@@ -51,6 +52,7 @@ export class DisposalsController {
   }
 
   @Get('pending')
+  @SkipThrottle()
   @ApiOperation({ summary: 'List pending disposals awaiting approval' })
   async pending(@Query() query: QueryDisposalDto, @CurrentUser() user: RequestUser) {
     const result = await this.disposalsService.findAll(query, user, DisposalStatus.PENDING);

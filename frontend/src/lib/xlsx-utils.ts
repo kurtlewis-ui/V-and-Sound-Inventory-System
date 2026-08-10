@@ -1,8 +1,8 @@
 /**
  * xlsx utility functions for generating and reading Excel files.
- * Requires: npm install xlsx
+ * Requires: npm install xlsx-js-style
  */
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 
 export interface ProductRow {
   productId: string | number;

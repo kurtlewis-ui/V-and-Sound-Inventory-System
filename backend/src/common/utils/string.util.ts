@@ -12,6 +12,17 @@ export function slugify(text: string): string {
 }
 
 /**
+ * Generate a unique slug by appending a short random suffix if needed.
+ * Call this when creating/updating entities with a unique slug constraint
+ * to avoid collisions (e.g. two brands both named "Blue Ice").
+ */
+export function uniqueSlug(text: string): string {
+  const base = slugify(text);
+  const suffix = Math.random().toString(36).slice(2, 6);
+  return `${base}-${suffix}`;
+}
+
+/**
  * Generate a sequential document number with a prefix and date.
  * Example: generateDocumentNumber('SALE', 1) => 'SALE-20260611-0001'
  */

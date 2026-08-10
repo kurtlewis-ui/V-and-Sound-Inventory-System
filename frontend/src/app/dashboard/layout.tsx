@@ -100,12 +100,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (mounted && !accessToken) {
+    if (mounted && !user) {
       router.replace('/login');
     } else if (mounted && user && user.role?.name === 'Staff') {
       router.replace('/staff');
     }
-  }, [mounted, accessToken, user, router]);
+  }, [mounted, user, router]);
 
   function handleLogout() {
     logout();
@@ -137,7 +137,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!accessToken || (user && user.role?.name === 'Staff')) {
+  if (!user || user.role?.name === 'Staff') {
     return null;
   }
 

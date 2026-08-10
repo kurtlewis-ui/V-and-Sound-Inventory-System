@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ExpenseStatus } from '@prisma/client';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
@@ -37,6 +38,7 @@ export class ExpensesController {
   }
 
   @Get('pending')
+  @SkipThrottle()
   @ApiOperation({ summary: 'List pending expenses awaiting approval' })
   async pending(@Query() query: QueryExpenseDto, @CurrentUser() user: RequestUser) {
     const result = await this.expensesService.findAll(query, user, ExpenseStatus.PENDING);

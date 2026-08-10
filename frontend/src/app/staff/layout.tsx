@@ -51,13 +51,13 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
   // Auth + role guard: must be logged in and a Staff account.
   useEffect(() => {
     if (!mounted) return;
-    if (!accessToken) {
+    if (!user) {
       router.replace('/login');
-    } else if (user && user.role?.name !== 'Staff') {
+    } else if (user.role?.name !== 'Staff') {
       // Admins/owners belong in the admin dashboard.
       router.replace('/dashboard');
     }
-  }, [mounted, accessToken, user, router]);
+  }, [mounted, user, router]);
 
   function handleLogout() {
     logout();
@@ -78,7 +78,7 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
       </main>
     );
   }
-  if (!accessToken || (user && user.role?.name !== 'Staff')) {
+  if (!user || user.role?.name !== 'Staff') {
     return null;
   }
 

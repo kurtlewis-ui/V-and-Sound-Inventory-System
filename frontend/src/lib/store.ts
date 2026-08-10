@@ -11,10 +11,11 @@ interface AuthState {
 }
 
 /**
- * Global auth store. Persists the access token + user to localStorage so a
- * page refresh keeps you logged in. (For production you'd keep the access
- * token in memory only and rely on the refresh-token cookie, but localStorage
- * keeps this starter simple to follow.)
+ * Global auth store. The access token is kept in memory only (never persisted
+ * to localStorage) so it can't be stolen via XSS. On page refresh, the token
+ * is null and the axios interceptor silently refreshes it using the HTTP-only
+ * refresh-token cookie. Only the `user` object is persisted so the UI knows
+ * who's logged in without waiting for the refresh round-trip.
  */
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -28,6 +29,8 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'vape-shop-auth',
+      // Only persist the user profile — the access token stays in memory.
+      partialize: (state) => ({ user: state.user }),
     },
   ),
 );

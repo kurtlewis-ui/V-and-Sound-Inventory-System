@@ -157,7 +157,7 @@ model AuditLog {
 model Brand {
   id         String    @id @default(uuid()) @db.Uuid
   name       String    @db.VarChar(100)
-  slug       String    @db.VarChar(120)
+  slug       String    @unique @db.VarChar(120)
   coverImage String?   @map("cover_image") @db.Text
   isActive   Boolean   @default(true) @map("is_active")
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
@@ -168,14 +168,13 @@ model Brand {
   products Product[]
 
   @@index([deletedAt])
-  @@index([slug])
   @@map("brands")
 }
 
 model Product {
   id            String    @id @default(uuid()) @db.Uuid
   name          String    @db.VarChar(150)
-  slug          String    @db.VarChar(170)
+  slug          String    @unique @db.VarChar(170)
   image         String?   @db.Text
   brandId       String    @map("brand_id") @db.Uuid
   // Selling price in PHP.

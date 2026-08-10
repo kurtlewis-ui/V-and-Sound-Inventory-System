@@ -31,8 +31,14 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // CORS
+  // CORS — supports a single origin or a comma-separated list.
+  // e.g. CORS_ORIGIN=http://localhost:3000,https://app.example.com
+  const rawOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+  const corsOrigin = rawOrigin.includes(',')
+    ? rawOrigin.split(',').map((o) => o.trim())
+    : rawOrigin;
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: corsOrigin,
     credentials: true,
   });
 
