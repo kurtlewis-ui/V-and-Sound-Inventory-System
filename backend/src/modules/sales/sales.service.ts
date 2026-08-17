@@ -671,6 +671,7 @@ export class SalesService {
         brandName: i.brandName,
         quantity: i.quantity,
         unitPrice: Number(i.unitPrice),
+        costPrice: Number(i.costPrice ?? 0),
         discount: Number(i.discount ?? 0),
         subTotal: Number(i.subTotal),
         paymentMethod: i.paymentMethod,
