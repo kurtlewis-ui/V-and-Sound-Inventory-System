@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useState } from 'react';
-import { Search, Pencil, Trash2, X, CheckCircle, XCircle, Plus, Loader2, Recycle, ShoppingBag, Receipt, Send } from 'lucide-react';
+import { Search, Pencil, Trash2, X, CheckCircle, XCircle, Plus, Loader2, Recycle, ShoppingBag, PhilippinePeso, Send } from 'lucide-react';
 import {
   useSalesPending,
   useBranches,
@@ -514,7 +514,7 @@ export default function SalesPendingPage() {
       <div className="bg-card-bg rounded-xl border border-card-border shadow-sm mt-6">
         <div className="p-4 border-b border-card-border flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
-            <Receipt size={18} /> Pending Expenses
+            <PhilippinePeso size={18} /> Pending Expenses
             {expenses.length > 0 && <span className="badge badge-neutral">{expenses.length}</span>}
           </h2>
           <div className="flex items-center gap-3">

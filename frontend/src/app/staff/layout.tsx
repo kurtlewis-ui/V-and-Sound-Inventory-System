@@ -21,7 +21,7 @@ import {
   Trash2,
   CheckCircle2,
   Recycle,
-  Receipt,
+  PhilippinePeso,
   Settings as SettingsIcon,
   Edit2,
   Moon,
@@ -673,7 +673,7 @@ function DraftBag() {
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                    <Receipt size={13} /> Expenses
+                    <PhilippinePeso size={13} /> Expenses
                   </h4>
                   {!addingExpense && (
                     <button

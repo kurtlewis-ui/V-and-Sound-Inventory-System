@@ -91,10 +91,10 @@ function ProfitContent() {
   }
 
   return (
-    <div className="bg-card-bg border border-accent-primary/30 rounded-xl p-5 shadow-sm shadow-accent-primary/10">
+    <div className="bg-card-bg border border-card-border rounded-xl p-5 shadow-sm shadow-black/10">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
-          <p className="text-xs text-accent-primary font-semibold uppercase tracking-wider">Owner Only — Confidential</p>
+          <p className="text-xs text-text-secondary font-semibold uppercase tracking-wider">Owner Dashboard</p>
           <h2 className="text-lg font-bold text-text-primary">Profit & Loss ({dateLabel})</h2>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
