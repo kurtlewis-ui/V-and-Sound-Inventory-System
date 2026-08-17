@@ -88,7 +88,7 @@ export default function ProductsPage() {
   function openEditModal(product: Product) {
     setEditingProduct(product);
     setFormName(product.name); setFormBrand(product.brand?.id ?? brands[0]?.id ?? '');
-    setFormPrice(product.sellingPrice.toString()); setFormCostPrice(''); setFormAlert(product.quantityAlert.toString());
+    setFormPrice(product.sellingPrice.toString()); setFormCostPrice(product.costPrice?.toString() ?? ''); setFormAlert(product.quantityAlert.toString());
     setFormImage(product.image ?? null);
     const q: Record<string, string> = {};
     branchesForEdit.forEach((b) => { q[b.id] = (product.quantities.find((x) => x.branchId === b.id)?.quantity ?? 0).toString(); });

@@ -169,6 +169,7 @@ export class ProductsService {
     if (dto.image !== undefined) data.image = dto.image?.trim() || null;
     if (dto.brandId !== undefined) data.brandId = dto.brandId;
     if (dto.sellingPrice !== undefined) data.sellingPrice = dto.sellingPrice;
+    if (dto.costPrice !== undefined) data.costPrice = dto.costPrice;
     if (dto.quantityAlert !== undefined) data.quantityAlert = dto.quantityAlert;
 
     await this.prisma.product.update({ where: { id }, data });
