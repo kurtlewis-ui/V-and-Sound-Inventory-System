@@ -500,7 +500,21 @@ export interface DraftSyncInput {
 
 export function useSaveDraft() {
   return useMutation({
-    mutationFn: (body: DraftSyncInput) => api.put('/sales/draft', body).then((r) => r.data.data),
+    mutationFn: (body: DraftSyncInput) => {
+      // Strip fields the backend DTO doesn't whitelist (e.g. addedAt) to
+      // avoid "property X should not exist" validation errors.
+      const cleaned = {
+        ...body,
+        items: body.items.map(({ productId, name, brandName, unitPrice, quantity, image, discount, paymentMethod, bankNote, note, paymentSplit }) => ({
+          productId, name, brandName, unitPrice, quantity, image, discount, paymentMethod, bankNote, note, paymentSplit,
+        })),
+        disposalItems: body.disposalItems?.map(({ productId, name, brandName, quantity, image }) => ({
+          productId, name, brandName, quantity, image,
+        })),
+        expenses: body.expenses?.map(({ amount, note }) => ({ amount, note })),
+      };
+      return api.put('/sales/draft', cleaned).then((r) => r.data.data);
+    },
   });
 }
 
