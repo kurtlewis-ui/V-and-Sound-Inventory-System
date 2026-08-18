@@ -160,6 +160,7 @@ function AddPurchaseModal({
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState('1');
   const [discount, setDiscount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<ItemPaymentMethod>('Cash');
@@ -221,12 +222,24 @@ function AddPurchaseModal({
       setError('Split amounts add up to more than the item total.');
       return;
     }
+    // Resolve the effective unit price (from variant or product)
+    const hasVariants = (product as any).variants?.length > 0;
+    const selectedVariant = hasVariants ? (product as any).variants?.find((v: any) => v.id === selectedVariantId) : null;
+    const effectivePrice = selectedVariant ? selectedVariant.sellingPrice : product.sellingPrice;
+
+    if (hasVariants && !selectedVariantId) {
+      setError('Please select a flavor.');
+      return;
+    }
+
     addItem(
       {
         productId: product.id,
+        variantId: selectedVariantId ?? null,
         name: product.name,
         brandName: product.brand?.name ?? '',
-        unitPrice: product.sellingPrice,
+        variantName: selectedVariant?.name ?? null,
+        unitPrice: effectivePrice,
         image: product.image,
         discount: discountNumber,
         paymentMethod,
@@ -244,7 +257,7 @@ function AddPurchaseModal({
       },
       qty,
     );
-    onSaved(`Added ${qty}× ${product.name} to your draft order.`);
+    onSaved(`Added ${qty}× ${product.name}${selectedVariant ? ` (${selectedVariant.name})` : ''} to your draft order.`);
   }
 
   function handleDispose() {
@@ -299,6 +312,30 @@ function AddPurchaseModal({
 
         <div className="mb-4">
           <label className="block text-sm font-medium text-text-primary mb-1">Quantity</label>
+
+        {/* Flavor selector — shown only when product has variants */}
+        {(product as any).variants?.length > 0 && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-text-primary mb-1">Flavor</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {(product as any).variants.map((v: any) => (
+                <button
+                  key={v.id}
+                  onClick={() => setSelectedVariantId(v.id)}
+                  className={`rounded border px-2.5 py-1.5 text-xs font-medium transition text-left ${
+                    selectedVariantId === v.id
+                      ? 'border-accent-blue bg-accent-blue/10 text-accent-blue'
+                      : 'border-input-border bg-input-bg text-text-primary hover:border-accent-blue/50'
+                  }`}
+                >
+                  {v.name}
+                  <span className="ml-1 text-text-muted">{peso(v.sellingPrice)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
           <input
             type="number"
             min="1"

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2 } from 'lucide-react';
-import { useCreateVariant, useUpdateVariant, useDeleteVariant } from '@/lib/hooks';
+import { Plus, Pencil, Trash2, X, Loader2, RefreshCw } from 'lucide-react';
+import { useCreateVariant, useUpdateVariant, useDeleteVariant, useRestock, useBranches } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/store';
 import { getApiErrorMessage } from '@/lib/api';
 import type { ProductVariant } from '@/lib/types';
@@ -175,6 +175,82 @@ export function FlavorManager({ productId, variants, onClose }: {
           </div>
         </div>
       )}
+
+      {/* Inline Restock per flavor (Option 1) */}
+      {variants.length > 0 && !showAdd && !editingId && (
+        <FlavorRestockSection productId={productId} variants={variants} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Inline restock section inside FlavorManager — lets Admin/Owner quickly
+ * add stock to specific flavors at a branch.
+ */
+function FlavorRestockSection({ productId, variants }: { productId: string; variants: ProductVariant[] }) {
+  const [showRestock, setShowRestock] = useState(false);
+  const [restockQtys, setRestockQtys] = useState<Record<string, string>>({});
+  const [branchId, setBranchId] = useState('');
+  const [restockError, setRestockError] = useState<string | null>(null);
+  const [restockSuccess, setRestockSuccess] = useState<string | null>(null);
+  const restock = useRestock();
+  const { data: branchData } = useBranches();
+  const branches = branchData?.data ?? [];
+
+  if (!showRestock) {
+    return (
+      <button onClick={() => setShowRestock(true)} className="mt-2 flex items-center gap-1 text-xs text-accent-blue hover:underline">
+        <RefreshCw size={11} /> Quick Restock Flavors
+      </button>
+    );
+  }
+
+  async function handleRestock() {
+    if (!branchId) { setRestockError('Select a shop'); return; }
+    const items = variants
+      .filter((v) => restockQtys[v.id] && parseInt(restockQtys[v.id]) > 0)
+      .map((v) => ({ productId, variantId: v.id, branchId, quantity: parseInt(restockQtys[v.id]) }));
+    if (items.length === 0) { setRestockError('Enter at least one quantity'); return; }
+    setRestockError(null);
+    try {
+      await restock.mutateAsync(items);
+      setRestockQtys({});
+      setRestockSuccess(`Restocked ${items.length} flavor(s) successfully!`);
+      setTimeout(() => setRestockSuccess(null), 3000);
+    } catch (e: any) { setRestockError(e?.message ?? 'Restock failed'); }
+  }
+
+  return (
+    <div className="mt-2 border-t border-card-border pt-2 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-text-secondary">Quick Restock</p>
+        <button onClick={() => setShowRestock(false)} className="text-xs text-text-muted hover:text-text-primary">Hide</button>
+      </div>
+      <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="w-full border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg">
+        <option value="">Select shop...</option>
+        {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+      </select>
+      <div className="space-y-1">
+        {variants.map((v) => (
+          <div key={v.id} className="flex items-center gap-2">
+            <span className="text-xs text-text-primary flex-1">{v.name}</span>
+            <input
+              type="number"
+              min="0"
+              value={restockQtys[v.id] ?? ''}
+              onChange={(e) => setRestockQtys({ ...restockQtys, [v.id]: e.target.value })}
+              placeholder="+0"
+              className="w-16 border border-input-border rounded px-2 py-1 text-xs text-center bg-input-bg"
+            />
+          </div>
+        ))}
+      </div>
+      {restockError && <p className="text-xs text-accent-red">{restockError}</p>}
+      {restockSuccess && <p className="text-xs text-accent-green">{restockSuccess}</p>}
+      <button onClick={handleRestock} disabled={restock.isPending} className="flex items-center gap-1 bg-btn-primary text-btn-primary-text px-3 py-1.5 rounded text-xs font-medium hover:opacity-90 disabled:opacity-60">
+        {restock.isPending && <Loader2 size={12} className="animate-spin" />} Restock All
+      </button>
     </div>
   );
 }
