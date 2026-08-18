@@ -233,6 +233,8 @@ export function useImportProducts() {
 export interface RestockItem {
   productId?: string;
   productName?: string;
+  variantId?: string;
+  variantName?: string;
   branchId?: string;
   branchName?: string;
   quantity: number;
