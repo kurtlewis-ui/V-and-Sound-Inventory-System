@@ -110,6 +110,8 @@ export interface ProductVariant {
   name: string;
   sellingPrice: number;
   costPrice?: number; // Owner-only
+  quantities?: ProductBranchQuantity[];
+  totalQuantity?: number;
 }
 
 export interface Product {

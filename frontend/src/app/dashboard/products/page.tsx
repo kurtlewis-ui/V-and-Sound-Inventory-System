@@ -103,7 +103,10 @@ export default function ProductsPage() {
     const q: Record<string, string> = {};
     if (product.variants && product.variants.length > 0) {
       branchesForEdit.forEach((b) => {
-        product.variants.forEach((v) => { q[`${b.id}__${v.id}`] = '0'; });
+        product.variants.forEach((v) => {
+          const vQty = v.quantities?.find((vq) => vq.branchId === b.id)?.quantity ?? 0;
+          q[`${b.id}__${v.id}`] = vQty.toString();
+        });
       });
     } else {
       branchesForEdit.forEach((b) => { q[b.id] = (product.quantities.find((x) => x.branchId === b.id)?.quantity ?? 0).toString(); });
@@ -287,65 +290,46 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-3 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)} className={`icon-btn transition ${expandedProductId === product.id ? 'text-accent-blue bg-accent-blue/10' : 'text-text-secondary hover:bg-white/10'}`} title="Flavors">
-                        <ChevronDown size={16} className={`transition-transform ${expandedProductId === product.id ? 'rotate-180' : ''}`} />
-                      </button>
+                      {shopFilter && product.variants && product.variants.length > 0 && (
+                        <button onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)} className={`icon-btn transition ${expandedProductId === product.id ? 'text-accent-blue bg-accent-blue/10' : 'text-text-secondary hover:bg-white/10'}`} title="Stock by flavor">
+                          <ChevronDown size={16} className={`transition-transform ${expandedProductId === product.id ? 'rotate-180' : ''}`} />
+                        </button>
+                      )}
                       {shopFilter && <button onClick={() => setHistoryProduct(product)} className="icon-btn text-text-secondary hover:bg-white/10" title="Stock History"><ClipboardList size={16} /></button>}
                       <button onClick={() => openEditModal(product)} className="icon-btn text-accent-blue hover:bg-accent-blue/10"><Pencil size={16} /></button>
                       <button onClick={() => { setArchivingProduct(product); setFormError(null); setShowArchiveModal(true); }} className="icon-btn text-accent-red hover:bg-accent-red/10"><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
-                {expandedProductId === product.id && (
+                {expandedProductId === product.id && shopFilter && (
                   <tr className="border-t border-card-border bg-white/[0.02]">
                     <td colSpan={8} className="px-3 py-3">
                       <div className="rounded-lg border border-card-border p-3 bg-white/5">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="text-sm font-semibold text-text-primary">
-                            {product.variantType === 'color' ? 'Colors' : product.variantType === 'flavor' ? 'Flavors' : 'Stock'} — View Only
+                            {product.variantType === 'color' ? 'Colors' : 'Flavors'} — Stock
                           </h4>
                           <button onClick={() => setExpandedProductId(null)} className="text-text-muted hover:text-text-primary"><X size={14} /></button>
                         </div>
-                        {shopFilter && product.variants && product.variants.length > 0 ? (
-                          /* Specific branch selected + has variants: show per-flavor stock */
-                          <div className="space-y-1">
-                            {product.variants.map((v) => {
-                              // Per-variant stock for the selected branch (from quantities or 0)
-                              const qty = 0; // TODO: per-variant inventory from backend
-                              const isOut = qty <= 0;
-                              const isLow = !isOut && product.quantityAlert > 0 && qty <= product.quantityAlert;
-                              return (
-                                <div key={v.id} className="flex items-center justify-between rounded bg-white/5 px-2.5 py-1.5 text-sm">
-                                  <span className="font-medium text-text-primary">{v.name}</span>
-                                  <span className={`text-xs font-medium ${isOut ? 'text-accent-red' : isLow ? 'text-accent-orange' : 'text-accent-blue'}`}>
-                                    {qty} {isOut ? '🔴 OUT' : isLow ? '⚠️ LOW' : ''}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                            <div className="flex items-center justify-between rounded px-2.5 py-1 text-xs border-t border-card-border mt-1 pt-1">
-                              <span className="font-semibold text-text-primary">TOTAL</span>
-                              <span className="font-semibold text-text-primary">{product.totalQuantity}</span>
-                            </div>
+                        <div className="space-y-1">
+                          {product.variants.map((v) => {
+                            const vQty = v.quantities?.find((q) => q.branchId === shopFilter)?.quantity ?? v.totalQuantity ?? 0;
+                            const isOut = vQty <= 0;
+                            const isLow = !isOut && product.quantityAlert > 0 && vQty <= product.quantityAlert;
+                            return (
+                              <div key={v.id} className="flex items-center justify-between rounded bg-white/5 px-2.5 py-1.5 text-sm">
+                                <span className="font-medium text-text-primary">{v.name}</span>
+                                <span className={`text-xs font-medium ${isOut ? 'text-accent-red' : isLow ? 'text-accent-orange' : 'text-accent-blue'}`}>
+                                  {vQty} {isOut ? '🔴 OUT' : isLow ? '⚠️ LOW' : ''}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          <div className="flex items-center justify-between rounded px-2.5 py-1 text-xs border-t border-card-border mt-1 pt-1">
+                            <span className="font-semibold text-text-primary">TOTAL</span>
+                            <span className="font-semibold text-text-primary">{product.totalQuantity}</span>
                           </div>
-                        ) : (
-                          /* All Shops OR simple product: show total per branch with status */
-                          <div className="space-y-1">
-                            {branches.map((b) => {
-                              const qty = product.quantities.find((q) => q.branchId === b.id)?.quantity ?? 0;
-                              const isOut = qty <= 0;
-                              const isLow = !isOut && product.quantityAlert > 0 && qty <= product.quantityAlert;
-                              return (
-                                <div key={b.id} className="flex items-center justify-between rounded bg-white/5 px-2.5 py-1.5 text-sm">
-                                  <span className="text-text-primary">{b.name}</span>
-                                  <span className={`font-medium ${isOut ? 'text-accent-red' : isLow ? 'text-accent-orange' : 'text-accent-blue'}`}>
-                                    {qty} {isOut ? '🔴 OUT' : isLow ? '⚠️ LOW' : ''}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -694,8 +678,8 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
             )}
           </div>
         </div>
-        {/* Combined: Flavors/Colors CRUD + Stock in one section */}
-        {variantType && variantType !== 'none' && productId ? (
+        {/* Combined: Flavors/Colors CRUD + Stock in one section — only when branch selected */}
+        {variantType && variantType !== 'none' && productId && branches.length > 0 ? (
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-text-primary">
