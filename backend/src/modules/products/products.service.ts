@@ -182,7 +182,7 @@ export class ProductsService {
     // When variantId is null/undefined, writes to the base product row.
     if (dto.quantities?.length) {
       for (const q of dto.quantities) {
-        const variantId = q.variantId ?? null;
+        const variantId = q.variantId || null;
         // Get current quantity before update
         const currentInv = await this.prisma.inventory.findFirst({
           where: { productId: id, variantId, branchId: q.branchId },
@@ -197,9 +197,28 @@ export class ProductsService {
             data: { quantity: q.quantity },
           });
         } else {
-          await this.prisma.inventory.create({
-            data: { productId: id, variantId, branchId: q.branchId, quantity: q.quantity },
-          });
+          // Use try/catch to handle race conditions where the row was created
+          // between our findFirst and this create (unique constraint).
+          try {
+            await this.prisma.inventory.create({
+              data: { productId: id, variantId, branchId: q.branchId, quantity: q.quantity },
+            });
+          } catch (e: any) {
+            // If it's a unique constraint violation (P2002), try to update instead.
+            if (e?.code === 'P2002') {
+              const existing = await this.prisma.inventory.findFirst({
+                where: { productId: id, variantId, branchId: q.branchId },
+              });
+              if (existing) {
+                await this.prisma.inventory.update({
+                  where: { id: existing.id },
+                  data: { quantity: q.quantity },
+                });
+              }
+            } else {
+              throw e;
+            }
+          }
         }
 
         // Log ADJUSTMENT if quantity actually changed
