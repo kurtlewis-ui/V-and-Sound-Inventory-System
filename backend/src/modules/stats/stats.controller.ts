@@ -1,9 +1,11 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { StatsService } from './stats.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/interfaces/request-user.interface';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
 
 @ApiTags('stats')
 @ApiBearerAuth()
@@ -12,6 +14,8 @@ export class StatsController {
   constructor(private readonly statsService: StatsService) {}
 
   @Get('dashboard')
+  @UseGuards(RolesGuard)
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Dashboard summary counts' })
   async dashboard() {
     const data = await this.statsService.dashboard();
@@ -19,6 +23,8 @@ export class StatsController {
   }
 
   @Get('sales-overview')
+  @UseGuards(RolesGuard)
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Approved-sales totals over time' })
   async salesOverview(
     @Query('period') period = 'daily',
@@ -29,6 +35,8 @@ export class StatsController {
   }
 
   @Get('top-products')
+  @UseGuards(RolesGuard)
+  @Roles('Owner', 'Admin')
   @ApiOperation({ summary: 'Top selling products by units' })
   async topProducts(@Query('branchId') branchId?: string) {
     const data = await this.statsService.topProducts(branchId || undefined);

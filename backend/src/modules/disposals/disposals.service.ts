@@ -177,8 +177,25 @@ export class DisposalsService {
 
       if (disposal.productId) {
         await tx.inventory.updateMany({
-          where: { productId: disposal.productId, branchId: disposal.branchId },
+          where: { productId: disposal.productId, variantId: disposal.variantId ?? null, branchId: disposal.branchId },
           data: { quantity: { increment: disposal.quantity } },
+        });
+
+        // Log a stock movement for the restoration so the audit trail is complete.
+        const inv = await tx.inventory.findFirst({
+          where: { productId: disposal.productId, variantId: disposal.variantId ?? null, branchId: disposal.branchId },
+        });
+        await tx.stockMovement.create({
+          data: {
+            productId: disposal.productId,
+            variantId: disposal.variantId ?? undefined,
+            branchId: disposal.branchId,
+            userId: actor.userId,
+            type: 'RETURN',
+            quantityChange: disposal.quantity,
+            quantityAfter: inv?.quantity ?? 0,
+            description: `Disposal declined — stock restored for "${disposal.productName}".`,
+          },
         });
       }
 
