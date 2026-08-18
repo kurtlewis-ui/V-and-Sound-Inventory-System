@@ -46,6 +46,11 @@ export class SaleItemInputDto {
   @IsUUID()
   productId: string;
 
+  @ApiProperty({ required: false, description: 'Variant/Flavor ID (if product has flavors)' })
+  @IsOptional()
+  @IsUUID()
+  variantId?: string;
+
   @ApiProperty({ example: 2, description: 'Quantity sold' })
   @Type(() => Number)
   @IsInt()

@@ -30,7 +30,7 @@ export class SalesService {
     const productIds = [...new Set(dto.items.map((i) => i.productId))];
     const products = await this.prisma.product.findMany({
       where: { id: { in: productIds }, deletedAt: null },
-      include: { brand: { select: { name: true } } },
+      include: { brand: { select: { name: true } }, variants: { where: { isActive: true } } },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -428,26 +428,44 @@ export class SalesService {
   }
 
   /** Build full sale item records (with payment resolved) from DTO input. */
+  /** Build full sale item records (with payment resolved) from DTO input. */
   private buildSaleItems(
-    dtoItems: { productId: string; quantity: number; discount?: number; paymentMethod: PaymentMethod; bankNote?: string; note?: string; paymentSplit?: { cash: number; gcash: number; bankTransfer: number; cashless: number } }[],
-    productMap: Map<string, { id: string; name: string; sellingPrice: Prisma.Decimal; costPrice?: Prisma.Decimal; brand: { name: string } }>,
+    dtoItems: { productId: string; variantId?: string; quantity: number; discount?: number; paymentMethod: PaymentMethod; bankNote?: string; note?: string; paymentSplit?: { cash: number; gcash: number; bankTransfer: number; cashless: number } }[],
+    productMap: Map<string, { id: string; name: string; sellingPrice: Prisma.Decimal; costPrice?: Prisma.Decimal; brand: { name: string }; variants?: { id: string; name: string; sellingPrice: Prisma.Decimal; costPrice: Prisma.Decimal }[] }>,
   ) {
     return dtoItems.map((item) => {
       const product = productMap.get(item.productId)!;
-      const unitPrice = new Prisma.Decimal(product.sellingPrice);
-      const costPrice = new Prisma.Decimal(product.costPrice ?? 0);
+
+      // If a variantId is provided, use the variant's price/cost instead of the product's.
+      let unitPrice = new Prisma.Decimal(product.sellingPrice);
+      let costPrice = new Prisma.Decimal(product.costPrice ?? 0);
+      let variantId: string | null = null;
+      let variantName: string | null = null;
+
+      if (item.variantId && product.variants?.length) {
+        const variant = product.variants.find((v) => v.id === item.variantId);
+        if (variant) {
+          unitPrice = new Prisma.Decimal(variant.sellingPrice);
+          costPrice = new Prisma.Decimal(variant.costPrice);
+          variantId = variant.id;
+          variantName = variant.name;
+        }
+      }
+
       const lineTotal = unitPrice.mul(item.quantity);
       const discount = new Prisma.Decimal(item.discount || 0);
       if (discount.gt(lineTotal)) {
         throw new BadRequestException(
-          `Discount for "${product.name}" (${discount.toFixed(2)}) can't exceed its line total (${lineTotal.toFixed(2)})`,
+          `Discount for "${product.name}${variantName ? ` (${variantName})` : ''}" (${discount.toFixed(2)}) can't exceed its line total (${lineTotal.toFixed(2)})`,
         );
       }
       const subTotal = lineTotal.sub(discount);
       return {
         productId: product.id,
+        variantId,
         name: product.name,
         brandName: product.brand.name,
+        variantName,
         quantity: item.quantity,
         unitPrice,
         costPrice,
@@ -524,14 +542,16 @@ export class SalesService {
   private async reserveStock(
     tx: Prisma.TransactionClient,
     branchId: string,
-    items: { productId: string | null; name: string; quantity: number }[],
+    items: { productId: string | null; variantId?: string | null; name: string; quantity: number }[],
     userId?: string,
   ) {
     for (const item of items) {
       if (!item.productId) continue;
+      const variantId = item.variantId ?? null;
       const result = await tx.inventory.updateMany({
         where: {
           productId: item.productId,
+          variantId,
           branchId,
           quantity: { gte: item.quantity },
         },
@@ -539,7 +559,7 @@ export class SalesService {
       });
       if (result.count === 0) {
         const inv = await tx.inventory.findUnique({
-          where: { productId_branchId: { productId: item.productId, branchId } },
+          where: { productId_variantId_branchId: { productId: item.productId, variantId, branchId } },
         });
         throw new BadRequestException(
           `Insufficient stock for "${item.name}" (need ${item.quantity}, have ${inv?.quantity ?? 0})`,
@@ -547,11 +567,12 @@ export class SalesService {
       }
       // Log stock movement
       const inv = await tx.inventory.findUnique({
-        where: { productId_branchId: { productId: item.productId, branchId } },
+        where: { productId_variantId_branchId: { productId: item.productId, variantId, branchId } },
       });
       await tx.stockMovement.create({
         data: {
           productId: item.productId,
+          variantId,
           branchId,
           userId: userId ?? null,
           type: 'SALE',
@@ -567,22 +588,24 @@ export class SalesService {
   private async restoreStock(
     tx: Prisma.TransactionClient,
     branchId: string,
-    items: { productId: string | null; quantity: number }[],
+    items: { productId: string | null; variantId?: string | null; quantity: number }[],
     userId?: string,
   ) {
     for (const item of items) {
       if (!item.productId) continue;
+      const variantId = item.variantId ?? null;
       await tx.inventory.updateMany({
-        where: { productId: item.productId, branchId },
+        where: { productId: item.productId, variantId, branchId },
         data: { quantity: { increment: item.quantity } },
       });
       // Log stock movement
       const inv = await tx.inventory.findUnique({
-        where: { productId_branchId: { productId: item.productId, branchId } },
+        where: { productId_variantId_branchId: { productId: item.productId, variantId, branchId } },
       });
       await tx.stockMovement.create({
         data: {
           productId: item.productId,
+          variantId,
           branchId,
           userId: userId ?? null,
           type: 'RETURN',
@@ -667,8 +690,10 @@ export class SalesService {
       items: (sale.items ?? []).map((i: any) => ({
         id: i.id,
         productId: i.productId,
+        variantId: i.variantId ?? null,
         name: i.name,
         brandName: i.brandName,
+        variantName: i.variantName ?? null,
         quantity: i.quantity,
         unitPrice: Number(i.unitPrice),
         costPrice: Number(i.costPrice ?? 0),

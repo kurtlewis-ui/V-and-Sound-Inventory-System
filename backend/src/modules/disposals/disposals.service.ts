@@ -25,24 +25,40 @@ export class DisposalsService {
 
     const product = await this.prisma.product.findFirst({
       where: { id: dto.productId, deletedAt: null },
-      include: { brand: { select: { name: true } } },
+      include: { brand: { select: { name: true } }, variants: { where: { isActive: true } } },
     });
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
-    const unitPrice = new Prisma.Decimal(product.sellingPrice);
+    // Resolve variant if provided
+    let variantId: string | null = null;
+    let variantName: string | null = null;
+    let unitPrice = new Prisma.Decimal(product.sellingPrice);
+
+    if (dto.variantId) {
+      const variant = product.variants?.find((v: any) => v.id === dto.variantId);
+      if (!variant) {
+        throw new NotFoundException('Variant/flavor not found for this product');
+      }
+      variantId = variant.id;
+      variantName = variant.name;
+      unitPrice = new Prisma.Decimal(variant.sellingPrice);
+    }
+
     const value = unitPrice.mul(dto.quantity);
 
     const disposal = await this.prisma.$transaction(async (tx) => {
-      await this.reserveStock(tx, branchId, product.id, product.name, dto.quantity);
+      await this.reserveStock(tx, branchId, product.id, variantId, product.name, dto.quantity);
 
       const created = await tx.disposal.create({
         data: {
           branchId,
           productId: product.id,
+          variantId,
           productName: product.name,
           brandName: product.brand.name,
+          variantName,
           quantity: dto.quantity,
           unitPrice,
           value,
@@ -59,7 +75,7 @@ export class DisposalsService {
           action: 'DISPOSAL_REQUESTED',
           entityType: 'Disposal',
           entityId: created.id,
-          newValues: { product: product.name, quantity: dto.quantity },
+          newValues: { product: product.name, variant: variantName, quantity: dto.quantity },
         },
       });
 
@@ -108,7 +124,7 @@ export class DisposalsService {
       // was officially approved and what the inventory level was at that point.
       if (disposal.productId) {
         const inv = await tx.inventory.findUnique({
-          where: { productId_branchId: { productId: disposal.productId, branchId: disposal.branchId } },
+          where: { productId_variantId_branchId: { productId: disposal.productId, variantId: null, branchId: disposal.branchId } },
         });
         await tx.stockMovement.create({
           data: {
@@ -210,16 +226,17 @@ export class DisposalsService {
     tx: Prisma.TransactionClient,
     branchId: string,
     productId: string,
+    variantId: string | null,
     productName: string,
     quantity: number,
   ) {
     const result = await tx.inventory.updateMany({
-      where: { productId, branchId, quantity: { gte: quantity } },
+      where: { productId, variantId, branchId, quantity: { gte: quantity } },
       data: { quantity: { decrement: quantity } },
     });
     if (result.count === 0) {
       const inv = await tx.inventory.findUnique({
-        where: { productId_branchId: { productId, branchId } },
+        where: { productId_variantId_branchId: { productId, variantId, branchId } },
       });
       throw new BadRequestException(
         `Insufficient stock to dispose "${productName}" (need ${quantity}, have ${inv?.quantity ?? 0})`,
@@ -329,8 +346,10 @@ export class DisposalsService {
       id: d.id,
       branch: d.branch ? { id: d.branch.id, name: d.branch.name } : null,
       productId: d.productId,
+      variantId: d.variantId ?? null,
       name: d.productName,
       brandName: d.brandName,
+      variantName: d.variantName ?? null,
       quantity: d.quantity,
       unitPrice: Number(d.unitPrice),
       value: Number(d.value),
