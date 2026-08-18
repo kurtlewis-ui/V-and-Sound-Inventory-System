@@ -185,11 +185,16 @@ export class ProductsService {
         const newQty = q.quantity;
         const diff = newQty - oldQty;
 
-        await this.prisma.inventory.upsert({
-          where: { productId_variantId_branchId: { productId: id, variantId: undefined as any, branchId: q.branchId } },
-          create: { productId: id, branchId: q.branchId, quantity: q.quantity },
-          update: { quantity: q.quantity },
-        });
+        if (currentInv) {
+          await this.prisma.inventory.update({
+            where: { id: currentInv.id },
+            data: { quantity: q.quantity },
+          });
+        } else {
+          await this.prisma.inventory.create({
+            data: { productId: id, branchId: q.branchId, quantity: q.quantity },
+          });
+        }
 
         // Log ADJUSTMENT if quantity actually changed
         if (diff !== 0) {
@@ -338,11 +343,16 @@ export class ProductsService {
           const currentInv = await this.prisma.inventory.findFirst({ where: { productId: existing.id, variantId: null, branchId: inv.branchId },
           });
           const oldQty = currentInv?.quantity ?? 0;
-          await this.prisma.inventory.upsert({
-            where: { productId_variantId_branchId: { productId: existing.id, variantId: undefined as any, branchId: inv.branchId } },
-            create: { productId: existing.id, branchId: inv.branchId, quantity: inv.quantity },
-            update: { quantity: inv.quantity },
-          });
+          if (currentInv) {
+            await this.prisma.inventory.update({
+              where: { id: currentInv.id },
+              data: { quantity: inv.quantity },
+            });
+          } else {
+            await this.prisma.inventory.create({
+              data: { productId: existing.id, branchId: inv.branchId, quantity: inv.quantity },
+            });
+          }
           const diff = inv.quantity - oldQty;
           if (diff !== 0) {
             await this.prisma.stockMovement.create({
@@ -454,11 +464,21 @@ export class ProductsService {
       }
 
       await this.prisma.$transaction(async (tx) => {
-        await tx.inventory.upsert({
-          where: { productId_variantId_branchId: { productId: product!.id, variantId: (variantId ?? undefined) as any, branchId: branch!.id } },
-          create: { productId: product!.id, variantId, branchId: branch!.id, quantity: Math.max(0, item.quantity) },
-          update: { quantity: { increment: item.quantity } },
+        // Use findFirst + update/create instead of upsert because Prisma
+        // can't handle nullable fields in compound unique key upserts.
+        const existing = await tx.inventory.findFirst({
+          where: { productId: product!.id, variantId: variantId ?? null, branchId: branch!.id },
         });
+        if (existing) {
+          await tx.inventory.update({
+            where: { id: existing.id },
+            data: { quantity: { increment: item.quantity } },
+          });
+        } else {
+          await tx.inventory.create({
+            data: { productId: product!.id, variantId, branchId: branch!.id, quantity: Math.max(0, item.quantity) },
+          });
+        }
 
         // Log the stock movement (read inside same transaction for accuracy)
         const inv = await tx.inventory.findFirst({ where: { productId: product!.id, variantId: variantId ?? null, branchId: branch!.id },
