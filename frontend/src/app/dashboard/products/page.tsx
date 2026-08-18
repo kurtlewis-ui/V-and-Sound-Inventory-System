@@ -199,6 +199,7 @@ export default function ProductsPage() {
       // 2. Handle stock changes separately via the restock endpoint (which
       //    we know correctly creates/updates per-variant inventory rows).
       //    Compute the delta between old and new quantity for each entry.
+      //    Uses productId + variantId + branchId for precise targeting.
       const quantitiesPayload = buildQuantitiesPayload();
       if (quantitiesPayload.length > 0) {
         const restockItems: RestockItem[] = [];
@@ -208,13 +209,17 @@ export default function ProductsPage() {
           let oldQty = 0;
           const qVariantId = 'variantId' in q ? (q as { variantId: string }).variantId : undefined;
           if (qVariantId) {
-            const variant = editingProduct.variants?.find((v) => v.id === qVariantId);
+            // Use liveVariants (fresh from React Query) not the stale editingProduct snapshot
+            const variant = liveVariants.find((v) => v.id === qVariantId);
             oldQty = variant?.quantities?.find((vq) => vq.branchId === q.branchId)?.quantity ?? 0;
           } else {
             oldQty = editingProduct.quantities?.find((x) => x.branchId === q.branchId)?.quantity ?? 0;
           }
           const diff = newQty - oldQty;
           if (diff !== 0) {
+            // Use productId + branchId always. For variants, also send variantId.
+            // The restock endpoint does findFirst({ productId, variantId, branchId })
+            // then increment. If the row doesn't exist yet, it creates it.
             restockItems.push({
               productId: editingProduct.id,
               variantId: qVariantId,
@@ -224,7 +229,13 @@ export default function ProductsPage() {
           }
         }
         if (restockItems.length > 0) {
-          await restock.mutateAsync(restockItems);
+          try {
+            await restock.mutateAsync(restockItems);
+          } catch (restockErr) {
+            // If restock fails, show error but don't roll back the metadata update
+            setFormError(getApiErrorMessage(restockErr));
+            return;
+          }
         }
       }
 

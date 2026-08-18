@@ -501,9 +501,27 @@ export class ProductsService {
             data: { quantity: { increment: item.quantity } },
           });
         } else {
-          await tx.inventory.create({
-            data: { productId: product!.id, variantId, branchId: branch!.id, quantity: Math.max(0, item.quantity) },
-          });
+          try {
+            await tx.inventory.create({
+              data: { productId: product!.id, variantId, branchId: branch!.id, quantity: Math.max(0, item.quantity) },
+            });
+          } catch (createErr: any) {
+            // Handle unique constraint violation — row was created between
+            // our findFirst and this create, or variantId resolution failed.
+            if (createErr?.code === 'P2002') {
+              const fallback = await tx.inventory.findFirst({
+                where: { productId: product!.id, variantId: variantId ?? null, branchId: branch!.id },
+              });
+              if (fallback) {
+                await tx.inventory.update({
+                  where: { id: fallback.id },
+                  data: { quantity: { increment: item.quantity } },
+                });
+              }
+            } else {
+              throw createErr;
+            }
+          }
         }
 
         // Log the stock movement (read inside same transaction for accuracy)
