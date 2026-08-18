@@ -352,6 +352,8 @@ export interface StockMovement {
   id: string;
   productId: string;
   productName: string;
+  variantId?: string | null;
+  variantName?: string | null;
   branchId: string;
   branchName: string;
   user: string | null;
