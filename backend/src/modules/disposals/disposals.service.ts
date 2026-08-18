@@ -124,7 +124,7 @@ export class DisposalsService {
       // was officially approved and what the inventory level was at that point.
       if (disposal.productId) {
         const inv = await tx.inventory.findUnique({
-          where: { productId_variantId_branchId: { productId: disposal.productId, variantId: null, branchId: disposal.branchId } },
+          where: { productId_variantId_branchId: { productId: disposal.productId, variantId: disposal.variantId ?? undefined, branchId: disposal.branchId } },
         });
         await tx.stockMovement.create({
           data: {
@@ -236,7 +236,7 @@ export class DisposalsService {
     });
     if (result.count === 0) {
       const inv = await tx.inventory.findUnique({
-        where: { productId_variantId_branchId: { productId, variantId, branchId } },
+        where: { productId_variantId_branchId: { productId, variantId: variantId ?? undefined, branchId } },
       });
       throw new BadRequestException(
         `Insufficient stock to dispose "${productName}" (need ${quantity}, have ${inv?.quantity ?? 0})`,

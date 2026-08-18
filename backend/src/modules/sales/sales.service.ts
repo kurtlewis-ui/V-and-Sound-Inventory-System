@@ -559,7 +559,7 @@ export class SalesService {
       });
       if (result.count === 0) {
         const inv = await tx.inventory.findUnique({
-          where: { productId_variantId_branchId: { productId: item.productId, variantId, branchId } },
+          where: { productId_variantId_branchId: { productId: item.productId, variantId: variantId ?? undefined, branchId } },
         });
         throw new BadRequestException(
           `Insufficient stock for "${item.name}" (need ${item.quantity}, have ${inv?.quantity ?? 0})`,
@@ -567,7 +567,7 @@ export class SalesService {
       }
       // Log stock movement
       const inv = await tx.inventory.findUnique({
-        where: { productId_variantId_branchId: { productId: item.productId, variantId, branchId } },
+        where: { productId_variantId_branchId: { productId: item.productId, variantId: variantId ?? undefined, branchId } },
       });
       await tx.stockMovement.create({
         data: {
@@ -595,12 +595,12 @@ export class SalesService {
       if (!item.productId) continue;
       const variantId = item.variantId ?? null;
       await tx.inventory.updateMany({
-        where: { productId: item.productId, variantId, branchId },
+        where: { productId: item.productId, variantId: variantId ?? undefined, branchId },
         data: { quantity: { increment: item.quantity } },
       });
       // Log stock movement
       const inv = await tx.inventory.findUnique({
-        where: { productId_variantId_branchId: { productId: item.productId, variantId, branchId } },
+        where: { productId_variantId_branchId: { productId: item.productId, variantId: variantId ?? undefined, branchId } },
       });
       await tx.stockMovement.create({
         data: {
