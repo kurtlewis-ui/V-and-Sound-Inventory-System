@@ -118,6 +118,7 @@ export interface Product {
   slug: string;
   image: string | null;
   brand: { id: string; name: string; slug: string } | null;
+  variantType: 'none' | 'flavor' | 'color';
   sellingPrice: number;
   costPrice?: number; // Owner-only, confidential
   quantityAlert: number;

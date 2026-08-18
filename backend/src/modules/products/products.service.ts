@@ -32,6 +32,7 @@ export class ProductsService {
         slug: uniqueSlug(dto.name),
         image: dto.image?.trim() || null,
         brandId: dto.brandId,
+        variantType: dto.variantType ?? 'none',
         sellingPrice: dto.sellingPrice,
         costPrice: dto.costPrice ?? 0,
         quantityAlert: dto.quantityAlert ?? 0,
@@ -169,6 +170,7 @@ export class ProductsService {
     }
     if (dto.image !== undefined) data.image = dto.image?.trim() || null;
     if (dto.brandId !== undefined) data.brandId = dto.brandId;
+    if ((dto as any).variantType !== undefined) data.variantType = (dto as any).variantType;
     if (dto.sellingPrice !== undefined) data.sellingPrice = dto.sellingPrice;
     if (dto.costPrice !== undefined) data.costPrice = dto.costPrice;
     if (dto.quantityAlert !== undefined) data.quantityAlert = dto.quantityAlert;
@@ -546,6 +548,7 @@ export class ProductsService {
       brand: product.brand
         ? { id: product.brand.id, name: product.brand.name, slug: product.brand.slug }
         : null,
+      variantType: product.variantType ?? 'none',
       sellingPrice: Number(product.sellingPrice),
       quantityAlert: product.quantityAlert,
       isActive: product.isActive,

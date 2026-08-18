@@ -177,6 +177,8 @@ model Product {
   slug          String    @unique @db.VarChar(170)
   image         String?   @db.Text
   brandId       String    @map("brand_id") @db.Uuid
+  // "none" = simple product, "flavor" = has flavors, "color" = has colors
+  variantType   String    @default("none") @map("variant_type") @db.VarChar(10)
   // Selling price in PHP.
   sellingPrice  Decimal   @default(0) @map("selling_price") @db.Decimal(10, 2)
   // Cost/buying price in PHP (confidential — only visible to Owner role).

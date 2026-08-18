@@ -38,6 +38,11 @@ export class CreateProductDto {
   @IsUUID()
   brandId: string;
 
+  @ApiProperty({ required: false, example: 'flavor', description: 'Variant type: none, flavor, or color' })
+  @IsOptional()
+  @IsString()
+  variantType?: string;
+
   @ApiProperty({ example: 450, description: 'Selling price in PHP' })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
