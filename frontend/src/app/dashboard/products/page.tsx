@@ -378,7 +378,7 @@ export default function ProductsPage() {
         <ProductFormModal title="Add New Product" onClose={() => setShowAddModal(false)} onSubmit={handleAdd} error={formError} buttonLabel={createProduct.isPending ? 'Saving...' : 'Save Product'} disabled={createProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForForm} brands={brands} />
       )}
       {showEditModal && editingProduct && (
-        <ProductFormModal title="Edit Product" onClose={() => { setShowEditModal(false); setEditingProduct(null); }} onSubmit={handleEdit} error={formError} buttonLabel={updateProduct.isPending ? 'Saving...' : 'Update Product'} disabled={updateProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForEdit} brands={brands} variants={editingProduct.variants ?? []} variantType={editingProduct.variantType ?? 'none'} productId={editingProduct.id} />
+        <ProductFormModal title="Edit Product" onClose={() => { setShowEditModal(false); setEditingProduct(null); }} onSubmit={handleEdit} error={formError} buttonLabel={updateProduct.isPending ? 'Saving...' : 'Update Product'} disabled={updateProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForEdit} brands={brands} variants={editingProduct.variants ?? []} variantType={editingProduct.variantType ?? 'none'} productId={editingProduct.id} showStock={!!shopFilter} totalQuantity={editingProduct.totalQuantity} />
       )}
       {showArchiveModal && archivingProduct && (
         <Modal title="Confirm Archive" onClose={() => { setShowArchiveModal(false); setArchivingProduct(null); }}>
@@ -624,7 +624,7 @@ function RestockModal({ products, branches, onClose }: { products: Product[]; br
   );
 }
 
-function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, error, formName, setFormName, formBrand, setFormBrand, formPrice, setFormPrice, formCostPrice, setFormCostPrice, isOwner, formAlert, setFormAlert, formImage, setFormImage, isAdmin, formQuantities, setFormQuantities, branches, brands, variants, variantType, productId }: {
+function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, error, formName, setFormName, formBrand, setFormBrand, formPrice, setFormPrice, formCostPrice, setFormCostPrice, isOwner, formAlert, setFormAlert, formImage, setFormImage, isAdmin, formQuantities, setFormQuantities, branches, brands, variants, variantType, productId, showStock, totalQuantity }: {
   title: string; onClose: () => void; onSubmit: () => void; buttonLabel: string; disabled?: boolean; error?: string | null;
   formName: string; setFormName: (v: string) => void; formBrand: string; setFormBrand: (v: string) => void;
   formPrice: string; setFormPrice: (v: string) => void; formCostPrice: string; setFormCostPrice: (v: string) => void; isOwner: boolean; formAlert: string; setFormAlert: (v: string) => void;
@@ -634,6 +634,8 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
   variants?: { id: string; name: string }[];
   variantType?: 'none' | 'flavor' | 'color';
   productId?: string;
+  showStock?: boolean;
+  totalQuantity?: number;
 }) {
   const [imageError, setImageError] = useState<string | null>(null);
 
@@ -679,7 +681,7 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
           </div>
         </div>
         {/* Combined: Flavors/Colors CRUD + Stock in one section — only when branch selected */}
-        {variantType && variantType !== 'none' && productId && branches.length > 0 ? (
+        {showStock && variantType && variantType !== 'none' && productId ? (
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-text-primary">
@@ -706,7 +708,7 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
               <p className="text-xs text-text-muted">Add at least one {variantType} to set stock.</p>
             )}
           </div>
-        ) : (
+        ) : showStock ? (
           <div>
             <label className="block text-sm font-medium text-text-primary mb-1">Quantity per shop</label>
             <div className="space-y-2">
@@ -719,7 +721,12 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
               ))}
             </div>
           </div>
-        )}
+        ) : totalQuantity !== undefined ? (
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">Total Stock</label>
+            <p className="text-sm text-text-secondary bg-white/5 rounded px-3 py-2">{totalQuantity} units (select a specific shop to edit stock)</p>
+          </div>
+        ) : null}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1">Brand</label>
           <select value={formBrand} onChange={(e) => setFormBrand(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus">
