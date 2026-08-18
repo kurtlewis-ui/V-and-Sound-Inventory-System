@@ -93,12 +93,33 @@ export default function ProductsPage() {
     setFormPrice(product.sellingPrice.toString()); setFormCostPrice(product.costPrice?.toString() ?? ''); setFormAlert(product.quantityAlert.toString());
     setFormImage(product.image ?? null);
     const q: Record<string, string> = {};
-    branchesForEdit.forEach((b) => { q[b.id] = (product.quantities.find((x) => x.branchId === b.id)?.quantity ?? 0).toString(); });
+    if (product.variants && product.variants.length > 0) {
+      // Per-flavor quantities: key format is "branchId__variantId"
+      // TODO: backend needs to return per-variant inventory data
+      // For now, initialize to empty (admin will fill in)
+      branchesForEdit.forEach((b) => {
+        product.variants.forEach((v) => { q[`${b.id}__${v.id}`] = '0'; });
+      });
+    } else {
+      branchesForEdit.forEach((b) => { q[b.id] = (product.quantities.find((x) => x.branchId === b.id)?.quantity ?? 0).toString(); });
+    }
     setFormQuantities(q); setFormError(null); setShowEditModal(true);
   }
   function buildQuantitiesPayload() {
     // Only send quantities for branches shown in the form
     const targetBranches = showEditModal ? branchesForEdit : branchesForForm;
+    // Check if any key contains "__" (flavor format: branchId__variantId)
+    const hasFlavorKeys = Object.keys(formQuantities).some((k) => k.includes('__'));
+    if (hasFlavorKeys) {
+      // Per-flavor quantities — the backend restock endpoint handles variantId
+      // For the update endpoint, we still send per-branch totals (sum of flavors)
+      // The actual per-flavor stock is managed via the restock API separately
+      return targetBranches.map((b) => {
+        const flavorKeys = Object.keys(formQuantities).filter((k) => k.startsWith(`${b.id}__`));
+        const total = flavorKeys.reduce((sum, k) => sum + (parseInt(formQuantities[k] || '0') || 0), 0);
+        return { branchId: b.id, quantity: total };
+      });
+    }
     return targetBranches.map((b) => ({ branchId: b.id, quantity: parseInt(formQuantities[b.id] || '0') || 0 }));
   }
   async function handleAdd() {
@@ -303,7 +324,7 @@ export default function ProductsPage() {
         <ProductFormModal title="Add New Product" onClose={() => setShowAddModal(false)} onSubmit={handleAdd} error={formError} buttonLabel={createProduct.isPending ? 'Saving...' : 'Save Product'} disabled={createProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForForm} brands={brands} />
       )}
       {showEditModal && editingProduct && (
-        <ProductFormModal title="Edit Product" onClose={() => { setShowEditModal(false); setEditingProduct(null); }} onSubmit={handleEdit} error={formError} buttonLabel={updateProduct.isPending ? 'Saving...' : 'Update Product'} disabled={updateProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForEdit} brands={brands} />
+        <ProductFormModal title="Edit Product" onClose={() => { setShowEditModal(false); setEditingProduct(null); }} onSubmit={handleEdit} error={formError} buttonLabel={updateProduct.isPending ? 'Saving...' : 'Update Product'} disabled={updateProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForEdit} brands={brands} variants={editingProduct.variants ?? []} />
       )}
       {showArchiveModal && archivingProduct && (
         <Modal title="Confirm Archive" onClose={() => { setShowArchiveModal(false); setArchivingProduct(null); }}>
@@ -549,13 +570,14 @@ function RestockModal({ products, branches, onClose }: { products: Product[]; br
   );
 }
 
-function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, error, formName, setFormName, formBrand, setFormBrand, formPrice, setFormPrice, formCostPrice, setFormCostPrice, isOwner, formAlert, setFormAlert, formImage, setFormImage, isAdmin, formQuantities, setFormQuantities, branches, brands }: {
+function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, error, formName, setFormName, formBrand, setFormBrand, formPrice, setFormPrice, formCostPrice, setFormCostPrice, isOwner, formAlert, setFormAlert, formImage, setFormImage, isAdmin, formQuantities, setFormQuantities, branches, brands, variants }: {
   title: string; onClose: () => void; onSubmit: () => void; buttonLabel: string; disabled?: boolean; error?: string | null;
   formName: string; setFormName: (v: string) => void; formBrand: string; setFormBrand: (v: string) => void;
   formPrice: string; setFormPrice: (v: string) => void; formCostPrice: string; setFormCostPrice: (v: string) => void; isOwner: boolean; formAlert: string; setFormAlert: (v: string) => void;
   formImage: string | null; setFormImage: (v: string | null) => void; isAdmin: boolean;
   formQuantities: Record<string, string>; setFormQuantities: (v: Record<string, string>) => void;
   branches: { id: string; name: string }[]; brands: { id: string; name: string }[];
+  variants?: { id: string; name: string }[];
 }) {
   const [imageError, setImageError] = useState<string | null>(null);
 
@@ -604,12 +626,28 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
           <label className="block text-sm font-medium text-text-primary mb-1">Quantity per shop</label>
           <div className="space-y-2">
             {branches.length === 0 && <p className="text-xs text-text-muted">No shops yet. Create a shop first.</p>}
-            {branches.map((b) => (
-              <div key={b.id} className="flex items-center gap-2">
-                <span className="text-xs font-medium text-accent-primary bg-white/10 px-2 py-1.5 rounded min-w-[140px]">{b.name}</span>
-                <input type="number" min="0" placeholder={`Quantity for ${b.name}`} value={formQuantities[b.id] ?? ''} onChange={(e) => setFormQuantities({ ...formQuantities, [b.id]: e.target.value })} className="flex-1 border border-input-border rounded px-3 py-1.5 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
-              </div>
-            ))}
+            {variants && variants.length > 0 ? (
+              /* Per-flavor quantities when product has flavors */
+              branches.map((b) => (
+                <div key={b.id} className="space-y-1">
+                  <span className="text-xs font-medium text-accent-primary">{b.name}</span>
+                  {variants.map((v) => (
+                    <div key={`${b.id}-${v.id}`} className="flex items-center gap-2 ml-2">
+                      <span className="text-xs text-text-secondary min-w-[100px]">{v.name}</span>
+                      <input type="number" min="0" placeholder="0" value={formQuantities[`${b.id}__${v.id}`] ?? ''} onChange={(e) => setFormQuantities({ ...formQuantities, [`${b.id}__${v.id}`]: e.target.value })} className="flex-1 border border-input-border rounded px-2 py-1 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
+                    </div>
+                  ))}
+                </div>
+              ))
+            ) : (
+              /* Normal per-branch quantity when no flavors */
+              branches.map((b) => (
+                <div key={b.id} className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-accent-primary bg-white/10 px-2 py-1.5 rounded min-w-[140px]">{b.name}</span>
+                  <input type="number" min="0" placeholder={`Quantity for ${b.name}`} value={formQuantities[b.id] ?? ''} onChange={(e) => setFormQuantities({ ...formQuantities, [b.id]: e.target.value })} className="flex-1 border border-input-border rounded px-3 py-1.5 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
+                </div>
+              ))
+            )}
           </div>
         </div>
         <div>
