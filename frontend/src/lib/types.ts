@@ -105,6 +105,13 @@ export interface ProductBranchQuantity {
   quantity: number;
 }
 
+export interface ProductVariant {
+  id: string;
+  name: string;
+  sellingPrice: number;
+  costPrice?: number; // Owner-only
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -115,6 +122,7 @@ export interface Product {
   costPrice?: number; // Owner-only, confidential
   quantityAlert: number;
   isActive: boolean;
+  variants: ProductVariant[];
   quantities: ProductBranchQuantity[];
   totalQuantity: number;
   createdAt: string;
@@ -138,8 +146,10 @@ export interface PaymentSplit {
 export interface SaleLineItem {
   id: string;
   productId: string | null;
+  variantId: string | null;
   name: string;
   brandName: string;
+  variantName: string | null;
   quantity: number;
   unitPrice: number;
   costPrice?: number;

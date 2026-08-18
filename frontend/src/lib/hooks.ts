@@ -282,6 +282,44 @@ export function useRestoreProduct() {
 }
 
 // ===========================================================================
+// PRODUCT VARIANTS (Flavors)
+// ===========================================================================
+export function useVariants(productId?: string) {
+  return useQuery({
+    queryKey: ['variants', productId],
+    queryFn: () => getData<import('./types').ProductVariant[]>(`/products/${productId}/variants`),
+    enabled: !!productId,
+  });
+}
+
+export function useCreateVariant() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ productId, ...body }: { productId: string; name: string; sellingPrice: number; costPrice?: number }) =>
+      api.post(`/products/${productId}/variants`, body).then((r) => r.data.data),
+    onSuccess: () => invalidate(['products'], ['variants']),
+  });
+}
+
+export function useUpdateVariant() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ variantId, ...body }: { variantId: string; name?: string; sellingPrice?: number; costPrice?: number }) =>
+      api.patch(`/products/variants/${variantId}`, body).then((r) => r.data.data),
+    onSuccess: () => invalidate(['products'], ['variants']),
+  });
+}
+
+export function useDeleteVariant() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (variantId: string) =>
+      api.delete(`/products/variants/${variantId}`).then((r) => r.data.data),
+    onSuccess: () => invalidate(['products'], ['variants']),
+  });
+}
+
+// ===========================================================================
 // USERS
 // ===========================================================================
 export function useUsers(search?: string) {
@@ -374,6 +412,7 @@ export function useRestoreUser() {
 // ===========================================================================
 export interface SaleItemInput {
   productId: string;
+  variantId?: string;
   quantity: number;
   discount?: number;
   paymentMethod: PaymentMethod;
@@ -476,8 +515,10 @@ export function useDeleteSale() {
 export interface DraftSyncInput {
   items: {
     productId: string;
+    variantId?: string | null;
     name: string;
     brandName: string;
+    variantName?: string | null;
     unitPrice: number;
     quantity: number;
     image?: string | null;
@@ -489,8 +530,10 @@ export interface DraftSyncInput {
   }[];
   disposalItems?: {
     productId: string;
+    variantId?: string | null;
     name: string;
     brandName: string;
+    variantName?: string | null;
     quantity: number;
     image?: string | null;
   }[];
@@ -505,11 +548,11 @@ export function useSaveDraft() {
       // avoid "property X should not exist" validation errors.
       const cleaned = {
         ...body,
-        items: body.items.map(({ productId, name, brandName, unitPrice, quantity, image, discount, paymentMethod, bankNote, note, paymentSplit }) => ({
-          productId, name, brandName, unitPrice, quantity, image, discount, paymentMethod, bankNote, note, paymentSplit,
+        items: body.items.map(({ productId, variantId, name, brandName, variantName, unitPrice, quantity, image, discount, paymentMethod, bankNote, note, paymentSplit }) => ({
+          productId, variantId, name, brandName, variantName, unitPrice, quantity, image, discount, paymentMethod, bankNote, note, paymentSplit,
         })),
-        disposalItems: body.disposalItems?.map(({ productId, name, brandName, quantity, image }) => ({
-          productId, name, brandName, quantity, image,
+        disposalItems: body.disposalItems?.map(({ productId, variantId, name, brandName, variantName, quantity, image }) => ({
+          productId, variantId, name, brandName, variantName, quantity, image,
         })),
         expenses: body.expenses?.map(({ amount, note }) => ({ amount, note })),
       };

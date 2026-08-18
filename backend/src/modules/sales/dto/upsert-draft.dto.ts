@@ -24,6 +24,11 @@ export class DraftItemDto {
   @IsUUID()
   productId: string;
 
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsUUID()
+  variantId?: string;
+
   @ApiProperty()
   @IsString()
   @MaxLength(150)
@@ -33,6 +38,12 @@ export class DraftItemDto {
   @IsString()
   @MaxLength(100)
   brandName: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  variantName?: string;
 
   @ApiProperty()
   @Type(() => Number)
@@ -87,6 +98,11 @@ export class DraftDisposalItemDto {
   @IsUUID()
   productId: string;
 
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsUUID()
+  variantId?: string;
+
   @ApiProperty()
   @IsString()
   @MaxLength(150)
@@ -96,6 +112,12 @@ export class DraftDisposalItemDto {
   @IsString()
   @MaxLength(100)
   brandName: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  variantName?: string;
 
   @ApiProperty({ required: false, nullable: true })
   @IsOptional()
