@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2, X, Loader2, Upload, Download, RefreshCw, FileDown, ClipboardList, ChevronDown } from 'lucide-react';
 import {
   useProducts,
@@ -27,11 +27,18 @@ const ENTRIES_OPTIONS = [5, 10, 25, 50, 100, 'All'] as const;
 
 export default function ProductsPage() {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [shopFilter, setShopFilter] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [entriesPerPage, setEntriesPerPage] = useState<number | 'All'>(10);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Bug fix #3: Debounce search input by 300ms to prevent excessive API calls
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const { data: branchData } = useBranches();
   const { data: brandData } = useBrands();
@@ -43,7 +50,14 @@ export default function ProductsPage() {
   });
   const isOwner = useAuthStore((s) => s.user?.role?.name === 'Owner');
 
-  const { data, isLoading, isError, error } = useProducts({ search, brandId: brandFilter || undefined });
+  // Bug fix #1 & #2: Pass branchId to backend for server-side filtering,
+  // and fetch ALL products (limit: 200) so client-side pagination works correctly.
+  const { data, isLoading, isError, error } = useProducts({
+    search: debouncedSearch,
+    brandId: brandFilter || undefined,
+    branchId: shopFilter || undefined,
+    limit: 200,
+  });
   const products = data?.data ?? [];
 
   const createProduct = useCreateProduct();
@@ -73,11 +87,11 @@ export default function ProductsPage() {
   const totalPages = entriesPerPage === 'All' ? 1 : Math.max(1, Math.ceil(products.length / entriesPerPage));
   const displayProducts = entriesPerPage === 'All' ? products : products.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
   const branchesForForm = useMemo(() => branches, [branches]);
-  // When a specific shop is selected, only show that shop's quantity in the form
-  const branchesForEdit = useMemo(() => {
-    if (shopFilter) return branches.filter((b) => b.id === shopFilter);
-    return branches;
-  }, [branches, shopFilter]);
+  // Bug fix #5: Edit modal should always show ALL branches so users can set
+  // quantities for every shop. Previously it filtered by shopFilter which
+  // caused silent data loss when the user saved — only the visible branch's
+  // quantity was sent.
+  const branchesForEdit = useMemo(() => branches, [branches]);
 
   function qtyForBranch(product: Product, branchId: string) {
     return product.quantities.find((q) => q.branchId === branchId)?.quantity ?? 0;
@@ -89,7 +103,9 @@ export default function ProductsPage() {
   function selectTypeAndOpenForm(type: 'none' | 'flavor' | 'color') {
     setFormVariantType(type);
     setShowTypeSelector(false);
-    setFormName(''); setFormBrand(brands[0]?.id ?? ''); setFormPrice(''); setFormAlert('0');
+    // Bug fix #7: Don't default to brands[0] — start with empty string so user
+    // must explicitly pick a brand; avoids silent wrong-brand assignments.
+    setFormName(''); setFormBrand(''); setFormPrice(''); setFormCostPrice(''); setFormAlert('0');
     setFormImage(null);
     const q: Record<string, string> = {}; branchesForForm.forEach((b) => (q[b.id] = ''));
     setFormQuantities(q); setFormError(null); setShowAddModal(true);
@@ -97,7 +113,8 @@ export default function ProductsPage() {
   function openEditModal(product: Product) {
     setEditingProduct(product);
     setFormVariantType((product.variantType as 'none' | 'flavor' | 'color') ?? 'none');
-    setFormName(product.name); setFormBrand(product.brand?.id ?? brands[0]?.id ?? '');
+    // Bug fix #7: Use the product's actual brand; only fall back to '' (not brands[0])
+    setFormName(product.name); setFormBrand(product.brand?.id ?? '');
     setFormPrice(product.sellingPrice.toString()); setFormCostPrice(product.costPrice?.toString() ?? ''); setFormAlert(product.quantityAlert.toString());
     setFormImage(product.image ?? null);
     const q: Record<string, string> = {};
@@ -194,9 +211,13 @@ export default function ProductsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <select value={shopFilter} onChange={(e) => setShopFilter(e.target.value)} className="border border-input-border rounded px-3 py-2 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus min-w-[180px]">
+        <select value={shopFilter} onChange={(e) => { setShopFilter(e.target.value); setCurrentPage(1); }} className="border border-input-border rounded px-3 py-2 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus min-w-[180px]">
           <option value="">All Shops</option>
           {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>
+        <select value={brandFilter} onChange={(e) => { setBrandFilter(e.target.value); setCurrentPage(1); }} className="border border-input-border rounded px-3 py-2 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus min-w-[180px]">
+          <option value="">All Brands</option>
+          {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
         <button onClick={() => setShowRestockModal(true)} className="flex items-center gap-1 bg-btn-primary text-btn-primary-text px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition"><RefreshCw size={14} /> Restock</button>
         <button onClick={handleTemplate} className="flex items-center gap-1 btn-secondary text-text-primary px-3 py-2 rounded-lg text-sm font-medium"><FileDown size={14} /> Restock Template</button>
@@ -313,7 +334,7 @@ export default function ProductsPage() {
                         </div>
                         <div className="space-y-1">
                           {product.variants.map((v) => {
-                            const vQty = v.quantities?.find((q) => q.branchId === shopFilter)?.quantity ?? v.totalQuantity ?? 0;
+                            const vQty = v.quantities?.find((q) => q.branchId === shopFilter)?.quantity ?? 0;
                             const isOut = vQty <= 0;
                             const isLow = !isOut && product.quantityAlert > 0 && vQty <= product.quantityAlert;
                             return (
@@ -327,7 +348,7 @@ export default function ProductsPage() {
                           })}
                           <div className="flex items-center justify-between rounded px-2.5 py-1 text-xs border-t border-card-border mt-1 pt-1">
                             <span className="font-semibold text-text-primary">TOTAL</span>
-                            <span className="font-semibold text-text-primary">{product.totalQuantity}</span>
+                            <span className="font-semibold text-text-primary">{product.variants.reduce((sum, v) => sum + (v.quantities?.find((q) => q.branchId === shopFilter)?.quantity ?? 0), 0)}</span>
                           </div>
                         </div>
                       </div>
