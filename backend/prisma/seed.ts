@@ -14,6 +14,29 @@ const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'ChangeMe123!';
 async function main() {
   console.log('🌱 Starting database seed (clean bootstrap)...');
 
+  // Ensure the old inventory unique constraint is dropped (may have survived
+  // a partial migration timeout). The new constraint includes variant_id.
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "inventory" DROP CONSTRAINT IF EXISTS "inventory_product_id_branch_id_key"`);
+    console.log('✅ Old inventory constraint dropped (or already gone)');
+  } catch (e) {
+    console.log('⚠️ Could not drop old constraint (may already be gone):', (e as any).message);
+  }
+
+  // Ensure the new unique constraint exists
+  try {
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inventory_product_id_variant_id_branch_id_key') THEN
+          ALTER TABLE "inventory" ADD CONSTRAINT "inventory_product_id_variant_id_branch_id_key" UNIQUE ("product_id", "variant_id", "branch_id");
+        END IF;
+      END $$;
+    `);
+    console.log('✅ New inventory constraint verified');
+  } catch (e) {
+    console.log('⚠️ Constraint check:', (e as any).message);
+  }
+
   // 1. Roles -----------------------------------------------------------------
   const ownerRole = await prisma.role.upsert({
     where: { name: 'Owner' },
