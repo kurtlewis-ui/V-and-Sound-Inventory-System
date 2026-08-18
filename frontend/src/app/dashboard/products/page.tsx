@@ -143,11 +143,18 @@ export default function ProductsPage() {
     if (hasFlavorKeys) {
       // Send per-variant quantities individually so the backend can write
       // each flavor's stock to its own inventory row (with variantId set).
+      // Only include entries for the single visible branch to avoid duplicates.
       const entries: { branchId: string; variantId: string; quantity: number }[] = [];
+      const seen = new Set<string>();
       for (const [key, value] of Object.entries(formQuantities)) {
         if (!key.includes('__')) continue;
         const [branchId, variantId] = key.split('__');
+        if (!branchId || !variantId) continue;
         if (!targetBranches.some((b) => b.id === branchId)) continue;
+        // Deduplicate — prevent sending the same branchId+variantId twice
+        const dedupeKey = `${branchId}__${variantId}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
         entries.push({ branchId, variantId, quantity: parseInt(value || '0') || 0 });
       }
       return entries;
@@ -795,19 +802,19 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
                     ) : (
                       <>
                         <span className="text-sm font-medium text-text-primary min-w-[90px]">{v.name}</span>
-                        {/* Inline stock input for each flavor at each visible branch */}
-                        {branches.map((b) => (
+                        {/* Show stock input only when a single branch is selected */}
+                        {branches.length === 1 && (
                           <input
-                            key={`${b.id}-${v.id}`}
                             type="number"
                             min="0"
                             placeholder="0"
-                            value={formQuantities[`${b.id}__${v.id}`] ?? ''}
-                            onChange={(e) => setFormQuantities({ ...formQuantities, [`${b.id}__${v.id}`]: e.target.value })}
-                            className="w-16 border border-input-border rounded px-2 py-1 text-sm text-center bg-input-bg focus:outline-none focus:border-input-focus"
-                            title={`Stock at ${b.name}`}
+                            value={formQuantities[`${branches[0].id}__${v.id}`] ?? ''}
+                            onChange={(e) => setFormQuantities({ ...formQuantities, [`${branches[0].id}__${v.id}`]: e.target.value })}
+                            className="w-20 border border-input-border rounded px-2 py-1 text-sm text-center bg-input-bg focus:outline-none focus:border-input-focus"
+                            title={`Stock at ${branches[0].name}`}
                           />
-                        ))}
+                        )}
+                        <div className="flex-1" />
                         <button onClick={() => startRename(v)} className="p-1 text-text-muted hover:text-accent-blue transition" title={`Rename ${variantLabel.toLowerCase()}`}><Pencil size={13} /></button>
                         <button onClick={() => handleDeleteFlavor(v.id)} className="p-1 text-text-muted hover:text-accent-red transition" title={`Delete ${variantLabel.toLowerCase()}`}><Trash2 size={13} /></button>
                       </>
@@ -817,6 +824,11 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
               </div>
             ) : (
               <p className="text-xs text-text-muted">No {variantLabelPlural.toLowerCase()} yet. Add one to set stock.</p>
+            )}
+
+            {/* Prompt to select a shop when no filter is active */}
+            {branches.length > 1 && variants && variants.length > 0 && (
+              <p className="text-xs text-accent-orange mt-2">Select a shop in the filter to edit per-flavor stock.</p>
             )}
 
             {flavorError && <p className="text-xs text-accent-red mt-1">{flavorError}</p>}
