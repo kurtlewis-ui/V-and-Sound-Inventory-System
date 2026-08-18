@@ -180,14 +180,14 @@ export class ProductsService {
       for (const q of dto.quantities) {
         // Get current quantity before update
         const currentInv = await this.prisma.inventory.findUnique({
-          where: { productId_variantId_branchId: { productId: id, variantId: null, branchId: q.branchId } },
+          where: { productId_variantId_branchId: { productId: id, variantId: undefined, branchId: q.branchId } },
         });
         const oldQty = currentInv?.quantity ?? 0;
         const newQty = q.quantity;
         const diff = newQty - oldQty;
 
         await this.prisma.inventory.upsert({
-          where: { productId_variantId_branchId: { productId: id, variantId: null, branchId: q.branchId } },
+          where: { productId_variantId_branchId: { productId: id, variantId: undefined, branchId: q.branchId } },
           create: { productId: id, branchId: q.branchId, quantity: q.quantity },
           update: { quantity: q.quantity },
         });
@@ -337,11 +337,11 @@ export class ProductsService {
         });
         for (const inv of invRows) {
           const currentInv = await this.prisma.inventory.findUnique({
-            where: { productId_variantId_branchId: { productId: existing.id, variantId: null, branchId: inv.branchId } },
+            where: { productId_variantId_branchId: { productId: existing.id, variantId: undefined, branchId: inv.branchId } },
           });
           const oldQty = currentInv?.quantity ?? 0;
           await this.prisma.inventory.upsert({
-            where: { productId_variantId_branchId: { productId: existing.id, variantId: null, branchId: inv.branchId } },
+            where: { productId_variantId_branchId: { productId: existing.id, variantId: undefined, branchId: inv.branchId } },
             create: { productId: existing.id, branchId: inv.branchId, quantity: inv.quantity },
             update: { quantity: inv.quantity },
           });
@@ -457,14 +457,14 @@ export class ProductsService {
 
       await this.prisma.$transaction(async (tx) => {
         await tx.inventory.upsert({
-          where: { productId_variantId_branchId: { productId: product!.id, variantId, branchId: branch!.id } },
+          where: { productId_variantId_branchId: { productId: product!.id, variantId: variantId ?? undefined, branchId: branch!.id } },
           create: { productId: product!.id, variantId, branchId: branch!.id, quantity: Math.max(0, item.quantity) },
           update: { quantity: { increment: item.quantity } },
         });
 
         // Log the stock movement (read inside same transaction for accuracy)
         const inv = await tx.inventory.findUnique({
-          where: { productId_variantId_branchId: { productId: product!.id, variantId, branchId: branch!.id } },
+          where: { productId_variantId_branchId: { productId: product!.id, variantId: variantId ?? undefined, branchId: branch!.id } },
         });
         await tx.stockMovement.create({
           data: {
