@@ -98,9 +98,25 @@ export default function ProductsPage() {
     return branches;
   }, [branches, shopFilter]);
 
+  // For variant products, compute the total quantity from per-variant inventory
+  // at the given branch (instead of reading the base product row which may be stale).
   function qtyForBranch(product: Product, branchId: string) {
+    if (product.variantType !== 'none' && product.variants && product.variants.length > 0) {
+      return product.variants.reduce((sum, v) => {
+        const vQty = v.quantities?.find((q) => q.branchId === branchId)?.quantity ?? 0;
+        return sum + vQty;
+      }, 0);
+    }
     return product.quantities.find((q) => q.branchId === branchId)?.quantity ?? 0;
   }
+
+  // Live variants: read from the freshly-refetched products array so flavor
+  // CRUD (add/rename/delete) updates the modal instantly without a page refresh.
+  const liveVariants = useMemo(() => {
+    if (!editingProduct) return [];
+    const fresh = products.find((p) => p.id === editingProduct.id);
+    return fresh?.variants ?? editingProduct.variants ?? [];
+  }, [products, editingProduct]);
 
   function openAddModal() {
     setShowTypeSelector(true);
@@ -123,9 +139,10 @@ export default function ProductsPage() {
     setFormPrice(product.sellingPrice.toString()); setFormCostPrice(product.costPrice?.toString() ?? ''); setFormAlert(product.quantityAlert.toString());
     setFormImage(product.image ?? null);
     const q: Record<string, string> = {};
-    if (product.variants && product.variants.length > 0) {
+    const variants = product.variants ?? [];
+    if (variants.length > 0) {
       branchesForEdit.forEach((b) => {
-        product.variants.forEach((v) => {
+        variants.forEach((v) => {
           const vQty = v.quantities?.find((vq) => vq.branchId === b.id)?.quantity ?? 0;
           q[`${b.id}__${v.id}`] = vQty.toString();
         });
@@ -413,7 +430,7 @@ export default function ProductsPage() {
         <ProductFormModal title="Add New Product" onClose={() => setShowAddModal(false)} onSubmit={handleAdd} error={formError} buttonLabel={createProduct.isPending ? 'Saving...' : 'Save Product'} disabled={createProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForForm} brands={brands} />
       )}
       {showEditModal && editingProduct && (
-        <ProductFormModal title="Edit Product" onClose={() => { setShowEditModal(false); setEditingProduct(null); }} onSubmit={handleEdit} error={formError} buttonLabel={updateProduct.isPending ? 'Saving...' : 'Update Product'} disabled={updateProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForEdit} brands={brands} variants={editingProduct.variants ?? []} variantType={editingProduct.variantType ?? 'none'} productId={editingProduct.id} />
+        <ProductFormModal title="Edit Product" onClose={() => { setShowEditModal(false); setEditingProduct(null); }} onSubmit={handleEdit} error={formError} buttonLabel={updateProduct.isPending ? 'Saving...' : 'Update Product'} disabled={updateProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForEdit} brands={brands} variants={liveVariants} variantType={editingProduct.variantType ?? 'none'} productId={editingProduct.id} />
       )}
       {showArchiveModal && archivingProduct && (
         <Modal title="Confirm Archive" onClose={() => { setShowArchiveModal(false); setArchivingProduct(null); }}>
@@ -719,7 +736,11 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
     if (!newFlavorName.trim()) { setFlavorError('Name is required'); return; }
     setFlavorError(null);
     try {
-      await createVariant.mutateAsync({ productId, name: newFlavorName.trim(), sellingPrice: 0 });
+      const created = await createVariant.mutateAsync({ productId, name: newFlavorName.trim(), sellingPrice: 0 });
+      // Add a formQuantities entry for the new variant so it shows an input immediately
+      if (created?.id && branches.length === 1) {
+        setFormQuantities({ ...formQuantities, [`${branches[0].id}__${created.id}`]: '0' });
+      }
       setNewFlavorName('');
       setAddingFlavor(false);
     } catch (e) { setFlavorError(getApiErrorMessage(e)); }
