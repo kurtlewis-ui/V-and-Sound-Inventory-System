@@ -206,8 +206,9 @@ export default function ProductsPage() {
           const newQty = q.quantity;
           // Find the old quantity for this variant at this branch
           let oldQty = 0;
-          if ('variantId' in q && q.variantId) {
-            const variant = editingProduct.variants?.find((v) => v.id === q.variantId);
+          const qVariantId = 'variantId' in q ? (q as { variantId: string }).variantId : undefined;
+          if (qVariantId) {
+            const variant = editingProduct.variants?.find((v) => v.id === qVariantId);
             oldQty = variant?.quantities?.find((vq) => vq.branchId === q.branchId)?.quantity ?? 0;
           } else {
             oldQty = editingProduct.quantities?.find((x) => x.branchId === q.branchId)?.quantity ?? 0;
@@ -216,7 +217,7 @@ export default function ProductsPage() {
           if (diff !== 0) {
             restockItems.push({
               productId: editingProduct.id,
-              variantId: 'variantId' in q ? q.variantId : undefined,
+              variantId: qVariantId,
               branchId: q.branchId,
               quantity: diff,
             });
