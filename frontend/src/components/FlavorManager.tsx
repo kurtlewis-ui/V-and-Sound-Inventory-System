@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Plus, Pencil, Trash2, X, Loader2 } from 'lucide-react';
 import { useCreateVariant, useUpdateVariant, useDeleteVariant } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
-import type { ProductVariant } from '@/lib/types';
 
 /**
  * Simplified Flavor/Variant manager — add, edit name, and remove flavors.
@@ -13,7 +12,7 @@ import type { ProductVariant } from '@/lib/types';
  */
 export function FlavorManager({ productId, variants, onClose }: {
   productId: string;
-  variants: ProductVariant[];
+  variants: { id: string; name: string }[];
   onClose?: () => void;
 }) {
   const createVariant = useCreateVariant();
@@ -30,7 +29,7 @@ export function FlavorManager({ productId, variants, onClose }: {
     setShowAdd(false); setEditingId(null);
   }
 
-  function openEdit(v: ProductVariant) {
+  function openEdit(v: { id: string; name: string }) {
     setEditingId(v.id);
     setName(v.name);
     setShowAdd(false);

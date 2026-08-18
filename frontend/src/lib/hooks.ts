@@ -184,6 +184,7 @@ export function useRestoreBrand() {
 export interface ProductMutationInput {
   name: string;
   brandId: string;
+  variantType?: string;
   sellingPrice: number;
   costPrice?: number;
   quantityAlert?: number;
