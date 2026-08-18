@@ -308,15 +308,37 @@ export default function ProductsPage() {
                         </div>
                         {product.variants && product.variants.length > 0 ? (
                           <div className="space-y-1">
-                            {product.variants.map((v) => (
-                              <div key={v.id} className="flex items-center justify-between rounded bg-white/5 px-2.5 py-1.5 text-sm">
-                                <span className="font-medium text-text-primary">{v.name}</span>
-                                <span className="text-xs text-text-muted">Stock info in Edit modal</span>
-                              </div>
-                            ))}
+                            {product.variants.map((v) => {
+                              // TODO: per-variant stock from backend inventory data
+                              // For now show variant names; stock details in Edit modal
+                              return (
+                                <div key={v.id} className="flex items-center justify-between rounded bg-white/5 px-2.5 py-1.5 text-sm">
+                                  <span className="font-medium text-text-primary">{v.name}</span>
+                                  <span className="text-xs text-text-muted">—</span>
+                                </div>
+                              );
+                            })}
+                            <div className="flex items-center justify-between rounded px-2.5 py-1 text-xs border-t border-card-border mt-1 pt-1">
+                              <span className="font-semibold text-text-primary">TOTAL</span>
+                              <span className="font-semibold text-text-primary">{product.totalQuantity}</span>
+                            </div>
                           </div>
                         ) : (
-                          <p className="text-xs text-text-muted">No variants. Simple product.</p>
+                          <div className="space-y-1">
+                            {branches.map((b) => {
+                              const qty = product.quantities.find((q) => q.branchId === b.id)?.quantity ?? 0;
+                              const isOut = qty <= 0;
+                              const isLow = !isOut && product.quantityAlert > 0 && qty <= product.quantityAlert;
+                              return (
+                                <div key={b.id} className="flex items-center justify-between rounded bg-white/5 px-2.5 py-1.5 text-sm">
+                                  <span className="text-text-primary">{b.name}</span>
+                                  <span className={`font-medium ${isOut ? 'text-accent-red' : isLow ? 'text-accent-orange' : 'text-accent-blue'}`}>
+                                    {qty} {isOut ? '🔴 OUT' : isLow ? '⚠️ LOW' : ''}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -366,7 +388,7 @@ export default function ProductsPage() {
         <ProductFormModal title="Add New Product" onClose={() => setShowAddModal(false)} onSubmit={handleAdd} error={formError} buttonLabel={createProduct.isPending ? 'Saving...' : 'Save Product'} disabled={createProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForForm} brands={brands} />
       )}
       {showEditModal && editingProduct && (
-        <ProductFormModal title="Edit Product" onClose={() => { setShowEditModal(false); setEditingProduct(null); }} onSubmit={handleEdit} error={formError} buttonLabel={updateProduct.isPending ? 'Saving...' : 'Update Product'} disabled={updateProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForEdit} brands={brands} variants={editingProduct.variants ?? []} />
+        <ProductFormModal title="Edit Product" onClose={() => { setShowEditModal(false); setEditingProduct(null); }} onSubmit={handleEdit} error={formError} buttonLabel={updateProduct.isPending ? 'Saving...' : 'Update Product'} disabled={updateProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForEdit} brands={brands} variants={editingProduct.variants ?? []} variantType={editingProduct.variantType ?? 'none'} productId={editingProduct.id} />
       )}
       {showArchiveModal && archivingProduct && (
         <Modal title="Confirm Archive" onClose={() => { setShowArchiveModal(false); setArchivingProduct(null); }}>
@@ -612,7 +634,7 @@ function RestockModal({ products, branches, onClose }: { products: Product[]; br
   );
 }
 
-function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, error, formName, setFormName, formBrand, setFormBrand, formPrice, setFormPrice, formCostPrice, setFormCostPrice, isOwner, formAlert, setFormAlert, formImage, setFormImage, isAdmin, formQuantities, setFormQuantities, branches, brands, variants }: {
+function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, error, formName, setFormName, formBrand, setFormBrand, formPrice, setFormPrice, formCostPrice, setFormCostPrice, isOwner, formAlert, setFormAlert, formImage, setFormImage, isAdmin, formQuantities, setFormQuantities, branches, brands, variants, variantType, productId }: {
   title: string; onClose: () => void; onSubmit: () => void; buttonLabel: string; disabled?: boolean; error?: string | null;
   formName: string; setFormName: (v: string) => void; formBrand: string; setFormBrand: (v: string) => void;
   formPrice: string; setFormPrice: (v: string) => void; formCostPrice: string; setFormCostPrice: (v: string) => void; isOwner: boolean; formAlert: string; setFormAlert: (v: string) => void;
@@ -620,6 +642,8 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
   formQuantities: Record<string, string>; setFormQuantities: (v: Record<string, string>) => void;
   branches: { id: string; name: string }[]; brands: { id: string; name: string }[];
   variants?: { id: string; name: string }[];
+  variantType?: 'none' | 'flavor' | 'color';
+  productId?: string;
 }) {
   const [imageError, setImageError] = useState<string | null>(null);
 
@@ -664,6 +688,16 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
             )}
           </div>
         </div>
+        {/* Inline Variant CRUD — only for flavor/color products */}
+        {variantType && variantType !== 'none' && productId && (
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">
+              {variantType === 'color' ? 'Colors' : 'Flavors'}
+            </label>
+            <FlavorManager productId={productId} variants={variants ?? []} />
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1">Quantity per shop</label>
           <div className="space-y-2">

@@ -40,6 +40,7 @@ export class StockMovementsService {
         include: {
           user: { select: { id: true, firstName: true, lastName: true, email: true } },
           product: { select: { id: true, name: true } },
+          variant: { select: { id: true, name: true } },
           branch: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -52,7 +53,11 @@ export class StockMovementsService {
       data: movements.map((m) => ({
         id: m.id,
         productId: m.productId,
-        productName: m.product.name,
+        productName: (m as any).variant?.name
+          ? `${m.product.name} (${(m as any).variant.name})`
+          : m.product.name,
+        variantId: (m as any).variantId ?? null,
+        variantName: (m as any).variant?.name ?? null,
         branchId: m.branchId,
         branchName: m.branch.name,
         user: m.user ? `${m.user.firstName} ${m.user.lastName} (${m.user.email})` : null,
