@@ -258,10 +258,16 @@ export function useCreateProduct() {
 
 export function useUpdateProduct() {
   const invalidate = useInvalidate();
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...body }: ProductMutationInput & { id: string }) =>
       api.patch(`/products/${id}`, body).then((r) => r.data.data),
-    onSuccess: () => invalidate(['products']),
+    onSuccess: async () => {
+      // Await the invalidation so the refetch completes before the UI
+      // re-renders — ensures updated stock values are visible immediately.
+      await qc.invalidateQueries({ queryKey: ['products'] });
+      invalidate(['variants'], ['stats'], ['stock-movements']);
+    },
   });
 }
 
