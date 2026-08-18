@@ -274,7 +274,7 @@ export class SalesService {
       const productIds = [...new Set(dto.items.map((i) => i.productId))];
       const products = await this.prisma.product.findMany({
         where: { id: { in: productIds }, deletedAt: null },
-        include: { brand: { select: { name: true } } },
+        include: { brand: { select: { name: true } }, variants: { where: { isActive: true } } },
       });
       if (products.length !== productIds.length) {
         throw new BadRequestException('One or more products do not exist');
