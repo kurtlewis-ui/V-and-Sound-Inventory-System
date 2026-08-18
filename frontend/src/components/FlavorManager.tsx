@@ -29,7 +29,7 @@ export function FlavorManager({ productId, variants, onClose }: {
     setShowAdd(false); setEditingId(null);
   }
 
-  function openEdit(v: ProductVariant) {
+  function openEdit(v: { id: string; name: string }) {
     setEditingId(v.id);
     setName(v.name);
     setShowAdd(false);
