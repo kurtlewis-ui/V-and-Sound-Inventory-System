@@ -178,10 +178,14 @@ export class ProductsService {
     await this.prisma.product.update({ where: { id }, data });
 
     // Upsert per-branch quantities when provided, and log stock movements.
+    // When variantId is set, writes to the per-variant inventory row.
+    // When variantId is null/undefined, writes to the base product row.
     if (dto.quantities?.length) {
       for (const q of dto.quantities) {
+        const variantId = q.variantId ?? null;
         // Get current quantity before update
-        const currentInv = await this.prisma.inventory.findFirst({ where: { productId: id, variantId: null, branchId: q.branchId },
+        const currentInv = await this.prisma.inventory.findFirst({
+          where: { productId: id, variantId, branchId: q.branchId },
         });
         const oldQty = currentInv?.quantity ?? 0;
         const newQty = q.quantity;
@@ -194,7 +198,7 @@ export class ProductsService {
           });
         } else {
           await this.prisma.inventory.create({
-            data: { productId: id, branchId: q.branchId, quantity: q.quantity },
+            data: { productId: id, variantId, branchId: q.branchId, quantity: q.quantity },
           });
         }
 
@@ -203,6 +207,7 @@ export class ProductsService {
           await this.prisma.stockMovement.create({
             data: {
               productId: id,
+              variantId: variantId ?? undefined,
               branchId: q.branchId,
               userId: updatedBy,
               type: 'ADJUSTMENT',

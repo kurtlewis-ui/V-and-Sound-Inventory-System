@@ -19,6 +19,11 @@ export class BranchQuantityDto {
   @IsUUID()
   branchId: string;
 
+  @ApiProperty({ required: false, description: 'Variant/Flavor ID (if setting per-variant stock)' })
+  @IsOptional()
+  @IsUUID()
+  variantId?: string;
+
   @ApiProperty({ description: 'Stock quantity at this branch', default: 0 })
   @Type(() => Number)
   @IsInt()

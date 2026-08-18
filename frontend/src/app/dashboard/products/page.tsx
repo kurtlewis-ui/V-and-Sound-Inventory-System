@@ -11,6 +11,9 @@ import {
   useArchiveProduct,
   useImportProducts,
   useRestock,
+  useCreateVariant,
+  useUpdateVariant,
+  useDeleteVariant,
   type ImportProductRow,
   type RestockItem,
 } from '@/lib/hooks';
@@ -21,7 +24,6 @@ import { fileToResizedDataUrl } from '@/lib/image';
 import { useAuthStore } from '@/lib/store';
 import type { Product, ImportResult, RestockResult } from '@/lib/types';
 import { StockHistoryModal } from '@/components/StockHistoryModal';
-import { FlavorManager } from '@/components/FlavorManager';
 
 const ENTRIES_OPTIONS = [5, 10, 25, 50, 100, 'All'] as const;
 
@@ -87,11 +89,14 @@ export default function ProductsPage() {
   const totalPages = entriesPerPage === 'All' ? 1 : Math.max(1, Math.ceil(products.length / entriesPerPage));
   const displayProducts = entriesPerPage === 'All' ? products : products.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
   const branchesForForm = useMemo(() => branches, [branches]);
-  // Bug fix #5: Edit modal should always show ALL branches so users can set
-  // quantities for every shop. Previously it filtered by shopFilter which
-  // caused silent data loss when the user saved — only the visible branch's
-  // quantity was sent.
-  const branchesForEdit = useMemo(() => branches, [branches]);
+  // When a shop filter is active, the edit modal shows only that branch's
+  // quantities. This is intentional: the user is focused on managing stock
+  // for the selected branch. The backend only updates the branches included
+  // in the payload — others remain untouched.
+  const branchesForEdit = useMemo(() => {
+    if (shopFilter) return branches.filter((b) => b.id === shopFilter);
+    return branches;
+  }, [branches, shopFilter]);
 
   function qtyForBranch(product: Product, branchId: string) {
     return product.quantities.find((q) => q.branchId === branchId)?.quantity ?? 0;
@@ -136,14 +141,16 @@ export default function ProductsPage() {
     // Check if any key contains "__" (flavor format: branchId__variantId)
     const hasFlavorKeys = Object.keys(formQuantities).some((k) => k.includes('__'));
     if (hasFlavorKeys) {
-      // Per-flavor quantities — the backend restock endpoint handles variantId
-      // For the update endpoint, we still send per-branch totals (sum of flavors)
-      // The actual per-flavor stock is managed via the restock API separately
-      return targetBranches.map((b) => {
-        const flavorKeys = Object.keys(formQuantities).filter((k) => k.startsWith(`${b.id}__`));
-        const total = flavorKeys.reduce((sum, k) => sum + (parseInt(formQuantities[k] || '0') || 0), 0);
-        return { branchId: b.id, quantity: total };
-      });
+      // Send per-variant quantities individually so the backend can write
+      // each flavor's stock to its own inventory row (with variantId set).
+      const entries: { branchId: string; variantId: string; quantity: number }[] = [];
+      for (const [key, value] of Object.entries(formQuantities)) {
+        if (!key.includes('__')) continue;
+        const [branchId, variantId] = key.split('__');
+        if (!targetBranches.some((b) => b.id === branchId)) continue;
+        entries.push({ branchId, variantId, quantity: parseInt(value || '0') || 0 });
+      }
+      return entries;
     }
     return targetBranches.map((b) => ({ branchId: b.id, quantity: parseInt(formQuantities[b.id] || '0') || 0 }));
   }
@@ -657,6 +664,15 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
   productId?: string;
 }) {
   const [imageError, setImageError] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [addingFlavor, setAddingFlavor] = useState(false);
+  const [newFlavorName, setNewFlavorName] = useState('');
+  const [flavorError, setFlavorError] = useState<string | null>(null);
+
+  const createVariant = useCreateVariant();
+  const updateVariant = useUpdateVariant();
+  const deleteVariant = useDeleteVariant();
 
   async function handleImageFile(file: File) {
     setImageError(null);
@@ -668,15 +684,55 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
     }
   }
 
+  function startRename(v: { id: string; name: string }) {
+    setRenamingId(v.id);
+    setRenameValue(v.name);
+    setFlavorError(null);
+  }
+
+  async function handleRename(variantId: string) {
+    if (!renameValue.trim()) { setFlavorError('Name is required'); return; }
+    setFlavorError(null);
+    try {
+      await updateVariant.mutateAsync({ variantId, name: renameValue.trim() });
+      setRenamingId(null);
+      setRenameValue('');
+    } catch (e) { setFlavorError(getApiErrorMessage(e)); }
+  }
+
+  async function handleDeleteFlavor(variantId: string) {
+    if (!confirm('Archive this flavor?')) return;
+    try {
+      await deleteVariant.mutateAsync(variantId);
+    } catch (e) { setFlavorError(getApiErrorMessage(e)); }
+  }
+
+  async function handleAddFlavor() {
+    if (!productId) return;
+    if (!newFlavorName.trim()) { setFlavorError('Name is required'); return; }
+    setFlavorError(null);
+    try {
+      await createVariant.mutateAsync({ productId, name: newFlavorName.trim(), sellingPrice: 0 });
+      setNewFlavorName('');
+      setAddingFlavor(false);
+    } catch (e) { setFlavorError(getApiErrorMessage(e)); }
+  }
+
+  const variantLabel = variantType === 'color' ? 'Color' : 'Flavor';
+  const variantLabelPlural = variantType === 'color' ? 'Colors' : 'Flavors';
+
   return (
     <Modal title={title} onClose={onClose}>
       <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+        {/* Name */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1">Name</label>
           <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
         </div>
+
+        {/* Image */}
         <div>
-          <label className="block text-sm font-medium text-text-primary mb-1">Image</label>
+          <label className="block text-sm font-medium text-text-primary mb-1">Photo</label>
           <div className="flex items-center gap-3">
             <div className="w-16 h-16 rounded bg-white/10 overflow-hidden flex items-center justify-center shrink-0">
               {formImage ? (
@@ -699,48 +755,89 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
             )}
           </div>
         </div>
-        {/* Combined: Flavors/Colors CRUD + Stock in one section — only when branch selected */}
-        {variantType && variantType !== 'none' && productId && branches.length > 0 ? (
+
+        {/* Flavors/Colors section — only for variant products with a productId */}
+        {variantType && variantType !== 'none' && productId ? (
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-text-primary">
-                {variantType === 'color' ? 'Colors' : 'Flavors'}
-              </label>
-              <FlavorManager productId={productId} variants={variants ?? []} />
+              <label className="block text-sm font-medium text-text-primary">{variantLabelPlural}:</label>
+              {!addingFlavor && (
+                <button onClick={() => { setAddingFlavor(true); setFlavorError(null); }} className="flex items-center gap-1 text-xs text-accent-blue hover:underline">
+                  <Plus size={12} /> Add {variantLabel}
+                </button>
+              )}
             </div>
-            {variants && variants.length > 0 && branches.length > 0 && (
-              <div className="space-y-2 mt-2">
-                {branches.map((b) => (
-                  <div key={b.id} className="space-y-1">
-                    <span className="text-xs font-semibold text-accent-primary">{b.name}</span>
-                    {variants.map((v) => (
-                      <div key={`${b.id}-${v.id}`} className="flex items-center gap-2 ml-2">
-                        <span className="text-xs text-text-secondary min-w-[100px]">{v.name}</span>
-                        <input type="number" min="0" placeholder="0" value={formQuantities[`${b.id}__${v.id}`] ?? ''} onChange={(e) => setFormQuantities({ ...formQuantities, [`${b.id}__${v.id}`]: e.target.value })} className="flex-1 border border-input-border rounded px-2 py-1 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
-                      </div>
-                    ))}
+
+            {/* Add new flavor inline */}
+            {addingFlavor && (
+              <div className="flex items-center gap-2 mb-2">
+                <input type="text" value={newFlavorName} onChange={(e) => setNewFlavorName(e.target.value)} placeholder={`New ${variantLabel.toLowerCase()} name...`} className="flex-1 border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg focus:outline-none focus:border-input-focus" autoFocus />
+                <button onClick={handleAddFlavor} disabled={createVariant.isPending} className="text-xs font-medium text-accent-blue hover:underline disabled:opacity-60">
+                  {createVariant.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Add'}
+                </button>
+                <button onClick={() => { setAddingFlavor(false); setNewFlavorName(''); setFlavorError(null); }} className="text-xs text-text-muted hover:text-text-primary">Cancel</button>
+              </div>
+            )}
+
+            {/* Flavor list with inline stock + rename/delete */}
+            {variants && variants.length > 0 ? (
+              <div className="space-y-1.5">
+                {variants.map((v) => (
+                  <div key={v.id} className="flex items-center gap-2 rounded-lg border border-card-border bg-white/5 px-3 py-2">
+                    {renamingId === v.id ? (
+                      <>
+                        <input type="text" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} className="flex-1 border border-input-border rounded px-2 py-1 text-sm bg-input-bg focus:outline-none focus:border-input-focus" autoFocus />
+                        <button onClick={() => handleRename(v.id)} disabled={updateVariant.isPending} className="text-xs font-medium text-accent-blue hover:underline disabled:opacity-60">
+                          {updateVariant.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Save'}
+                        </button>
+                        <button onClick={() => { setRenamingId(null); setFlavorError(null); }} className="text-xs text-text-muted hover:text-text-primary">Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-sm font-medium text-text-primary min-w-[90px]">{v.name}</span>
+                        {/* Inline stock input for each flavor at each visible branch */}
+                        {branches.map((b) => (
+                          <input
+                            key={`${b.id}-${v.id}`}
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={formQuantities[`${b.id}__${v.id}`] ?? ''}
+                            onChange={(e) => setFormQuantities({ ...formQuantities, [`${b.id}__${v.id}`]: e.target.value })}
+                            className="w-16 border border-input-border rounded px-2 py-1 text-sm text-center bg-input-bg focus:outline-none focus:border-input-focus"
+                            title={`Stock at ${b.name}`}
+                          />
+                        ))}
+                        <button onClick={() => startRename(v)} className="p-1 text-text-muted hover:text-accent-blue transition" title={`Rename ${variantLabel.toLowerCase()}`}><Pencil size={13} /></button>
+                        <button onClick={() => handleDeleteFlavor(v.id)} className="p-1 text-text-muted hover:text-accent-red transition" title={`Delete ${variantLabel.toLowerCase()}`}><Trash2 size={13} /></button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
+            ) : (
+              <p className="text-xs text-text-muted">No {variantLabelPlural.toLowerCase()} yet. Add one to set stock.</p>
             )}
-            {(!variants || variants.length === 0) && (
-              <p className="text-xs text-text-muted">Add at least one {variantType} to set stock.</p>
-            )}
+
+            {flavorError && <p className="text-xs text-accent-red mt-1">{flavorError}</p>}
           </div>
         ) : (
+          /* Simple product (no variants) — quantity per branch */
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">Quantity per shop</label>
+            <label className="block text-sm font-medium text-text-primary mb-1">Quantity{branches.length === 1 ? ` (${branches[0].name})` : ' per shop'}</label>
             <div className="space-y-2">
               {branches.length === 0 && <p className="text-xs text-text-muted">No shops yet. Create a shop first.</p>}
               {branches.map((b) => (
                 <div key={b.id} className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-accent-primary bg-white/10 px-2 py-1.5 rounded min-w-[140px]">{b.name}</span>
-                  <input type="number" min="0" placeholder={`Quantity for ${b.name}`} value={formQuantities[b.id] ?? ''} onChange={(e) => setFormQuantities({ ...formQuantities, [b.id]: e.target.value })} className="flex-1 border border-input-border rounded px-3 py-1.5 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
+                  {branches.length > 1 && <span className="text-xs font-medium text-accent-primary bg-white/10 px-2 py-1.5 rounded min-w-[140px]">{b.name}</span>}
+                  <input type="number" min="0" placeholder="0" value={formQuantities[b.id] ?? ''} onChange={(e) => setFormQuantities({ ...formQuantities, [b.id]: e.target.value })} className="flex-1 border border-input-border rounded px-3 py-1.5 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
                 </div>
               ))}
             </div>
           </div>
         )}
+
+        {/* Brand */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1">Brand</label>
           <select value={formBrand} onChange={(e) => setFormBrand(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus">
@@ -749,20 +846,27 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
           </select>
           {brands.length === 0 && <p className="text-xs text-text-muted mt-1">No brands yet. Create a brand first.</p>}
         </div>
+
+        {/* Selling Price */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1">Selling Price (₱)</label>
           <input type="number" step="0.01" min="0" value={formPrice} onChange={(e) => setFormPrice(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
         </div>
+
+        {/* Cost Price — Owner only */}
         {isOwner && (
           <div>
             <label className="block text-sm font-medium text-text-primary mb-1">Cost Price (₱) <span className="text-[10px] text-accent-primary font-normal">Owner Only — Confidential</span></label>
             <input type="number" step="0.01" min="0" value={formCostPrice} onChange={(e) => setFormCostPrice(e.target.value)} placeholder="0" className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
           </div>
         )}
+
+        {/* Quantity Alert */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1">Quantity Alert</label>
           <input type="number" min="0" value={formAlert} onChange={(e) => setFormAlert(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
         </div>
+
         {error && <p className="text-sm text-accent-red">{error}</p>}
         <div className="flex justify-end">
           <button onClick={onSubmit} disabled={disabled} className="btn-grad px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-60">{buttonLabel}</button>
