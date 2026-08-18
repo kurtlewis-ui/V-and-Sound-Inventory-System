@@ -65,7 +65,10 @@ export function StockHistoryModal({ productId, productName, branchId, branchName
                     <p className="text-sm font-medium text-text-primary">{m.user ?? 'System'}</p>
                     <p className="text-xs text-text-muted whitespace-nowrap">{formatDateTime(m.createdAt)}</p>
                   </div>
-                  <p className="text-sm text-text-secondary mt-0.5">{m.description || typeLabel(m.type)}</p>
+                  <p className="text-sm text-text-secondary mt-0.5">
+                    {m.description || typeLabel(m.type)}
+                    {m.variantName && <span className="ml-1 font-medium text-text-primary">— {m.variantName}</span>}
+                  </p>
                   <p className="text-sm mt-0.5">
                     <span className="text-text-secondary">Remaining Quantity: </span>
                     <span className="font-medium text-text-primary">{m.quantityAfter}</span>

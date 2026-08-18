@@ -110,6 +110,8 @@ export interface ProductVariant {
   name: string;
   sellingPrice: number;
   costPrice?: number; // Owner-only
+  quantities?: ProductBranchQuantity[];
+  totalQuantity?: number;
 }
 
 export interface Product {
@@ -350,6 +352,8 @@ export interface StockMovement {
   id: string;
   productId: string;
   productName: string;
+  variantId?: string | null;
+  variantName?: string | null;
   branchId: string;
   branchName: string;
   user: string | null;

@@ -521,9 +521,18 @@ export class ProductsService {
   private includeFull(branchId?: string) {
     return {
       brand: { select: { id: true, name: true, slug: true } },
-      variants: { where: { isActive: true }, orderBy: { name: 'asc' as const } },
+      variants: {
+        where: { isActive: true },
+        orderBy: { name: 'asc' as const },
+        include: {
+          inventory: {
+            where: branchId ? { branchId } : undefined,
+            include: { branch: { select: { id: true, name: true } } },
+          },
+        },
+      },
       inventory: {
-        where: branchId ? { branchId } : undefined,
+        where: branchId ? { branchId, variantId: null } : { variantId: null },
         include: { branch: { select: { id: true, name: true } } },
       },
     };
@@ -552,12 +561,21 @@ export class ProductsService {
       sellingPrice: Number(product.sellingPrice),
       quantityAlert: product.quantityAlert,
       isActive: product.isActive,
-      variants: (product.variants ?? []).map((v: any) => ({
-        id: v.id,
-        name: v.name,
-        sellingPrice: Number(v.sellingPrice),
-        ...(includeOwnerFields ? { costPrice: Number(v.costPrice) } : {}),
-      })),
+      variants: (product.variants ?? []).map((v: any) => {
+        const vQuantities = (v.inventory ?? []).map((inv: any) => ({
+          branchId: inv.branchId,
+          branchName: inv.branch?.name ?? null,
+          quantity: inv.quantity,
+        }));
+        return {
+          id: v.id,
+          name: v.name,
+          sellingPrice: Number(v.sellingPrice),
+          quantities: vQuantities,
+          totalQuantity: vQuantities.reduce((sum: number, q: any) => sum + q.quantity, 0),
+          ...(includeOwnerFields ? { costPrice: Number(v.costPrice) } : {}),
+        };
+      }),
       quantities,
       totalQuantity,
       createdAt: product.createdAt,
