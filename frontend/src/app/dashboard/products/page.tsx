@@ -55,6 +55,8 @@ export default function ProductsPage() {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showRestockModal, setShowRestockModal] = useState(false);
+  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [formVariantType, setFormVariantType] = useState<'none' | 'flavor' | 'color'>('none');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [archivingProduct, setArchivingProduct] = useState<Product | null>(null);
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
@@ -82,6 +84,11 @@ export default function ProductsPage() {
   }
 
   function openAddModal() {
+    setShowTypeSelector(true);
+  }
+  function selectTypeAndOpenForm(type: 'none' | 'flavor' | 'color') {
+    setFormVariantType(type);
+    setShowTypeSelector(false);
     setFormName(''); setFormBrand(brands[0]?.id ?? ''); setFormPrice(''); setFormAlert('0');
     setFormImage(null);
     const q: Record<string, string> = {}; branchesForForm.forEach((b) => (q[b.id] = ''));
@@ -89,14 +96,12 @@ export default function ProductsPage() {
   }
   function openEditModal(product: Product) {
     setEditingProduct(product);
+    setFormVariantType((product.variantType as 'none' | 'flavor' | 'color') ?? 'none');
     setFormName(product.name); setFormBrand(product.brand?.id ?? brands[0]?.id ?? '');
     setFormPrice(product.sellingPrice.toString()); setFormCostPrice(product.costPrice?.toString() ?? ''); setFormAlert(product.quantityAlert.toString());
     setFormImage(product.image ?? null);
     const q: Record<string, string> = {};
     if (product.variants && product.variants.length > 0) {
-      // Per-flavor quantities: key format is "branchId__variantId"
-      // TODO: backend needs to return per-variant inventory data
-      // For now, initialize to empty (admin will fill in)
       branchesForEdit.forEach((b) => {
         product.variants.forEach((v) => { q[`${b.id}__${v.id}`] = '0'; });
       });
@@ -127,7 +132,7 @@ export default function ProductsPage() {
     if (!formBrand) { setFormError('Please select a brand.'); return; }
     setFormError(null);
     try {
-      await createProduct.mutateAsync({ name: formName.trim(), brandId: formBrand, sellingPrice: parseFloat(formPrice) || 0, costPrice: parseFloat(formCostPrice) || 0, quantityAlert: parseInt(formAlert) || 0, image: formImage ?? undefined, quantities: buildQuantitiesPayload() });
+      await createProduct.mutateAsync({ name: formName.trim(), brandId: formBrand, variantType: formVariantType, sellingPrice: parseFloat(formPrice) || 0, costPrice: parseFloat(formCostPrice) || 0, quantityAlert: parseInt(formAlert) || 0, image: formImage ?? undefined, quantities: buildQuantitiesPayload() });
       setShowAddModal(false);
     } catch (e) { setFormError(getApiErrorMessage(e)); }
   }
@@ -293,12 +298,27 @@ export default function ProductsPage() {
                 </tr>
                 {expandedProductId === product.id && (
                   <tr className="border-t border-card-border bg-white/[0.02]">
-                    <td colSpan={8} className="px-3 py-2">
-                      <FlavorManager
-                        productId={product.id}
-                        variants={product.variants ?? []}
-                        onClose={() => setExpandedProductId(null)}
-                      />
+                    <td colSpan={8} className="px-3 py-3">
+                      <div className="rounded-lg border border-card-border p-3 bg-white/5">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-semibold text-text-primary">
+                            {product.variantType === 'color' ? 'Colors' : product.variantType === 'flavor' ? 'Flavors' : 'Stock'} — View Only
+                          </h4>
+                          <button onClick={() => setExpandedProductId(null)} className="text-text-muted hover:text-text-primary"><X size={14} /></button>
+                        </div>
+                        {product.variants && product.variants.length > 0 ? (
+                          <div className="space-y-1">
+                            {product.variants.map((v) => (
+                              <div key={v.id} className="flex items-center justify-between rounded bg-white/5 px-2.5 py-1.5 text-sm">
+                                <span className="font-medium text-text-primary">{v.name}</span>
+                                <span className="text-xs text-text-muted">Stock info in Edit modal</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-text-muted">No variants. Simple product.</p>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -320,6 +340,28 @@ export default function ProductsPage() {
         )}
       </div>
 
+      {showTypeSelector && (
+        <Modal title="Add New Product" onClose={() => setShowTypeSelector(false)}>
+          <p className="text-sm text-text-secondary mb-4">What type of product is this?</p>
+          <div className="grid grid-cols-3 gap-3">
+            <button onClick={() => selectTypeAndOpenForm('flavor')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-card-border bg-white/5 hover:border-accent-blue hover:bg-accent-blue/5 transition">
+              <span className="text-2xl">🧪</span>
+              <span className="text-sm font-medium text-text-primary">Flavors</span>
+              <span className="text-[10px] text-text-muted text-center">Pods, Juice, Liquid</span>
+            </button>
+            <button onClick={() => selectTypeAndOpenForm('color')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-card-border bg-white/5 hover:border-accent-blue hover:bg-accent-blue/5 transition">
+              <span className="text-2xl">🎨</span>
+              <span className="text-sm font-medium text-text-primary">Colors</span>
+              <span className="text-[10px] text-text-muted text-center">Device, Mod, Kit</span>
+            </button>
+            <button onClick={() => selectTypeAndOpenForm('none')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-card-border bg-white/5 hover:border-accent-blue hover:bg-accent-blue/5 transition">
+              <span className="text-2xl">📦</span>
+              <span className="text-sm font-medium text-text-primary">Simple</span>
+              <span className="text-[10px] text-text-muted text-center">Cotton, Coil, Accessory</span>
+            </button>
+          </div>
+        </Modal>
+      )}
       {showAddModal && (
         <ProductFormModal title="Add New Product" onClose={() => setShowAddModal(false)} onSubmit={handleAdd} error={formError} buttonLabel={createProduct.isPending ? 'Saving...' : 'Save Product'} disabled={createProduct.isPending} formName={formName} setFormName={setFormName} formBrand={formBrand} setFormBrand={setFormBrand} formPrice={formPrice} setFormPrice={setFormPrice} formCostPrice={formCostPrice} setFormCostPrice={setFormCostPrice} isOwner={isOwner} formAlert={formAlert} setFormAlert={setFormAlert} formImage={formImage} setFormImage={setFormImage} isAdmin={isAdmin} formQuantities={formQuantities} setFormQuantities={setFormQuantities} branches={branchesForForm} brands={brands} />
       )}
