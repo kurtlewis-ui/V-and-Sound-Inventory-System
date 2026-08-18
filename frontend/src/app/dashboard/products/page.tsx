@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2, X, Loader2, Upload, Download, RefreshCw, FileDown, ClipboardList, ChevronDown } from 'lucide-react';
 import {
   useProducts,
@@ -207,7 +207,8 @@ export default function ProductsPage() {
               <tr><td colSpan={8} className="text-center py-8 text-text-muted">No products found. Add one or import a CSV.</td></tr>
             ) : (
               displayProducts.map((product, i) => (
-                <tr key={product.id} className="border-t border-card-border transition-colors align-top">
+                <React.Fragment key={product.id}>
+                <tr className="border-t border-card-border transition-colors align-top">
                   <td className="px-3 py-3 text-sm text-accent-blue font-medium">{(entriesPerPage === 'All' ? 0 : (currentPage - 1) * (entriesPerPage as number)) + i + 1}</td>
                   <td className="px-3 py-3">
                     {product.image ? (
@@ -280,6 +281,7 @@ export default function ProductsPage() {
                     </td>
                   </tr>
                 )}
+                </React.Fragment>
               ))
             )}
           </tbody>
