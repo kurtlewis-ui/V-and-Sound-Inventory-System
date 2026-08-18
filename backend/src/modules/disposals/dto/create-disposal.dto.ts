@@ -19,6 +19,11 @@ export class CreateDisposalDto {
   @IsUUID()
   productId: string;
 
+  @ApiProperty({ required: false, description: 'Variant/Flavor ID (if product has flavors)' })
+  @IsOptional()
+  @IsUUID()
+  variantId?: string;
+
   @ApiProperty({ example: 2, description: 'Units to write off (must be in stock)' })
   @Type(() => Number)
   @IsInt()

@@ -21,6 +21,16 @@ export class RestockItemDto {
   @IsString()
   productName?: string;
 
+  @ApiProperty({ required: false, description: 'Variant/Flavor ID' })
+  @IsOptional()
+  @IsUUID()
+  variantId?: string;
+
+  @ApiProperty({ required: false, description: 'Variant/Flavor name (used when no ID given, e.g. CSV import)' })
+  @IsOptional()
+  @IsString()
+  variantName?: string;
+
   @ApiProperty({ required: false, description: 'Branch ID (preferred)' })
   @IsOptional()
   @IsUUID()

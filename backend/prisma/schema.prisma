@@ -190,6 +190,7 @@ model Product {
 
   // Relations
   brand          Brand           @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  variants       ProductVariant[]
   inventory      Inventory[]
   saleItems      SaleItem[]
   disposals      Disposal[]
@@ -200,20 +201,50 @@ model Product {
   @@map("products")
 }
 
-// Per-branch stock level for a product.
+// A flavor/variant of a product. Products without variants behave as single-
+// item products (backward compatible). When variants exist, inventory and
+// sales are tracked per variant.
+model ProductVariant {
+  id           String    @id @default(uuid()) @db.Uuid
+  productId    String    @map("product_id") @db.Uuid
+  name         String    @db.VarChar(100)  // e.g. "Watermelon", "Mint"
+  sellingPrice Decimal   @default(0) @map("selling_price") @db.Decimal(10, 2)
+  costPrice    Decimal   @default(0) @map("cost_price") @db.Decimal(10, 2)
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inventory      Inventory[]
+  saleItems      SaleItem[]
+  disposals      Disposal[]
+  stockMovements StockMovement[]
+
+  @@index([productId])
+  @@index([isActive])
+  @@map("product_variants")
+}
+
+// Per-branch stock level for a product (or a specific variant/flavor).
+// When a product has variants, each variant has its own inventory row.
+// When a product has no variants, the row has variantId = null.
 model Inventory {
   id        String   @id @default(uuid()) @db.Uuid
   productId String   @map("product_id") @db.Uuid
+  variantId String?  @map("variant_id") @db.Uuid
   branchId  String   @map("branch_id") @db.Uuid
   quantity  Int      @default(0)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  branch  Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
-  @@unique([productId, branchId])
+  @@unique([productId, variantId, branchId])
   @@index([branchId])
+  @@index([variantId])
   @@map("inventory")
 }
 
@@ -234,6 +265,7 @@ enum StockMovementType {
 model StockMovement {
   id            String            @id @default(uuid()) @db.Uuid
   productId     String            @map("product_id") @db.Uuid
+  variantId     String?           @map("variant_id") @db.Uuid
   branchId      String            @map("branch_id") @db.Uuid
   userId        String?           @map("user_id") @db.Uuid
   type          StockMovementType
@@ -246,11 +278,13 @@ model StockMovement {
   createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
 
   // Relations
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  branch  Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  user    User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([productId, branchId, createdAt(sort: Desc)])
+  @@index([variantId])
   @@index([branchId])
   @@index([userId])
   @@index([createdAt(sort: Desc)])
@@ -335,9 +369,12 @@ model SaleItem {
   id        String  @id @default(uuid()) @db.Uuid
   saleId    String  @map("sale_id") @db.Uuid
   productId String? @map("product_id") @db.Uuid
+  variantId String? @map("variant_id") @db.Uuid
   // Snapshots so historical records survive product edits/deletes.
   name      String  @db.VarChar(150)
   brandName String  @map("brand_name") @db.VarChar(100)
+  // Flavor/variant name snapshot (null if product has no variants).
+  variantName String? @map("variant_name") @db.VarChar(100)
   quantity  Int
   unitPrice Decimal @map("unit_price") @db.Decimal(10, 2)
   // Cost price snapshot at time of sale (for profit calculations, Owner-only).
@@ -358,11 +395,13 @@ model SaleItem {
   paymentSplit  Json?         @map("payment_split") @db.JsonB
 
   // Relations
-  sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  sale    Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
 
   @@index([saleId])
   @@index([productId])
+  @@index([variantId])
   @@map("sale_items")
 }
 
@@ -408,9 +447,12 @@ model Disposal {
   id          String   @id @default(uuid()) @db.Uuid
   branchId    String   @map("branch_id") @db.Uuid
   productId   String?  @map("product_id") @db.Uuid
+  variantId   String?  @map("variant_id") @db.Uuid
   // Snapshots so the record survives product edits/deletes.
   productName String   @map("product_name") @db.VarChar(150)
   brandName   String   @map("brand_name") @db.VarChar(100)
+  // Flavor/variant name snapshot (null if product has no variants).
+  variantName String?  @map("variant_name") @db.VarChar(100)
   quantity    Int
   // Per-unit price snapshot + total value written off (PHP).
   unitPrice   Decimal  @map("unit_price") @db.Decimal(10, 2)
@@ -426,13 +468,15 @@ model Disposal {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
   // Relations
-  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
-  createdBy User?    @relation("DisposalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  decidedBy User?    @relation("DisposalDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  branch    Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  product   Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  createdBy User?           @relation("DisposalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  decidedBy User?           @relation("DisposalDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
 
   @@index([branchId])
   @@index([productId])
+  @@index([variantId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@map("disposals")

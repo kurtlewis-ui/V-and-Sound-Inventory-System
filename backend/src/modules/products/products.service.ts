@@ -9,6 +9,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
 import { ImportProductRowDto } from './dto/import-products.dto';
 import { RestockItemDto } from './dto/restock.dto';
+import { CreateVariantDto, UpdateVariantDto } from './dto/variant.dto';
 import { slugify, uniqueSlug } from '../../common/utils/string.util';
 
 @Injectable()
@@ -179,14 +180,14 @@ export class ProductsService {
       for (const q of dto.quantities) {
         // Get current quantity before update
         const currentInv = await this.prisma.inventory.findUnique({
-          where: { productId_branchId: { productId: id, branchId: q.branchId } },
+          where: { productId_variantId_branchId: { productId: id, variantId: null, branchId: q.branchId } },
         });
         const oldQty = currentInv?.quantity ?? 0;
         const newQty = q.quantity;
         const diff = newQty - oldQty;
 
         await this.prisma.inventory.upsert({
-          where: { productId_branchId: { productId: id, branchId: q.branchId } },
+          where: { productId_variantId_branchId: { productId: id, variantId: null, branchId: q.branchId } },
           create: { productId: id, branchId: q.branchId, quantity: q.quantity },
           update: { quantity: q.quantity },
         });
@@ -336,11 +337,11 @@ export class ProductsService {
         });
         for (const inv of invRows) {
           const currentInv = await this.prisma.inventory.findUnique({
-            where: { productId_branchId: { productId: existing.id, branchId: inv.branchId } },
+            where: { productId_variantId_branchId: { productId: existing.id, variantId: null, branchId: inv.branchId } },
           });
           const oldQty = currentInv?.quantity ?? 0;
           await this.prisma.inventory.upsert({
-            where: { productId_branchId: { productId: existing.id, branchId: inv.branchId } },
+            where: { productId_variantId_branchId: { productId: existing.id, variantId: null, branchId: inv.branchId } },
             create: { productId: existing.id, branchId: inv.branchId, quantity: inv.quantity },
             update: { quantity: inv.quantity },
           });
@@ -400,9 +401,9 @@ export class ProductsService {
   }
 
   /**
-   * Add stock to products at branches. Each item adds `quantity` to the current
-   * inventory (creating the inventory row if needed). Products/branches can be
-   * referenced by id or by name (name is used for CSV-style restocks).
+   * Add stock to products (or specific flavors) at branches. Each item adds
+   * `quantity` to the current inventory (creating the inventory row if needed).
+   * Products/branches/variants can be referenced by id or by name.
    */
   async restock(items: RestockItemDto[], userId: string) {
     let updated = 0;
@@ -411,15 +412,34 @@ export class ProductsService {
     for (const [index, item] of items.entries()) {
       // Resolve product.
       let product = item.productId
-        ? await this.prisma.product.findFirst({ where: { id: item.productId, deletedAt: null } })
+        ? await this.prisma.product.findFirst({ where: { id: item.productId, deletedAt: null }, include: { variants: { where: { isActive: true } } } })
         : item.productName
           ? await this.prisma.product.findFirst({
               where: { name: { equals: item.productName.trim(), mode: 'insensitive' }, deletedAt: null },
+              include: { variants: { where: { isActive: true } } },
             })
           : null;
       if (!product) {
         warnings.push(`Row ${index + 1}: product not found (${item.productName ?? item.productId}) — skipped`);
         continue;
+      }
+
+      // Resolve variant (optional).
+      let variantId: string | null = null;
+      if (item.variantId) {
+        const variant = product.variants?.find((v: any) => v.id === item.variantId);
+        if (!variant) {
+          warnings.push(`Row ${index + 1}: flavor not found (${item.variantId}) — skipped`);
+          continue;
+        }
+        variantId = variant.id;
+      } else if (item.variantName) {
+        const variant = product.variants?.find((v: any) => v.name.toLowerCase() === item.variantName!.trim().toLowerCase());
+        if (!variant) {
+          warnings.push(`Row ${index + 1}: flavor "${item.variantName}" not found for "${product.name}" — skipped`);
+          continue;
+        }
+        variantId = variant.id;
       }
 
       // Resolve branch.
@@ -437,19 +457,20 @@ export class ProductsService {
 
       await this.prisma.$transaction(async (tx) => {
         await tx.inventory.upsert({
-          where: { productId_branchId: { productId: product.id, branchId: branch.id } },
-          create: { productId: product.id, branchId: branch.id, quantity: Math.max(0, item.quantity) },
+          where: { productId_variantId_branchId: { productId: product!.id, variantId, branchId: branch!.id } },
+          create: { productId: product!.id, variantId, branchId: branch!.id, quantity: Math.max(0, item.quantity) },
           update: { quantity: { increment: item.quantity } },
         });
 
         // Log the stock movement (read inside same transaction for accuracy)
         const inv = await tx.inventory.findUnique({
-          where: { productId_branchId: { productId: product.id, branchId: branch.id } },
+          where: { productId_variantId_branchId: { productId: product!.id, variantId, branchId: branch!.id } },
         });
         await tx.stockMovement.create({
           data: {
-            productId: product.id,
-            branchId: branch.id,
+            productId: product!.id,
+            variantId,
+            branchId: branch!.id,
             userId: userId,
             type: 'RESTOCK',
             quantityChange: item.quantity,
@@ -481,6 +502,7 @@ export class ProductsService {
   private includeFull(branchId?: string) {
     return {
       brand: { select: { id: true, name: true, slug: true } },
+      variants: { where: { isActive: true }, orderBy: { name: 'asc' as const } },
       inventory: {
         where: branchId ? { branchId } : undefined,
         include: { branch: { select: { id: true, name: true } } },
@@ -510,6 +532,12 @@ export class ProductsService {
       sellingPrice: Number(product.sellingPrice),
       quantityAlert: product.quantityAlert,
       isActive: product.isActive,
+      variants: (product.variants ?? []).map((v: any) => ({
+        id: v.id,
+        name: v.name,
+        sellingPrice: Number(v.sellingPrice),
+        ...(includeOwnerFields ? { costPrice: Number(v.costPrice) } : {}),
+      })),
       quantities,
       totalQuantity,
       createdAt: product.createdAt,
@@ -553,5 +581,113 @@ export class ProductsService {
         newValues: newValues ?? undefined,
       },
     });
+  }
+
+  // ===========================================================================
+  // VARIANTS (Flavors)
+  // ===========================================================================
+
+  /** List all active variants for a product. */
+  async findVariants(productId: string, role?: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, deletedAt: null },
+    });
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const variants = await this.prisma.productVariant.findMany({
+      where: { productId, isActive: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const includeOwnerFields = role === 'Owner' || role === 'Admin';
+    return variants.map((v) => this.serializeVariant(v, includeOwnerFields));
+  }
+
+  /** Create a new variant (flavor) for a product. */
+  async createVariant(productId: string, dto: CreateVariantDto, userId: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, deletedAt: null },
+    });
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const variant = await this.prisma.productVariant.create({
+      data: {
+        productId,
+        name: dto.name.trim(),
+        sellingPrice: dto.sellingPrice,
+        costPrice: dto.costPrice ?? 0,
+      },
+    });
+
+    await this.audit(userId, 'VARIANT_CREATED', variant.id, null, {
+      product: product.name,
+      variant: variant.name,
+    });
+
+    return this.serializeVariant(variant, true);
+  }
+
+  /** Update a variant's name, price, or cost price. */
+  async updateVariant(variantId: string, dto: UpdateVariantDto, userId: string) {
+    const variant = await this.prisma.productVariant.findUnique({
+      where: { id: variantId },
+      include: { product: { select: { name: true } } },
+    });
+    if (!variant) {
+      throw new NotFoundException('Variant not found');
+    }
+
+    const data: any = {};
+    if (dto.name !== undefined) data.name = dto.name.trim();
+    if (dto.sellingPrice !== undefined) data.sellingPrice = dto.sellingPrice;
+    if (dto.costPrice !== undefined) data.costPrice = dto.costPrice;
+
+    const updated = await this.prisma.productVariant.update({
+      where: { id: variantId },
+      data,
+    });
+
+    await this.audit(userId, 'VARIANT_UPDATED', variantId, { name: variant.name }, data);
+
+    return this.serializeVariant(updated, true);
+  }
+
+  /** Soft-delete a variant (set isActive = false). */
+  async removeVariant(variantId: string, userId: string) {
+    const variant = await this.prisma.productVariant.findUnique({
+      where: { id: variantId },
+      include: { product: { select: { name: true } } },
+    });
+    if (!variant) {
+      throw new NotFoundException('Variant not found');
+    }
+
+    await this.prisma.productVariant.update({
+      where: { id: variantId },
+      data: { isActive: false },
+    });
+
+    await this.audit(userId, 'VARIANT_ARCHIVED', variantId, { name: variant.name }, null);
+
+    return { message: 'Variant archived successfully' };
+  }
+
+  private serializeVariant(variant: any, includeOwnerFields = false) {
+    const result: any = {
+      id: variant.id,
+      productId: variant.productId,
+      name: variant.name,
+      sellingPrice: Number(variant.sellingPrice),
+      isActive: variant.isActive,
+      createdAt: variant.createdAt,
+    };
+    if (includeOwnerFields) {
+      result.costPrice = Number(variant.costPrice);
+    }
+    return result;
   }
 }

@@ -8,8 +8,10 @@ import type { PaymentMethod, PaymentSplit } from './types';
 // for display only; the backend re-snapshots them when the sale is created.
 export interface DraftItem {
   productId: string;
+  variantId?: string | null;
   name: string;
   brandName: string;
+  variantName?: string | null;
   unitPrice: number;
   image: string | null;
   quantity: number;
@@ -26,8 +28,10 @@ export interface DraftItem {
 // (disposals are valued at the product's current selling price server-side).
 export interface DraftDisposalItem {
   productId: string;
+  variantId?: string | null;
   name: string;
   brandName: string;
+  variantName?: string | null;
   image: string | null;
   quantity: number;
   reason?: string | null;

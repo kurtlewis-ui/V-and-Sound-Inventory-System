@@ -571,7 +571,7 @@ function DraftBag() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-text-primary">{item.name}</p>
+                            <p className="truncate text-sm font-medium text-text-primary">{item.name}{item.variantName ? ` (${item.variantName})` : ''}</p>
                             <p className="truncate text-xs text-text-muted">{item.brandName}</p>
                             <div className="flex items-center justify-between">
                               <p className="text-xs text-text-secondary">
