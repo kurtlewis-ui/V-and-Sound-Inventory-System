@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Upload, Download, RefreshCw, FileDown, ClipboardList } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, Upload, Download, RefreshCw, FileDown, ClipboardList, ChevronDown } from 'lucide-react';
 import {
   useProducts,
   useBrands,
@@ -21,6 +21,7 @@ import { fileToResizedDataUrl } from '@/lib/image';
 import { useAuthStore } from '@/lib/store';
 import type { Product, ImportResult, RestockResult } from '@/lib/types';
 import { StockHistoryModal } from '@/components/StockHistoryModal';
+import { FlavorManager } from '@/components/FlavorManager';
 
 const ENTRIES_OPTIONS = [5, 10, 25, 50, 100, 'All'] as const;
 
@@ -28,6 +29,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [shopFilter, setShopFilter] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [entriesPerPage, setEntriesPerPage] = useState<number | 'All'>(10);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -258,12 +260,26 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-3 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)} className={`icon-btn transition ${expandedProductId === product.id ? 'text-accent-blue bg-accent-blue/10' : 'text-text-secondary hover:bg-white/10'}`} title="Flavors">
+                        <ChevronDown size={16} className={`transition-transform ${expandedProductId === product.id ? 'rotate-180' : ''}`} />
+                      </button>
                       {shopFilter && <button onClick={() => setHistoryProduct(product)} className="icon-btn text-text-secondary hover:bg-white/10" title="Stock History"><ClipboardList size={16} /></button>}
                       <button onClick={() => openEditModal(product)} className="icon-btn text-accent-blue hover:bg-accent-blue/10"><Pencil size={16} /></button>
                       <button onClick={() => { setArchivingProduct(product); setFormError(null); setShowArchiveModal(true); }} className="icon-btn text-accent-red hover:bg-accent-red/10"><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
+                {expandedProductId === product.id && (
+                  <tr className="border-t border-card-border bg-white/[0.02]">
+                    <td colSpan={8} className="px-3 py-2">
+                      <FlavorManager
+                        productId={product.id}
+                        variants={product.variants ?? []}
+                        onClose={() => setExpandedProductId(null)}
+                      />
+                    </td>
+                  </tr>
+                )}
               ))
             )}
           </tbody>
