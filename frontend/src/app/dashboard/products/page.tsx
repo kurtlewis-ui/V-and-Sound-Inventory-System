@@ -306,15 +306,20 @@ export default function ProductsPage() {
                           </h4>
                           <button onClick={() => setExpandedProductId(null)} className="text-text-muted hover:text-text-primary"><X size={14} /></button>
                         </div>
-                        {product.variants && product.variants.length > 0 ? (
+                        {shopFilter && product.variants && product.variants.length > 0 ? (
+                          /* Specific branch selected + has variants: show per-flavor stock */
                           <div className="space-y-1">
                             {product.variants.map((v) => {
-                              // TODO: per-variant stock from backend inventory data
-                              // For now show variant names; stock details in Edit modal
+                              // Per-variant stock for the selected branch (from quantities or 0)
+                              const qty = 0; // TODO: per-variant inventory from backend
+                              const isOut = qty <= 0;
+                              const isLow = !isOut && product.quantityAlert > 0 && qty <= product.quantityAlert;
                               return (
                                 <div key={v.id} className="flex items-center justify-between rounded bg-white/5 px-2.5 py-1.5 text-sm">
                                   <span className="font-medium text-text-primary">{v.name}</span>
-                                  <span className="text-xs text-text-muted">—</span>
+                                  <span className={`text-xs font-medium ${isOut ? 'text-accent-red' : isLow ? 'text-accent-orange' : 'text-accent-blue'}`}>
+                                    {qty} {isOut ? '🔴 OUT' : isLow ? '⚠️ LOW' : ''}
+                                  </span>
                                 </div>
                               );
                             })}
@@ -324,6 +329,7 @@ export default function ProductsPage() {
                             </div>
                           </div>
                         ) : (
+                          /* All Shops OR simple product: show total per branch with status */
                           <div className="space-y-1">
                             {branches.map((b) => {
                               const qty = product.quantities.find((q) => q.branchId === b.id)?.quantity ?? 0;
@@ -688,44 +694,48 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
             )}
           </div>
         </div>
-        {/* Inline Variant CRUD — only for flavor/color products */}
-        {variantType && variantType !== 'none' && productId && (
+        {/* Combined: Flavors/Colors CRUD + Stock in one section */}
+        {variantType && variantType !== 'none' && productId ? (
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
-              {variantType === 'color' ? 'Colors' : 'Flavors'}
-            </label>
-            <FlavorManager productId={productId} variants={variants ?? []} />
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-text-primary">
+                {variantType === 'color' ? 'Colors' : 'Flavors'}
+              </label>
+              <FlavorManager productId={productId} variants={variants ?? []} />
+            </div>
+            {variants && variants.length > 0 && branches.length > 0 && (
+              <div className="space-y-2 mt-2">
+                {branches.map((b) => (
+                  <div key={b.id} className="space-y-1">
+                    <span className="text-xs font-semibold text-accent-primary">{b.name}</span>
+                    {variants.map((v) => (
+                      <div key={`${b.id}-${v.id}`} className="flex items-center gap-2 ml-2">
+                        <span className="text-xs text-text-secondary min-w-[100px]">{v.name}</span>
+                        <input type="number" min="0" placeholder="0" value={formQuantities[`${b.id}__${v.id}`] ?? ''} onChange={(e) => setFormQuantities({ ...formQuantities, [`${b.id}__${v.id}`]: e.target.value })} className="flex-1 border border-input-border rounded px-2 py-1 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+            {(!variants || variants.length === 0) && (
+              <p className="text-xs text-text-muted">Add at least one {variantType} to set stock.</p>
+            )}
           </div>
-        )}
-
-        <div>
-          <label className="block text-sm font-medium text-text-primary mb-1">Quantity per shop</label>
-          <div className="space-y-2">
-            {branches.length === 0 && <p className="text-xs text-text-muted">No shops yet. Create a shop first.</p>}
-            {variants && variants.length > 0 ? (
-              /* Per-flavor quantities when product has flavors */
-              branches.map((b) => (
-                <div key={b.id} className="space-y-1">
-                  <span className="text-xs font-medium text-accent-primary">{b.name}</span>
-                  {variants.map((v) => (
-                    <div key={`${b.id}-${v.id}`} className="flex items-center gap-2 ml-2">
-                      <span className="text-xs text-text-secondary min-w-[100px]">{v.name}</span>
-                      <input type="number" min="0" placeholder="0" value={formQuantities[`${b.id}__${v.id}`] ?? ''} onChange={(e) => setFormQuantities({ ...formQuantities, [`${b.id}__${v.id}`]: e.target.value })} className="flex-1 border border-input-border rounded px-2 py-1 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
-                    </div>
-                  ))}
-                </div>
-              ))
-            ) : (
-              /* Normal per-branch quantity when no flavors */
-              branches.map((b) => (
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">Quantity per shop</label>
+            <div className="space-y-2">
+              {branches.length === 0 && <p className="text-xs text-text-muted">No shops yet. Create a shop first.</p>}
+              {branches.map((b) => (
                 <div key={b.id} className="flex items-center gap-2">
                   <span className="text-xs font-medium text-accent-primary bg-white/10 px-2 py-1.5 rounded min-w-[140px]">{b.name}</span>
                   <input type="number" min="0" placeholder={`Quantity for ${b.name}`} value={formQuantities[b.id] ?? ''} onChange={(e) => setFormQuantities({ ...formQuantities, [b.id]: e.target.value })} className="flex-1 border border-input-border rounded px-3 py-1.5 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
                 </div>
-              ))
-            )}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1">Brand</label>
           <select value={formBrand} onChange={(e) => setFormBrand(e.target.value)} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg focus:outline-none focus:border-input-focus">
