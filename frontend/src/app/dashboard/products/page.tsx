@@ -192,7 +192,7 @@ export default function ProductsPage() {
     if (!formBrand) { setFormError('Please select a brand.'); return; }
     setFormError(null);
     try {
-      await updateProduct.mutateAsync({ id: editingProduct.id, name: formName.trim(), brandId: formBrand, sellingPrice: parseFloat(formPrice) || 0, costPrice: parseFloat(formCostPrice) || 0, quantityAlert: parseInt(formAlert) || 0, image: formImage ?? '', quantities: buildQuantitiesPayload() });
+      await updateProduct.mutateAsync({ id: editingProduct.id, name: formName.trim(), brandId: formBrand, sellingPrice: parseFloat(formPrice) || 0, costPrice: parseFloat(formCostPrice) || 0, quantityAlert: parseInt(formAlert) || 0, image: formImage ?? undefined, quantities: buildQuantitiesPayload() });
       setEditingProduct(null); setShowEditModal(false);
     } catch (e) { setFormError(getApiErrorMessage(e)); }
   }
