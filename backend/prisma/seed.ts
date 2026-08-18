@@ -14,17 +14,26 @@ const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'ChangeMe123!';
 async function main() {
   console.log('🌱 Starting database seed (clean bootstrap)...');
 
-  // Ensure the old inventory unique constraint is dropped (may have survived
-  // a partial migration timeout). The new constraint includes variant_id.
+  // Fix inventory constraints — dynamically find and drop any old unique
+  // constraint that doesn't include variant_id, then ensure the correct one exists.
   try {
-    await prisma.$executeRawUnsafe(`ALTER TABLE "inventory" DROP CONSTRAINT IF EXISTS "inventory_product_id_branch_id_key"`);
-    console.log('✅ Old inventory constraint dropped (or already gone)');
-  } catch (e) {
-    console.log('⚠️ Could not drop old constraint (may already be gone):', (e as any).message);
-  }
+    // Find all unique constraints on inventory table
+    const constraints: any[] = await prisma.$queryRawUnsafe(`
+      SELECT conname FROM pg_constraint 
+      WHERE conrelid = 'inventory'::regclass 
+      AND contype = 'u'
+    `);
+    console.log('📋 Inventory constraints found:', constraints.map((c: any) => c.conname));
+    
+    // Drop any constraint that does NOT include variant_id (old-style product+branch only)
+    for (const c of constraints) {
+      if (c.conname && !c.conname.includes('variant')) {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "inventory" DROP CONSTRAINT IF EXISTS "${c.conname}"`);
+        console.log(`✅ Dropped old constraint: ${c.conname}`);
+      }
+    }
 
-  // Ensure the new unique constraint exists
-  try {
+    // Ensure the new constraint exists
     await prisma.$executeRawUnsafe(`
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inventory_product_id_variant_id_branch_id_key') THEN
@@ -32,9 +41,9 @@ async function main() {
         END IF;
       END $$;
     `);
-    console.log('✅ New inventory constraint verified');
+    console.log('✅ New inventory constraint (product_id, variant_id, branch_id) verified');
   } catch (e) {
-    console.log('⚠️ Constraint check:', (e as any).message);
+    console.log('⚠️ Constraint fix error:', (e as any).message);
   }
 
   // 1. Roles -----------------------------------------------------------------
