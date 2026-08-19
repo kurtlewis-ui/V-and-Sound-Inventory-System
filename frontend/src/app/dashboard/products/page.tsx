@@ -375,7 +375,7 @@ export default function ProductsPage() {
                               <div key={v.id} className="flex items-center justify-between rounded bg-white/5 px-2.5 py-1.5 text-sm">
                                 <span className="font-medium text-text-primary">{v.name}</span>
                                 <span className={`text-xs font-medium ${isOut ? 'text-accent-red' : isLow ? 'text-accent-orange' : 'text-accent-blue'}`}>
-                                  {vQty} {isOut ? '🔴 OUT' : isLow ? '⚠️ LOW' : ''}
+                                  {vQty}{isOut ? ' · Out' : isLow ? ' · Low' : ''}
                                 </span>
                               </div>
                             );
@@ -412,14 +412,17 @@ export default function ProductsPage() {
           <p className="text-sm text-text-secondary mb-4">What type of product is this?</p>
           <div className="grid grid-cols-3 gap-3">
             <button onClick={() => selectTypeAndOpenForm('flavor')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-card-border bg-white/5 hover:border-white/30 hover:bg-white/10 transition">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-secondary"><path d="M12 2C12 2 8 6 8 10c0 2.2 1.8 4 4 4s4-1.8 4-4c0-4-4-8-4-8z"/><path d="M12 14v8"/></svg>
               <span className="text-sm font-semibold text-text-primary">Flavors</span>
               <span className="text-[10px] text-text-muted text-center">Pods · Dispo · Juice</span>
             </button>
             <button onClick={() => selectTypeAndOpenForm('color')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-card-border bg-white/5 hover:border-white/30 hover:bg-white/10 transition">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-secondary"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
               <span className="text-sm font-semibold text-text-primary">Variants</span>
               <span className="text-[10px] text-text-muted text-center">Devices</span>
             </button>
             <button onClick={() => selectTypeAndOpenForm('none')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-card-border bg-white/5 hover:border-white/30 hover:bg-white/10 transition">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-secondary"><path d="M7 2h10l2 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6l2-4z"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="13" y2="14"/><path d="M10 6h4"/></svg>
               <span className="text-sm font-semibold text-text-primary">Cartridges</span>
               <span className="text-[10px] text-text-muted text-center">Others</span>
             </button>

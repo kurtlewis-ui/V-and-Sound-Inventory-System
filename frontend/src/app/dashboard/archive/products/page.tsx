@@ -1,22 +1,36 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Undo2, Loader2 } from 'lucide-react';
+import { Search, Undo2, Trash2, Loader2 } from 'lucide-react';
 import { useArchivedProducts, useRestoreProduct } from '@/lib/hooks';
-import { getApiErrorMessage } from '@/lib/api';
+import { getApiErrorMessage, api } from '@/lib/api';
 
 export default function ProductsArchivePage() {
-  const { data, isLoading, isError, error } = useArchivedProducts();
+  const { data, isLoading, isError, error, refetch } = useArchivedProducts();
   const restore = useRestoreProduct();
   const products = data?.data ?? [];
   const [search, setSearch] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingName, setDeletingName] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
 
   const handleRestore = async (id: string) => {
     setActionError(null);
     try { await restore.mutateAsync(id); } catch (e) { setActionError(getApiErrorMessage(e)); }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!deletingId) return;
+    setDeleteLoading(true);
+    try {
+      await api.delete(`/products/${deletingId}/permanent`);
+      setDeletingId(null);
+      refetch();
+    } catch (e) { setActionError(getApiErrorMessage(e)); }
+    finally { setDeleteLoading(false); }
   };
 
   return (
@@ -55,9 +69,12 @@ export default function ProductsArchivePage() {
                   <td className="px-4 py-3 text-sm text-text-primary font-medium">{product.name}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{product.brand?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-sm text-text-primary">{`\u20B1${product.sellingPrice.toFixed(2)}`}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 flex items-center gap-2">
                     <button onClick={() => handleRestore(product.id)} disabled={restore.isPending} className="inline-flex items-center gap-1 rounded-lg bg-accent-green/10 px-2.5 py-1 text-sm font-medium text-accent-green hover:bg-accent-green/20 transition-colors disabled:opacity-50" title="Restore">
                       <Undo2 size={14} /> Restore
+                    </button>
+                    <button onClick={() => { setDeletingId(product.id); setDeletingName(product.name); }} className="inline-flex items-center gap-1 rounded-lg bg-accent-red/10 px-2.5 py-1 text-sm font-medium text-accent-red hover:bg-accent-red/20 transition-colors" title="Delete permanently">
+                      <Trash2 size={14} />
                     </button>
                   </td>
                 </tr>
@@ -66,6 +83,21 @@ export default function ProductsArchivePage() {
           </table>
         </div>
       </div>
+
+      {deletingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setDeletingId(null)} />
+          <div className="relative bg-card-bg border border-card-border rounded-lg shadow-xl w-full max-w-sm mx-4 p-6 space-y-4">
+            <h3 className="text-lg font-bold text-text-primary">Permanently Delete</h3>
+            <p className="text-sm text-text-secondary">This action cannot be undone. The data for <strong className="text-text-primary">&ldquo;{deletingName}&rdquo;</strong> will be permanently removed and cannot be recovered.</p>
+            <p className="text-sm text-text-secondary">Are you sure you want to proceed?</p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setDeletingId(null)} className="px-4 py-2 text-sm text-text-secondary border border-card-border rounded-lg hover:bg-white/5 transition">Cancel</button>
+              <button onClick={handlePermanentDelete} disabled={deleteLoading} className="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 transition disabled:opacity-60">{deleteLoading ? <Loader2 size={14} className="inline animate-spin" /> : 'Delete Permanently'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
