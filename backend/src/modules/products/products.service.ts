@@ -197,21 +197,33 @@ export class ProductsService {
 
         // Atomic upsert — never throws a unique constraint error.
         if (variantId) {
+          // Non-null variantId: ON CONFLICT works correctly for non-null values.
           await this.prisma.$executeRawUnsafe(
             `INSERT INTO inventory (id, product_id, variant_id, branch_id, quantity, updated_at)
              VALUES (gen_random_uuid(), $1::uuid, $2::uuid, $3::uuid, $4::int, NOW())
-             ON CONFLICT (product_id, variant_id, branch_id)
+             ON CONFLICT ON CONSTRAINT inventory_product_id_variant_id_branch_id_key
              DO UPDATE SET quantity = $4::int, updated_at = NOW()`,
             id, variantId, q.branchId, newQty,
           );
         } else {
-          await this.prisma.$executeRawUnsafe(
-            `INSERT INTO inventory (id, product_id, variant_id, branch_id, quantity, updated_at)
-             VALUES (gen_random_uuid(), $1::uuid, NULL, $2::uuid, $3::int, NOW())
-             ON CONFLICT (product_id, variant_id, branch_id)
-             DO UPDATE SET quantity = $3::int, updated_at = NOW()`,
-            id, q.branchId, newQty,
+          // NULL variantId: ON CONFLICT doesn't work with NULLs in PostgreSQL
+          // (NULL != NULL), so use explicit check + insert/update.
+          const existing = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
+            `SELECT id FROM inventory WHERE product_id = $1::uuid AND variant_id IS NULL AND branch_id = $2::uuid LIMIT 1`,
+            id, q.branchId,
           );
+          if (existing.length > 0) {
+            await this.prisma.$executeRawUnsafe(
+              `UPDATE inventory SET quantity = $1::int, updated_at = NOW() WHERE id = $2::uuid`,
+              newQty, existing[0].id,
+            );
+          } else {
+            await this.prisma.$executeRawUnsafe(
+              `INSERT INTO inventory (id, product_id, variant_id, branch_id, quantity, updated_at)
+               VALUES (gen_random_uuid(), $1::uuid, NULL, $2::uuid, $3::int, NOW())`,
+              id, q.branchId, newQty,
+            );
+          }
         }
 
         // Log ADJUSTMENT if quantity actually changed
