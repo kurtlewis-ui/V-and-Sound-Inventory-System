@@ -23,7 +23,7 @@ export default function ProductsArchivePage() {
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
 
-  const handleRestore = async (id: string) => { setActionError(null); try { await restore.mutateAsync(id); showToast('Product has been restored.', 'green'); } catch (e) { setActionError(getApiErrorMessage(e)); showError('Failed to restore product.'); } };
+  const handleRestore = async (id: string) => { setActionError(null); try { await restore.mutateAsync(id); showToast('Product has been restored.', 'green', 'restore'); } catch (e) { setActionError(getApiErrorMessage(e)); showError('Failed to restore product.'); } };
 
   const startDelete = (id: string, name: string) => { setDeletingId(id); setDeletingName(name); setDeleteStep(1); setConfirmText(''); setActionError(null); };
   const cancelDelete = () => { setDeleteStep(0); setDeletingId(null); setConfirmText(''); };
@@ -31,7 +31,7 @@ export default function ProductsArchivePage() {
   const handlePermanentDelete = async () => {
     if (!deletingId || confirmText !== deletingName) return;
     setDeleteLoading(true);
-    try { await api.delete(`/products/${deletingId}/permanent`); cancelDelete(); refetch(); showToast('Product has been permanently deleted.', 'red'); } catch (e) { setActionError(getApiErrorMessage(e)); showError('Failed to delete product.'); cancelDelete(); }
+    try { await api.delete(`/products/${deletingId}/permanent`); cancelDelete(); refetch(); showToast('Product has been permanently deleted.', 'red', 'trash'); } catch (e) { setActionError(getApiErrorMessage(e)); showError('Failed to delete product.'); cancelDelete(); }
     finally { setDeleteLoading(false); }
   };
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Upload, Download, RefreshCw, FileDown, ClipboardList, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, Upload, Download, RefreshCw, FileDown, ClipboardList, ChevronDown, Archive } from 'lucide-react';
 import {
   useProducts,
   useBrands,
@@ -187,7 +187,7 @@ export default function ProductsPage() {
     try {
       await createProduct.mutateAsync({ name: formName.trim(), brandId: formBrand, variantType: formVariantType, sellingPrice: parseFloat(formPrice) || 0, costPrice: parseFloat(formCostPrice) || 0, quantityAlert: parseInt(formAlert) || 0, image: formImage ?? undefined, quantities: buildQuantitiesPayload() });
       setShowAddModal(false);
-      showToast('Product has been created.', 'green');
+      showToast('Product has been created.', 'green', 'restore');
     } catch (e) { setFormError(getApiErrorMessage(e)); showError('Failed to create product.'); }
   }
   async function handleEdit() {
@@ -197,12 +197,12 @@ export default function ProductsPage() {
     try {
       await updateProduct.mutateAsync({ id: editingProduct.id, name: formName.trim(), brandId: formBrand, sellingPrice: parseFloat(formPrice) || 0, costPrice: parseFloat(formCostPrice) || 0, quantityAlert: parseInt(formAlert) || 0, image: formImage ?? undefined, quantities: buildQuantitiesPayload() });
       setEditingProduct(null); setShowEditModal(false);
-      showToast('Product has been updated.', 'blue');
+      showToast('Product has been updated.', 'blue', 'check');
     } catch (e) { setFormError(getApiErrorMessage(e)); showError('Failed to update product.'); }
   }
   async function handleArchive() {
     if (!archivingProduct) return;
-    try { await archiveProduct.mutateAsync(archivingProduct.id); setArchivingProduct(null); setShowArchiveModal(false); showToast('Product has been archived.', 'yellow'); }
+    try { await archiveProduct.mutateAsync(archivingProduct.id); setArchivingProduct(null); setShowArchiveModal(false); showToast('Product has been archived.', 'orange', 'archive'); }
     catch (e) { setFormError(getApiErrorMessage(e)); showError('Failed to archive product.'); }
   }
 
@@ -356,7 +356,7 @@ export default function ProductsPage() {
                       )}
                       {shopFilter && <button onClick={() => setHistoryProduct(product)} className="icon-btn text-text-secondary hover:bg-white/10" title="Stock History"><ClipboardList size={16} /></button>}
                       <button onClick={() => openEditModal(product)} className="icon-btn text-accent-blue hover:bg-accent-blue/10"><Pencil size={16} /></button>
-                      <button onClick={() => { setArchivingProduct(product); setFormError(null); setShowArchiveModal(true); }} className="icon-btn text-accent-red hover:bg-accent-red/10"><Trash2 size={16} /></button>
+                      <button onClick={() => { setArchivingProduct(product); setFormError(null); setShowArchiveModal(true); }} className="icon-btn text-accent-orange hover:bg-accent-orange/10"><Archive size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -446,7 +446,7 @@ export default function ProductsPage() {
             {formError && <p className="text-sm text-accent-red">{formError}</p>}
             <div className="flex justify-end gap-2">
               <button onClick={() => { setShowArchiveModal(false); setArchivingProduct(null); }} className="btn-secondary text-text-primary px-4 py-2 rounded text-sm font-medium">Cancel</button>
-              <button onClick={handleArchive} disabled={archiveProduct.isPending} className="bg-btn-danger text-white px-4 py-2 rounded text-sm font-medium disabled:opacity-60">{archiveProduct.isPending ? 'Archiving...' : 'Yes, Archive'}</button>
+              <button onClick={handleArchive} disabled={archiveProduct.isPending} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded text-sm font-medium disabled:opacity-60 transition">{archiveProduct.isPending ? 'Archiving...' : 'Yes, Archive'}</button>
             </div>
           </div>
         </Modal>

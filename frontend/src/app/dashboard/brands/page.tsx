@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Plus, Search, Pencil, Trash2, X, Loader2 } from 'lucide-react';
-import {
+import { Archive, useEffect, useState } from 'react';
+import { Archive, Plus, Search, Pencil, Trash2, X, Loader2 } from 'lucide-react';
+import { Archive,
   useBrands,
   useCreateBrand,
   useUpdateBrand,
   useArchiveBrand,
 } from '@/lib/hooks';
-import { getApiErrorMessage } from '@/lib/api';
-import { fileToResizedDataUrl } from '@/lib/image';
+import { Archive, getApiErrorMessage } from '@/lib/api';
+import { useToast } from '@/components/Toast';
+import { Archive, fileToResizedDataUrl } from '@/lib/image';
 import type { Brand } from '@/lib/types';
 
 const PAGE_SIZES = [5, 10, 25, 50, 'All'] as const;
@@ -17,6 +18,7 @@ type PageSize = (typeof PAGE_SIZES)[number];
 
 export default function BrandsPage() {
   const [search, setSearch] = useState('');
+  const { showToast, showError } = useToast();
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [pageSize, setPageSize] = useState<PageSize>(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -70,7 +72,7 @@ export default function BrandsPage() {
       setFormName('');
       setFormCoverImage(null);
       setEditingBrand(null);
-      setShowEditModal(false);
+      setShowEditModal(false); showToast("Brand has been updated.", "blue", "check");
     } catch (e) { setFormError(getApiErrorMessage(e)); }
   }
 
@@ -79,7 +81,7 @@ export default function BrandsPage() {
     try {
       await archiveBrand.mutateAsync(archivingBrand.id);
       setArchivingBrand(null);
-      setShowArchiveModal(false);
+      setShowArchiveModal(false); showToast("Brand has been archived.", "orange", "archive");
     } catch (e) { setFormError(getApiErrorMessage(e)); }
   }
 
@@ -164,9 +166,9 @@ export default function BrandsPage() {
                       </button>
                       <button
                         onClick={() => { setArchivingBrand(brand); setFormError(null); setShowArchiveModal(true); }}
-                        className="icon-btn text-accent-red hover:bg-accent-red/10"
+                        className="icon-btn text-accent-orange hover:bg-accent-orange/10"
                       >
-                        <Trash2 size={16} />
+                        <Archive size={16} />
                       </button>
                     </div>
                   </td>
@@ -231,7 +233,7 @@ export default function BrandsPage() {
             {formError && <p className="text-sm text-accent-red">{formError}</p>}
             <div className="flex justify-end gap-2">
               <button onClick={() => { setShowArchiveModal(false); setArchivingBrand(null); }} className="btn-secondary text-text-primary px-4 py-2 rounded text-sm font-medium">Cancel</button>
-              <button onClick={handleArchive} disabled={archiveBrand.isPending} className="bg-btn-danger text-white px-4 py-2 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-60">{archiveBrand.isPending ? 'Archiving...' : 'Yes, Archive'}</button>
+              <button onClick={handleArchive} disabled={archiveBrand.isPending} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded text-sm font-medium transition disabled:opacity-60">{archiveBrand.isPending ? 'Archiving...' : 'Yes, Archive'}</button>
             </div>
           </div>
         </Modal>
