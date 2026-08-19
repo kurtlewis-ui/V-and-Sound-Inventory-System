@@ -209,10 +209,10 @@ export default function ProductsPage() {
       const type = p.variantType === 'flavor' ? 'Flavor' : p.variantType === 'color' ? 'Variant' : 'Cartridge';
       if (p.variants && p.variants.length > 0) {
         for (const v of p.variants) {
-          rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: v.name, cost: p.costPrice ?? p.sellingPrice });
+          rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: v.name, sellingPrice: p.sellingPrice });
         }
       } else {
-        rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: '', cost: p.costPrice ?? p.sellingPrice });
+        rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: '', sellingPrice: p.sellingPrice });
       }
     }
     generateRestockXlsx(rows, targetBranches, { filename: `products-export-${new Date().toISOString().slice(0, 10)}.xlsx` });
@@ -224,10 +224,10 @@ export default function ProductsPage() {
       const type = p.variantType === 'flavor' ? 'Flavor' : p.variantType === 'color' ? 'Variant' : 'Cartridge';
       if (p.variants && p.variants.length > 0) {
         for (const v of p.variants) {
-          rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: v.name, cost: p.costPrice ?? p.sellingPrice });
+          rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: v.name, sellingPrice: p.sellingPrice });
         }
       } else {
-        rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: '', cost: p.costPrice ?? p.sellingPrice });
+        rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: '', sellingPrice: p.sellingPrice });
       }
     }
     generateRestockXlsx(rows, targetBranches, { filename: `restock-template-${new Date().toISOString().slice(0, 10)}.xlsx` });
