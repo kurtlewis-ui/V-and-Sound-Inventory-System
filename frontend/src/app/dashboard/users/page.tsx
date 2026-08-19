@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Plus, Pencil, Trash2, X, Eye, EyeOff, RefreshCw, Loader2 } from 'lucide-react';
+import { Archive, Search, Plus, Pencil, Trash2, X, Eye, EyeOff, RefreshCw, Loader2 } from 'lucide-react';
 import {
   useUsers,
   useRoles,
@@ -12,6 +12,7 @@ import {
   useArchiveUser,
 } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
+import { useToast } from '@/components/Toast';
 import { fileToResizedDataUrl } from '@/lib/image';
 import { useAuthStore } from '@/lib/store';
 import type { FullUser } from '@/lib/types';
@@ -46,6 +47,7 @@ interface FormData {
 
 export default function UsersPage() {
   const [search, setSearch] = useState('');
+  const { showToast, showError } = useToast();
   const { data, isLoading, isError, error } = useUsers(search);
   const { data: roles = [] } = useRoles();
   const { data: branchData } = useBranches();
@@ -127,7 +129,7 @@ export default function UsersPage() {
     if (!selectedUser) return;
     try {
       await archiveUser.mutateAsync(selectedUser.id);
-      setShowArchiveModal(false);
+      setShowArchiveModal(false); showToast("User has been archived.", "orange", "archive");
       setSelectedUser(null);
     } catch (e) { setFormError(getApiErrorMessage(e)); }
   };
@@ -161,7 +163,7 @@ export default function UsersPage() {
         branchId: isStaffRole ? formData.branchId : undefined,
         avatarUrl: formData.avatarUrl || undefined,
       });
-      setShowAddModal(false);
+      setShowAddModal(false); showToast("User has been created.", "green", "restore");
     } catch (e) { setFormError(getApiErrorMessage(e)); }
   };
 
@@ -186,7 +188,7 @@ export default function UsersPage() {
           confirmPassword: formData.confirmPassword,
         });
       }
-      setShowEditModal(false);
+      setShowEditModal(false); showToast("User has been updated.", "blue", "check");
       setSelectedUser(null);
     } catch (e) { setFormError(getApiErrorMessage(e)); }
   };
@@ -415,8 +417,8 @@ export default function UsersPage() {
                       <button onClick={() => handleEdit(user)} className="p-1.5 text-accent-blue hover:bg-accent-blue/10 rounded-lg transition" title="Edit">
                         <Pencil size={15} />
                       </button>
-                      <button onClick={() => handleArchive(user)} className="p-1.5 text-accent-red hover:bg-accent-red/10 rounded-lg transition" title="Archive">
-                        <Trash2 size={15} />
+                      <button onClick={() => handleArchive(user)} className="p-1.5 text-accent-orange hover:bg-accent-orange/10 rounded-lg transition" title="Archive">
+                        <Archive size={15} />
                       </button>
                     </div>
                   </td>
@@ -454,7 +456,7 @@ export default function UsersPage() {
           {formError && <div className="rounded-lg bg-accent-red/10 border border-accent-red/30 px-3 py-2 text-sm text-accent-red mb-3">{formError}</div>}
           <div className="flex gap-3 justify-end">
             <button onClick={() => setShowArchiveModal(false)} className="px-4 py-2 border border-input-border rounded-lg text-sm text-text-primary hover:opacity-80 transition">Cancel</button>
-            <button onClick={confirmArchive} disabled={archiveUser.isPending} className="px-4 py-2 bg-accent-red text-white rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-60">
+            <button onClick={confirmArchive} disabled={archiveUser.isPending} className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-60">
               {archiveUser.isPending ? 'Archiving...' : 'Yes, Archive'}
             </button>
           </div>
