@@ -90,4 +90,12 @@ export class BrandsController {
     const data = await this.brandsService.remove(id, user.userId);
     return { success: true, data };
   }
+
+  @Delete(':id/permanent')
+  @Roles('Owner')
+  @ApiOperation({ summary: 'Permanently delete a brand (irreversible)' })
+  async permanentDelete(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+    const data = await this.brandsService.permanentDelete(id, user.userId);
+    return { success: true, data };
+  }
 }

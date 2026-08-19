@@ -113,4 +113,12 @@ export class BranchesController {
     const data = await this.branchesService.remove(id, user.userId);
     return { success: true, data };
   }
+
+  @Delete(':id/permanent')
+  @Roles('Owner')
+  @ApiOperation({ summary: 'Permanently delete a branch (irreversible)' })
+  async permanentDelete(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+    const data = await this.branchesService.permanentDelete(id, user.userId);
+    return { success: true, data };
+  }
 }

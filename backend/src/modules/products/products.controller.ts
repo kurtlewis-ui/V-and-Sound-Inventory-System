@@ -110,6 +110,17 @@ export class ProductsController {
     return { success: true, data };
   }
 
+  @Delete(':id/permanent')
+  @Roles('Owner')
+  @ApiOperation({ summary: 'Permanently delete a product (irreversible)' })
+  async permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const data = await this.productsService.permanentDelete(id, user.userId);
+    return { success: true, data };
+  }
+
   // ===========================================================================
   // VARIANTS (Flavors)
   // ===========================================================================
