@@ -23,10 +23,10 @@ export default function UsersArchivePage() {
 
   const filtered = users.filter((u) => `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(search.toLowerCase()));
 
-  const handleRestore = async (id: string) => { setActionError(null); try { await restore.mutateAsync(id); showToast('User has been restored.', 'green'); } catch (e) { setActionError(getApiErrorMessage(e)); } };
+  const handleRestore = async (id: string) => { setActionError(null); try { await restore.mutateAsync(id); showToast('User has been restored.', 'green', 'restore'); } catch (e) { setActionError(getApiErrorMessage(e)); } };
   const startDelete = (id: string, name: string) => { setDeletingId(id); setDeletingName(name); setDeleteStep(1); setConfirmText(''); setActionError(null); };
   const cancelDelete = () => { setDeleteStep(0); setDeletingId(null); setConfirmText(''); };
-  const handlePermanentDelete = async () => { if (!deletingId || confirmText !== deletingName) return; setDeleteLoading(true); try { await api.delete(`/users/${deletingId}/permanent`); cancelDelete(); refetch(); showToast('User has been permanently deleted.', 'red'); } catch (e) { setActionError(getApiErrorMessage(e)); cancelDelete(); } finally { setDeleteLoading(false); } };
+  const handlePermanentDelete = async () => { if (!deletingId || confirmText !== deletingName) return; setDeleteLoading(true); try { await api.delete(`/users/${deletingId}/permanent`); cancelDelete(); refetch(); showToast('User has been permanently deleted.', 'red', 'trash'); } catch (e) { setActionError(getApiErrorMessage(e)); cancelDelete(); } finally { setDeleteLoading(false); } };
 
   return (
     <div className="p-6 bg-page-bg min-h-screen">

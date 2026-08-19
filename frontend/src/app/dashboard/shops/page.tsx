@@ -1,18 +1,20 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Search, Pencil, Trash2, X, Loader2 } from 'lucide-react';
-import {
+import { Archive, useState } from 'react';
+import { Archive, Plus, Search, Pencil, Trash2, X, Loader2 } from 'lucide-react';
+import { Archive,
   useBranches,
   useCreateBranch,
   useUpdateBranch,
   useArchiveBranch,
 } from '@/lib/hooks';
-import { getApiErrorMessage } from '@/lib/api';
+import { Archive, getApiErrorMessage } from '@/lib/api';
+import { useToast } from '@/components/Toast';
 import type { Branch } from '@/lib/types';
 
 export default function ShopsPage() {
   const { data, isLoading, isError, error } = useBranches();
+  const { showToast, showError } = useToast();
   const createBranch = useCreateBranch();
   const updateBranch = useUpdateBranch();
   const archiveBranch = useArchiveBranch();
@@ -60,7 +62,7 @@ export default function ShopsPage() {
       setNewName('');
       setNewAddress('');
       setEditingShop(null);
-      setShowEditModal(false);
+      setShowEditModal(false); showToast("Shop has been updated.", "blue", "check");
     } catch (e) {
       setFormError(getApiErrorMessage(e));
     }
@@ -71,7 +73,7 @@ export default function ShopsPage() {
     try {
       await archiveBranch.mutateAsync(archivingShop.id);
       setArchivingShop(null);
-      setShowArchiveModal(false);
+      setShowArchiveModal(false); showToast("Shop has been archived.", "orange", "archive");
     } catch (e) {
       setFormError(getApiErrorMessage(e));
     }
@@ -137,10 +139,10 @@ export default function ShopsPage() {
                       </button>
                       <button
                         onClick={() => { setArchivingShop(shop); setFormError(null); setShowArchiveModal(true); }}
-                        className="icon-btn text-accent-red hover:bg-accent-red/10"
+                        className="icon-btn text-accent-orange hover:bg-accent-orange/10"
                         title="Archive"
                       >
-                        <Trash2 size={16} />
+                        <Archive size={16} />
                       </button>
                     </div>
                   </td>
@@ -226,7 +228,7 @@ export default function ShopsPage() {
               <button onClick={() => { setShowArchiveModal(false); setArchivingShop(null); }} className="btn-secondary text-text-primary px-4 py-2 rounded text-sm font-medium">
                 Cancel
               </button>
-              <button onClick={handleArchive} disabled={archiveBranch.isPending} className="bg-btn-danger text-white px-4 py-2 rounded text-sm font-medium hover:opacity-90 transition disabled:opacity-60">
+              <button onClick={handleArchive} disabled={archiveBranch.isPending} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded text-sm font-medium transition disabled:opacity-60">
                 {archiveBranch.isPending ? 'Archiving...' : 'Yes, Archive'}
               </button>
             </div>
