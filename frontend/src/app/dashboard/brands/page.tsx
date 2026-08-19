@@ -1,16 +1,16 @@
 'use client';
 
-import { Archive, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Archive, Plus, Search, Pencil, Trash2, X, Loader2 } from 'lucide-react';
-import { Archive,
+import {
   useBrands,
   useCreateBrand,
   useUpdateBrand,
   useArchiveBrand,
 } from '@/lib/hooks';
-import { Archive, getApiErrorMessage } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api';
 import { useToast } from '@/components/Toast';
-import { Archive, fileToResizedDataUrl } from '@/lib/image';
+import { fileToResizedDataUrl } from '@/lib/image';
 import type { Brand } from '@/lib/types';
 
 const PAGE_SIZES = [5, 10, 25, 50, 'All'] as const;

@@ -1,14 +1,14 @@
 'use client';
 
-import { Archive, useState } from 'react';
+import { useState } from 'react';
 import { Archive, Plus, Search, Pencil, Trash2, X, Loader2 } from 'lucide-react';
-import { Archive,
+import {
   useBranches,
   useCreateBranch,
   useUpdateBranch,
   useArchiveBranch,
 } from '@/lib/hooks';
-import { Archive, getApiErrorMessage } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api';
 import { useToast } from '@/components/Toast';
 import type { Branch } from '@/lib/types';
 

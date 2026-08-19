@@ -1,8 +1,8 @@
 'use client';
 
-import { Archive, useState } from 'react';
+import { useState } from 'react';
 import { Archive, Search, Plus, Pencil, Trash2, X, Eye, EyeOff, RefreshCw, Loader2 } from 'lucide-react';
-import { Archive,
+import {
   useUsers,
   useRoles,
   useBranches,
@@ -11,10 +11,10 @@ import { Archive,
   useResetUserPassword,
   useArchiveUser,
 } from '@/lib/hooks';
-import { Archive, getApiErrorMessage } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api';
 import { useToast } from '@/components/Toast';
-import { Archive, fileToResizedDataUrl } from '@/lib/image';
-import { Archive, useAuthStore } from '@/lib/store';
+import { fileToResizedDataUrl } from '@/lib/image';
+import { useAuthStore } from '@/lib/store';
 import type { FullUser } from '@/lib/types';
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
