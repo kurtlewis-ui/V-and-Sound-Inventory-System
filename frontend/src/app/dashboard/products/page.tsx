@@ -23,10 +23,12 @@ import { fileToResizedDataUrl } from '@/lib/image';
 import { useAuthStore } from '@/lib/store';
 import type { Product, ImportResult, RestockResult } from '@/lib/types';
 import { StockHistoryModal } from '@/components/StockHistoryModal';
+import { useToast } from '@/components/Toast';
 
 const ENTRIES_OPTIONS = [5, 10, 25, 50, 100, 'All'] as const;
 
 export default function ProductsPage() {
+  const { showToast, showError } = useToast();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [shopFilter, setShopFilter] = useState('');
@@ -185,7 +187,8 @@ export default function ProductsPage() {
     try {
       await createProduct.mutateAsync({ name: formName.trim(), brandId: formBrand, variantType: formVariantType, sellingPrice: parseFloat(formPrice) || 0, costPrice: parseFloat(formCostPrice) || 0, quantityAlert: parseInt(formAlert) || 0, image: formImage ?? undefined, quantities: buildQuantitiesPayload() });
       setShowAddModal(false);
-    } catch (e) { setFormError(getApiErrorMessage(e)); }
+      showToast('Product has been created.', 'green');
+    } catch (e) { setFormError(getApiErrorMessage(e)); showError('Failed to create product.'); }
   }
   async function handleEdit() {
     if (!editingProduct || !formName.trim()) { setFormError('Product name is required.'); return; }
@@ -194,12 +197,13 @@ export default function ProductsPage() {
     try {
       await updateProduct.mutateAsync({ id: editingProduct.id, name: formName.trim(), brandId: formBrand, sellingPrice: parseFloat(formPrice) || 0, costPrice: parseFloat(formCostPrice) || 0, quantityAlert: parseInt(formAlert) || 0, image: formImage ?? undefined, quantities: buildQuantitiesPayload() });
       setEditingProduct(null); setShowEditModal(false);
-    } catch (e) { setFormError(getApiErrorMessage(e)); }
+      showToast('Product has been updated.', 'blue');
+    } catch (e) { setFormError(getApiErrorMessage(e)); showError('Failed to update product.'); }
   }
   async function handleArchive() {
     if (!archivingProduct) return;
-    try { await archiveProduct.mutateAsync(archivingProduct.id); setArchivingProduct(null); setShowArchiveModal(false); }
-    catch (e) { setFormError(getApiErrorMessage(e)); }
+    try { await archiveProduct.mutateAsync(archivingProduct.id); setArchivingProduct(null); setShowArchiveModal(false); showToast('Product has been archived.', 'yellow'); }
+    catch (e) { setFormError(getApiErrorMessage(e)); showError('Failed to archive product.'); }
   }
 
   function handleExport() {

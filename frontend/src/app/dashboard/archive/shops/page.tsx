@@ -4,10 +4,14 @@ import { useState } from 'react';
 import { Search, Undo2, Trash2, Loader2 } from 'lucide-react';
 import { useArchivedBranches, useRestoreBranch } from '@/lib/hooks';
 import { getApiErrorMessage, api } from '@/lib/api';
+import { useAuthStore } from '@/lib/store';
+import { useToast } from '@/components/Toast';
 
 export default function ShopsArchivePage() {
   const { data, isLoading, isError, error, refetch } = useArchivedBranches();
   const restore = useRestoreBranch();
+  const { showToast, showError } = useToast();
+  const isOwner = useAuthStore((s) => s.user?.role?.name === 'Owner');
   const shops = Array.isArray(data) ? data : (data as any)?.data ?? [];
   const [search, setSearch] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
@@ -19,10 +23,10 @@ export default function ShopsArchivePage() {
 
   const filtered = shops.filter((s: any) => s.name.toLowerCase().includes(search.toLowerCase()));
 
-  const handleRestore = async (id: string) => { setActionError(null); try { await restore.mutateAsync(id); } catch (e) { setActionError(getApiErrorMessage(e)); } };
+  const handleRestore = async (id: string) => { setActionError(null); try { await restore.mutateAsync(id); showToast('Shop has been restored.', 'green'); } catch (e) { setActionError(getApiErrorMessage(e)); } };
   const startDelete = (id: string, name: string) => { setDeletingId(id); setDeletingName(name); setDeleteStep(1); setConfirmText(''); setActionError(null); };
   const cancelDelete = () => { setDeleteStep(0); setDeletingId(null); setConfirmText(''); };
-  const handlePermanentDelete = async () => { if (!deletingId || confirmText !== deletingName) return; setDeleteLoading(true); try { await api.delete(`/branches/${deletingId}/permanent`); cancelDelete(); refetch(); } catch (e) { setActionError(getApiErrorMessage(e)); cancelDelete(); } finally { setDeleteLoading(false); } };
+  const handlePermanentDelete = async () => { if (!deletingId || confirmText !== deletingName) return; setDeleteLoading(true); try { await api.delete(`/branches/${deletingId}/permanent`); cancelDelete(); refetch(); showToast('Shop has been permanently deleted.', 'red'); } catch (e) { setActionError(getApiErrorMessage(e)); cancelDelete(); } finally { setDeleteLoading(false); } };
 
   return (
     <div className="p-6 bg-page-bg min-h-screen">
@@ -39,7 +43,7 @@ export default function ShopsArchivePage() {
                 <td className="px-4 py-3 text-sm text-text-secondary">{shop.address ?? '—'}</td>
                 <td className="px-4 py-3 flex items-center gap-2">
                   <button onClick={() => handleRestore(shop.id)} disabled={restore.isPending} className="inline-flex items-center gap-1 rounded-lg bg-accent-green/10 px-2.5 py-1 text-sm font-medium text-accent-green hover:bg-accent-green/20 transition-colors disabled:opacity-50" title="Restore"><Undo2 size={14} /> Restore</button>
-                  <button onClick={() => startDelete(shop.id, shop.name)} className="inline-flex items-center gap-1 rounded-lg bg-accent-red/10 px-2.5 py-1 text-sm font-medium text-accent-red hover:bg-accent-red/20 transition-colors" title="Delete permanently"><Trash2 size={14} /></button>
+                  {isOwner && <button onClick={() => startDelete(shop.id, shop.name)} className="inline-flex items-center gap-1 rounded-lg bg-accent-red/10 px-2.5 py-1 text-sm font-medium text-accent-red hover:bg-accent-red/20 transition-colors" title="Delete permanently"><Trash2 size={14} /></button>}
                 </td>
               </tr>
             ))}
