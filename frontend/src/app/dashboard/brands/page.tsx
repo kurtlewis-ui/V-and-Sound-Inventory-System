@@ -60,7 +60,7 @@ export default function BrandsPage() {
       await createBrand.mutateAsync({ name: formName.trim(), coverImage: formCoverImage ?? undefined });
       setFormName('');
       setFormCoverImage(null);
-      setShowAddModal(false);
+      setShowAddModal(false); showToast("Brand has been created.", "green", "restore");
     } catch (e) { setFormError(getApiErrorMessage(e)); }
   }
 

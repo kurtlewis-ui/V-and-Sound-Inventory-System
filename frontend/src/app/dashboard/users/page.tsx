@@ -163,7 +163,7 @@ export default function UsersPage() {
         branchId: isStaffRole ? formData.branchId : undefined,
         avatarUrl: formData.avatarUrl || undefined,
       });
-      setShowAddModal(false);
+      setShowAddModal(false); showToast("User has been created.", "green", "restore");
     } catch (e) { setFormError(getApiErrorMessage(e)); }
   };
 

@@ -23,6 +23,7 @@ import {
 } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import type { Sale, PaymentMethod, PaymentSplit } from '@/lib/types';
+import { useToast } from '@/components/Toast';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -81,6 +82,7 @@ interface EditRow {
 
 export default function SalesPendingPage() {
   const [search, setSearch] = useState('');
+  const { showToast } = useToast();
   const [selectedShop, setSelectedShop] = useState('');
 
   const { data: branchData } = useBranches();
@@ -160,7 +162,7 @@ export default function SalesPendingPage() {
     setConfirmAction(null);
     runSafe(async () => {
       await Promise.all(sales.map((s) => approveSale.mutateAsync(s.id)));
-      setActionStatus(`✓ All ${n} pending sale${n === 1 ? '' : 's'} have been approved.`);
+      setActionStatus(`✓ All ${n} pending sale${n === 1 ? '' : 's'} have been approved.`); showToast('Sales have been approved.', 'green', 'check');
     });
   };
   const handleDeclineAll = () => {
@@ -170,7 +172,7 @@ export default function SalesPendingPage() {
     setConfirmAction(null);
     runSafe(async () => {
       await Promise.all(sales.map((s) => declineSale.mutateAsync(s.id)));
-      setActionStatus(`✓ All ${n} pending sale${n === 1 ? '' : 's'} have been declined.`);
+      setActionStatus(`✓ All ${n} pending sale${n === 1 ? '' : 's'} have been declined.`); showToast('Sales have been declined.', 'red', 'x');
     });
   };
 
@@ -301,8 +303,8 @@ export default function SalesPendingPage() {
                       <td className="px-4 py-3">
                         {idx === 0 && (
                           <div className="flex items-center gap-1.5">
-                            <button onClick={() => runSafe(async () => { await approveSale.mutateAsync(sale.id); setActionStatus(`✓ Sale #${sale.number} approved.`); })} className="p-1.5 bg-accent-green text-white rounded hover:opacity-90 transition" title="Approve"><CheckCircle size={15} /></button>
-                            <button onClick={() => runSafe(async () => { await declineSale.mutateAsync(sale.id); setActionStatus(`Sale #${sale.number} declined.`); })} className="p-1.5 bg-accent-orange text-white rounded hover:opacity-90 transition" title="Decline"><XCircle size={15} /></button>
+                            <button onClick={() => runSafe(async () => { await approveSale.mutateAsync(sale.id); setActionStatus(`✓ Sale #${sale.number} approved.`); showToast(`Sale #${sale.number} approved.`, "green", "check"); })} className="p-1.5 bg-accent-green text-white rounded hover:opacity-90 transition" title="Approve"><CheckCircle size={15} /></button>
+                            <button onClick={() => runSafe(async () => { await declineSale.mutateAsync(sale.id); setActionStatus(`Sale #${sale.number} declined.`); showToast(`Sale #${sale.number} declined.`, "red", "x"); })} className="p-1.5 bg-accent-orange text-white rounded hover:opacity-90 transition" title="Decline"><XCircle size={15} /></button>
                             <button onClick={() => { setActionError(null); setEditingSale(sale); }} className="p-1.5 text-accent-blue hover:bg-blue-500/10 rounded transition" title="Edit"><Pencil size={15} /></button>
                             <button onClick={() => { setActionError(null); setDeletingSale(sale); }} className="p-1.5 text-accent-red hover:bg-red-500/10 rounded transition" title="Delete"><Trash2 size={15} /></button>
                           </div>

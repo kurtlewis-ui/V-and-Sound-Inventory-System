@@ -45,7 +45,7 @@ export default function ShopsPage() {
       await createBranch.mutateAsync({ name: newName.trim(), address: newAddress.trim() || undefined });
       setNewName('');
       setNewAddress('');
-      setShowAddModal(false);
+      setShowAddModal(false); showToast("Shop has been created.", "green", "restore");
     } catch (e) {
       setFormError(getApiErrorMessage(e));
     }
