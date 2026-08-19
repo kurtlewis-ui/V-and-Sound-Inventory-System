@@ -7,32 +7,31 @@ import * as XLSX from 'xlsx-js-style';
 export interface ProductRow {
   productName: string;
   brand: string;
-  type: string; // Flavor, Variant, or Cartridge
-  variantName: string; // flavor/variant name, empty for simple products
+  type: string;
+  variantName: string;
   cost: number;
 }
 
-const headerStyle = {
-  font: { bold: true, sz: 11 },
-  border: { bottom: { style: 'thin' as const, color: { rgb: '999999' } } },
-};
-
-const addQtyStyle = {
-  fill: { fgColor: { rgb: 'FEFCE8' } },
-  alignment: { horizontal: 'center' as const },
-};
+const boldStyle = { font: { bold: true } };
 
 /**
- * Generate a formatted .xlsx file for restocking.
- * Columns: ID | ProductName | Brand | Type | Flavor/Variant | Cost | Add Quantity
+ * Generate a plain .xlsx file for restocking.
+ *
+ * Per branch (1 branch): ID | ProductName | Brand | Type | Flavor/Variant | Cost | Add Quantity
+ * All branches (multiple): ID | ProductName | Brand | Type | Flavor/Variant | Cost | Main Branch Add Quantity | Side Branch Add Quantity | ...
  */
 export function generateRestockXlsx(
   rows: ProductRow[],
-  options?: { filename?: string; isTemplate?: boolean },
+  branches: { id: string; name: string }[],
+  options?: { filename?: string },
 ): void {
   const filename = options?.filename ?? `restock-template-${new Date().toISOString().slice(0, 10)}.xlsx`;
 
-  const headers = ['ID', 'ProductName', 'Brand', 'Type', 'Flavor/Variant', 'Cost', 'Add Quantity'];
+  const baseHeaders = ['ID', 'ProductName', 'Brand', 'Type', 'Flavor/Variant', 'Cost'];
+  const branchHeaders = branches.length === 1
+    ? ['Add Quantity']
+    : branches.map((b) => `${b.name} Add Quantity`);
+  const headers = [...baseHeaders, ...branchHeaders];
 
   const dataRows: (string | number)[][] = rows.map((row, idx) => [
     idx + 1,
@@ -41,34 +40,29 @@ export function generateRestockXlsx(
     row.type,
     row.variantName,
     row.cost,
-    '',
+    ...branches.map(() => ''),
   ]);
 
   const wsData = [headers, ...dataRows];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
+  // Bold headers only
   for (let col = 0; col < headers.length; col++) {
     const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
-    if (ws[cellRef]) ws[cellRef].s = headerStyle;
+    if (ws[cellRef]) ws[cellRef].s = boldStyle;
   }
 
-  for (let rowIdx = 0; rowIdx < dataRows.length; rowIdx++) {
-    const cellRef = XLSX.utils.encode_cell({ r: rowIdx + 1, c: 6 });
-    if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
-    ws[cellRef].s = addQtyStyle;
-  }
-
-  ws['!cols'] = [
-    { wch: 5 },
-    { wch: 20 },
-    { wch: 12 },
-    { wch: 12 },
-    { wch: 16 },
-    { wch: 10 },
-    { wch: 14 },
+  // Column widths
+  const colWidths = [
+    { wch: 5 },  // ID
+    { wch: 20 }, // ProductName
+    { wch: 12 }, // Brand
+    { wch: 12 }, // Type
+    { wch: 16 }, // Flavor/Variant
+    { wch: 10 }, // Cost
+    ...branches.map((b) => ({ wch: Math.max(14, b.name.length + 14) })),
   ];
-
-  ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+  ws['!cols'] = colWidths;
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Restock');
@@ -77,10 +71,13 @@ export function generateRestockXlsx(
 
 /**
  * Parse an uploaded restock .xlsx file.
+ * Supports single "Add Quantity" column or multiple "{BranchName} Add Quantity" columns.
  */
 export function parseRestockXlsx(
   buffer: ArrayBuffer,
-): { items: { productName: string; variantName: string; quantity: number }[] } {
+  branches?: { id: string; name: string }[],
+  selectedBranchId?: string,
+): { items: { productName: string; variantName: string; branchId: string; quantity: number }[] } {
   const wb = XLSX.read(buffer, { type: 'array' });
   const sheetName = wb.SheetNames[0];
   if (!sheetName) return { items: [] };
@@ -88,15 +85,40 @@ export function parseRestockXlsx(
   const ws = wb.Sheets[sheetName];
   const rawData: Record<string, string>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
-  const items: { productName: string; variantName: string; quantity: number }[] = [];
+  const items: { productName: string; variantName: string; branchId: string; quantity: number }[] = [];
+
+  // Detect branch columns
+  if (rawData.length === 0) return { items };
+  const firstRow = rawData[0];
+  const allKeys = Object.keys(firstRow);
+
+  // Find columns that end with "Add Quantity"
+  const qtyColumns: { key: string; branchId: string }[] = [];
+
+  if (allKeys.includes('Add Quantity') && selectedBranchId) {
+    // Single branch mode
+    qtyColumns.push({ key: 'Add Quantity', branchId: selectedBranchId });
+  } else if (branches) {
+    // Multi-branch mode — match "{BranchName} Add Quantity" columns
+    for (const key of allKeys) {
+      if (!key.endsWith('Add Quantity')) continue;
+      const branchName = key.replace(' Add Quantity', '').trim();
+      const branch = branches.find((b) => b.name.toLowerCase() === branchName.toLowerCase());
+      if (branch) qtyColumns.push({ key, branchId: branch.id });
+    }
+  }
 
   for (const row of rawData) {
     const productName = (row['ProductName'] || row['Name'] || '').toString().trim();
     const variantName = (row['Flavor/Variant'] || row['Flavor / Variant'] || row['Variant'] || '').toString().trim();
-    const qty = Number(row['Add Quantity'] || row['Quantity'] || 0);
 
-    if (!productName || qty <= 0) continue;
-    items.push({ productName, variantName, quantity: qty });
+    if (!productName) continue;
+
+    for (const col of qtyColumns) {
+      const qty = Number(row[col.key] || 0);
+      if (qty <= 0) continue;
+      items.push({ productName, variantName, branchId: col.branchId, quantity: qty });
+    }
   }
 
   return { items };
