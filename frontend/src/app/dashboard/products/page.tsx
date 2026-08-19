@@ -203,6 +203,7 @@ export default function ProductsPage() {
   }
 
   function handleExport() {
+    const targetBranches = shopFilter ? branches.filter((b) => b.id === shopFilter) : branches;
     const rows: ProductRow[] = [];
     for (const p of products) {
       const type = p.variantType === 'flavor' ? 'Flavor' : p.variantType === 'color' ? 'Variant' : 'Cartridge';
@@ -214,9 +215,10 @@ export default function ProductsPage() {
         rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: '', cost: p.costPrice ?? p.sellingPrice });
       }
     }
-    generateRestockXlsx(rows, { filename: `products-export-${new Date().toISOString().slice(0, 10)}.xlsx` });
+    generateRestockXlsx(rows, targetBranches, { filename: `products-export-${new Date().toISOString().slice(0, 10)}.xlsx` });
   }
   function handleTemplate() {
+    const targetBranches = shopFilter ? branches.filter((b) => b.id === shopFilter) : branches;
     const rows: ProductRow[] = [];
     for (const p of products) {
       const type = p.variantType === 'flavor' ? 'Flavor' : p.variantType === 'color' ? 'Variant' : 'Cartridge';
@@ -228,7 +230,7 @@ export default function ProductsPage() {
         rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: '', cost: p.costPrice ?? p.sellingPrice });
       }
     }
-    generateRestockXlsx(rows, { filename: `restock-template-${new Date().toISOString().slice(0, 10)}.xlsx`, isTemplate: true });
+    generateRestockXlsx(rows, targetBranches, { filename: `restock-template-${new Date().toISOString().slice(0, 10)}.xlsx` });
   }
 
   return (
@@ -443,7 +445,7 @@ export default function ProductsPage() {
         </Modal>
       )}
       {showImportModal && <ImportModal branches={branches} onClose={() => setShowImportModal(false)} />}
-      {showRestockModal && shopFilter && <RestockModal branchId={shopFilter} onClose={() => setShowRestockModal(false)} />}
+      {showRestockModal && <RestockModal branchId={shopFilter || undefined} branches={shopFilter ? branches.filter((b) => b.id === shopFilter) : branches} onClose={() => setShowRestockModal(false)} />}
       {historyProduct && shopFilter && <StockHistoryModal productId={historyProduct.id} productName={historyProduct.name} branchId={shopFilter} branchName={branches.find((b) => b.id === shopFilter)?.name ?? ''} onClose={() => setHistoryProduct(null)} />}
     </div>
   );
@@ -518,22 +520,22 @@ function ImportModal({ branches, onClose }: { branches: { id: string; name: stri
   );
 }
 
-function RestockModal({ branchId, onClose }: { branchId: string; onClose: () => void }) {
+function RestockModal({ branchId, branches, onClose }: { branchId?: string; branches: { id: string; name: string }[]; onClose: () => void }) {
   const restock = useRestock();
-  const [items, setItems] = useState<{ productName: string; variantName: string; quantity: number }[]>([]);
+  const [items, setItems] = useState<{ productName: string; variantName: string; branchId: string; quantity: number }[]>([]);
   const [fileName, setFileName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RestockResult | null>(null);
 
   async function onFile(file: File) {
     setError(null); setResult(null); setItems([]); setFileName('');
-    try { const buffer = await readFileAsArrayBuffer(file); const parsed = parseRestockXlsx(buffer); setItems(parsed.items); setFileName(file.name); } catch { setError('Could not read the file.'); }
+    try { const buffer = await readFileAsArrayBuffer(file); const parsed = parseRestockXlsx(buffer, branches, branchId); setItems(parsed.items); setFileName(file.name); } catch { setError('Could not read the file.'); }
   }
 
   async function submit() {
     if (items.length === 0) { setError('No stock to add. Fill in the "Add Quantity" column and re-upload.'); return; }
     setError(null);
-    try { const restockItems: RestockItem[] = items.map((i) => ({ productName: i.productName, variantName: i.variantName || undefined, branchId, quantity: i.quantity })); setResult(await restock.mutateAsync(restockItems)); } catch (e) { setError(getApiErrorMessage(e)); }
+    try { const restockItems: RestockItem[] = items.map((i) => ({ productName: i.productName, variantName: i.variantName || undefined, branchId: i.branchId, quantity: i.quantity })); setResult(await restock.mutateAsync(restockItems)); } catch (e) { setError(getApiErrorMessage(e)); }
   }
 
   return (
