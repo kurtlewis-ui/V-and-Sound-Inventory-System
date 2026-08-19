@@ -7,7 +7,7 @@ import * as XLSX from 'xlsx-js-style';
 export interface ProductRow {
   productName: string;
   brand: string;
-  product: string; // product type: Flavor, Variant, or Cartridge
+  type: string; // Flavor, Variant, or Cartridge
   variantName: string; // flavor/variant name, empty for simple products
   cost: number;
 }
@@ -26,7 +26,7 @@ const addQtyStyle = {
 
 /**
  * Generate a formatted .xlsx file for restocking.
- * Columns: ProductName | Brand | Product | Flavor/Variant | Cost | Add Quantity
+ * Columns: ID | ProductName | Brand | Type | Flavor/Variant | Cost | Add Quantity
  */
 export function generateRestockXlsx(
   rows: ProductRow[],
@@ -34,12 +34,13 @@ export function generateRestockXlsx(
 ): void {
   const filename = options?.filename ?? `restock-template-${new Date().toISOString().slice(0, 10)}.xlsx`;
 
-  const headers = ['ProductName', 'Brand', 'Product', 'Flavor/Variant', 'Cost', 'Add Quantity'];
+  const headers = ['ID', 'ProductName', 'Brand', 'Type', 'Flavor/Variant', 'Cost', 'Add Quantity'];
 
-  const dataRows: (string | number)[][] = rows.map((row) => [
+  const dataRows: (string | number)[][] = rows.map((row, idx) => [
+    idx + 1,
     row.productName,
     row.brand,
-    row.product,
+    row.type,
     row.variantName,
     row.cost,
     '', // Add Quantity — blank for user to fill
@@ -57,16 +58,17 @@ export function generateRestockXlsx(
 
   // Apply subtle yellow to Add Quantity column
   for (let rowIdx = 0; rowIdx < dataRows.length; rowIdx++) {
-    const cellRef = XLSX.utils.encode_cell({ r: rowIdx + 1, c: 5 });
+    const cellRef = XLSX.utils.encode_cell({ r: rowIdx + 1, c: 6 });
     if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
     ws[cellRef].s = addQtyStyle;
   }
 
   // Set column widths
   ws['!cols'] = [
+    { wch: 5 },  // ID
     { wch: 20 }, // ProductName
     { wch: 12 }, // Brand
-    { wch: 12 }, // Product
+    { wch: 12 }, // Type
     { wch: 16 }, // Flavor/Variant
     { wch: 10 }, // Cost
     { wch: 14 }, // Add Quantity
