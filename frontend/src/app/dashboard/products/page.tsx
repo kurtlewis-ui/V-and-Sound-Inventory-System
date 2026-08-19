@@ -203,33 +203,29 @@ export default function ProductsPage() {
   }
 
   function handleExport() {
-    const branchId = shopFilter || (branches[0]?.id ?? '');
     const rows: ProductRow[] = [];
     for (const p of products) {
+      const type = p.variantType === 'flavor' ? 'Flavor' : p.variantType === 'color' ? 'Variant' : 'Cartridge';
       if (p.variants && p.variants.length > 0) {
         for (const v of p.variants) {
-          const qty = v.quantities?.find((q) => q.branchId === branchId)?.quantity ?? 0;
-          rows.push({ productName: p.name, brand: p.brand?.name ?? '', variantName: v.name, currentStock: qty });
+          rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: v.name, cost: p.costPrice ?? p.sellingPrice });
         }
       } else {
-        const qty = p.quantities?.find((q) => q.branchId === branchId)?.quantity ?? 0;
-        rows.push({ productName: p.name, brand: p.brand?.name ?? '', variantName: '', currentStock: qty });
+        rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: '', cost: p.costPrice ?? p.sellingPrice });
       }
     }
     generateRestockXlsx(rows, { filename: `products-export-${new Date().toISOString().slice(0, 10)}.xlsx` });
   }
   function handleTemplate() {
-    const branchId = shopFilter || (branches[0]?.id ?? '');
     const rows: ProductRow[] = [];
     for (const p of products) {
+      const type = p.variantType === 'flavor' ? 'Flavor' : p.variantType === 'color' ? 'Variant' : 'Cartridge';
       if (p.variants && p.variants.length > 0) {
         for (const v of p.variants) {
-          const qty = v.quantities?.find((q) => q.branchId === branchId)?.quantity ?? 0;
-          rows.push({ productName: p.name, brand: p.brand?.name ?? '', variantName: v.name, currentStock: qty });
+          rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: v.name, cost: p.costPrice ?? p.sellingPrice });
         }
       } else {
-        const qty = p.quantities?.find((q) => q.branchId === branchId)?.quantity ?? 0;
-        rows.push({ productName: p.name, brand: p.brand?.name ?? '', variantName: '', currentStock: qty });
+        rows.push({ productName: p.name, brand: p.brand?.name ?? '', type, variantName: '', cost: p.costPrice ?? p.sellingPrice });
       }
     }
     generateRestockXlsx(rows, { filename: `restock-template-${new Date().toISOString().slice(0, 10)}.xlsx`, isTemplate: true });
