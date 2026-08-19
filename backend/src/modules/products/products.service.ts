@@ -178,50 +178,44 @@ export class ProductsService {
     await this.prisma.product.update({ where: { id }, data });
 
     // Upsert per-branch quantities when provided, and log stock movements.
-    // When variantId is set, writes to the per-variant inventory row.
-    // When variantId is null/undefined, writes to the base product row.
+    // Uses raw SQL INSERT ... ON CONFLICT to reliably handle the nullable
+    // variantId in the compound unique constraint (product_id, variant_id, branch_id).
+    // Prisma's ORM layer has issues with findFirst/create on nullable unique fields.
     if (dto.quantities?.length) {
       for (const q of dto.quantities) {
         const variantId = q.variantId || null;
-        // Get current quantity before update
-        const currentInv = await this.prisma.inventory.findFirst({
-          where: { productId: id, variantId, branchId: q.branchId },
-        });
-        const oldQty = currentInv?.quantity ?? 0;
         const newQty = q.quantity;
-        const diff = newQty - oldQty;
 
-        if (currentInv) {
-          await this.prisma.inventory.update({
-            where: { id: currentInv.id },
-            data: { quantity: q.quantity },
-          });
+        // Get old quantity for stock movement logging
+        const oldInvRows = await this.prisma.$queryRawUnsafe<{ quantity: number }[]>(
+          variantId
+            ? `SELECT quantity FROM inventory WHERE product_id = $1::uuid AND variant_id = $2::uuid AND branch_id = $3::uuid LIMIT 1`
+            : `SELECT quantity FROM inventory WHERE product_id = $1::uuid AND variant_id IS NULL AND branch_id = $2::uuid LIMIT 1`,
+          ...(variantId ? [id, variantId, q.branchId] : [id, q.branchId]),
+        );
+        const oldQty = oldInvRows.length > 0 ? Number(oldInvRows[0].quantity) : 0;
+
+        // Atomic upsert — never throws a unique constraint error.
+        if (variantId) {
+          await this.prisma.$executeRawUnsafe(
+            `INSERT INTO inventory (id, product_id, variant_id, branch_id, quantity, updated_at)
+             VALUES (gen_random_uuid(), $1::uuid, $2::uuid, $3::uuid, $4::int, NOW())
+             ON CONFLICT (product_id, variant_id, branch_id)
+             DO UPDATE SET quantity = $4::int, updated_at = NOW()`,
+            id, variantId, q.branchId, newQty,
+          );
         } else {
-          // Use try/catch to handle race conditions where the row was created
-          // between our findFirst and this create (unique constraint).
-          try {
-            await this.prisma.inventory.create({
-              data: { productId: id, variantId, branchId: q.branchId, quantity: q.quantity },
-            });
-          } catch (e: any) {
-            // If it's a unique constraint violation (P2002), try to update instead.
-            if (e?.code === 'P2002') {
-              const existing = await this.prisma.inventory.findFirst({
-                where: { productId: id, variantId, branchId: q.branchId },
-              });
-              if (existing) {
-                await this.prisma.inventory.update({
-                  where: { id: existing.id },
-                  data: { quantity: q.quantity },
-                });
-              }
-            } else {
-              throw e;
-            }
-          }
+          await this.prisma.$executeRawUnsafe(
+            `INSERT INTO inventory (id, product_id, variant_id, branch_id, quantity, updated_at)
+             VALUES (gen_random_uuid(), $1::uuid, NULL, $2::uuid, $3::int, NOW())
+             ON CONFLICT (product_id, variant_id, branch_id)
+             DO UPDATE SET quantity = $3::int, updated_at = NOW()`,
+            id, q.branchId, newQty,
+          );
         }
 
         // Log ADJUSTMENT if quantity actually changed
+        const diff = newQty - oldQty;
         if (diff !== 0) {
           await this.prisma.stockMovement.create({
             data: {
