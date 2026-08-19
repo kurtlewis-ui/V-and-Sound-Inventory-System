@@ -246,6 +246,21 @@ export class BranchesService {
     return { message: 'Branch deleted successfully' };
   }
 
+  async permanentDelete(id: string, deletedBy: string) {
+    const branch = await this.prisma.branch.findFirst({ where: { id, deletedAt: { not: null } } });
+    if (!branch) { throw new NotFoundException('Archived branch not found. Only archived branches can be permanently deleted.'); }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.inventory.deleteMany({ where: { branchId: id } });
+      await tx.stockMovement.deleteMany({ where: { branchId: id } });
+      await tx.branch.delete({ where: { id } });
+    });
+
+    await this.prisma.auditLog.create({ data: { userId: deletedBy, action: 'BRANCH_PERMANENTLY_DELETED', entityType: 'Branch', entityId: id, oldValues: { name: branch.name } } });
+
+    return { message: 'Branch permanently deleted' };
+  }
+
   private serialize(branch: {
     id: string;
     name: string;

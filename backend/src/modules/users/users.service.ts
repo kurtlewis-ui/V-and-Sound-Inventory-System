@@ -402,6 +402,22 @@ export class UsersService {
     return { message: 'User deleted successfully' };
   }
 
+  async permanentDelete(id: string, deletedBy: string) {
+    const user = await this.prisma.user.findFirst({ where: { id, deletedAt: { not: null } } });
+    if (!user) { throw new NotFoundException('Archived user not found. Only archived users can be permanently deleted.'); }
+    if (id === deletedBy) { throw new BadRequestException('Cannot permanently delete your own account'); }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.session.deleteMany({ where: { userId: id } });
+      await tx.auditLog.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
+    });
+
+    await this.prisma.auditLog.create({ data: { userId: deletedBy, action: 'USER_PERMANENTLY_DELETED', entityType: 'User', entityId: id, oldValues: { email: user.email, firstName: user.firstName, lastName: user.lastName } } });
+
+    return { message: 'User permanently deleted' };
+  }
+
   async findArchived(query: QueryUserDto) {
     const { page = 1, limit = 20, search } = query;
     const skip = (page - 1) * limit;

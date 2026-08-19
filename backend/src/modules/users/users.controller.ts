@@ -176,4 +176,12 @@ export class UsersController {
   async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     await this.usersService.remove(id, user.userId);
   }
+
+  @Delete(':id/permanent')
+  @Roles('Owner')
+  @ApiOperation({ summary: 'Permanently delete a user (irreversible)' })
+  async permanentDelete(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+    const data = await this.usersService.permanentDelete(id, user.userId);
+    return { success: true, data };
+  }
 }

@@ -306,6 +306,29 @@ export class ProductsService {
     return { message: 'Product archived successfully' };
   }
 
+  async permanentDelete(id: string, deletedBy: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+    if (!product) {
+      throw new NotFoundException('Archived product not found. Only archived items can be permanently deleted.');
+    }
+
+    // Delete all related data
+    await this.prisma.$transaction(async (tx) => {
+      await tx.stockMovement.deleteMany({ where: { productId: id } });
+      await tx.saleItem.deleteMany({ where: { productId: id } });
+      await tx.disposal.deleteMany({ where: { productId: id } });
+      await tx.inventory.deleteMany({ where: { productId: id } });
+      await tx.productVariant.deleteMany({ where: { productId: id } });
+      await tx.product.delete({ where: { id } });
+    });
+
+    await this.audit(deletedBy, 'PRODUCT_PERMANENTLY_DELETED', id, { name: product.name }, null);
+
+    return { message: 'Product permanently deleted' };
+  }
+
   async restore(id: string, restoredBy: string, role?: string) {
     const product = await this.prisma.product.findFirst({
       where: { id, deletedAt: { not: null } },

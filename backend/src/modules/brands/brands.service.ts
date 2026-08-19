@@ -186,6 +186,20 @@ export class BrandsService {
     return { message: 'Brand archived successfully' };
   }
 
+  async permanentDelete(id: string, deletedBy: string) {
+    const brand = await this.prisma.brand.findFirst({ where: { id, deletedAt: { not: null } } });
+    if (!brand) { throw new NotFoundException('Archived brand not found. Only archived brands can be permanently deleted.'); }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.product.deleteMany({ where: { brandId: id } });
+      await tx.brand.delete({ where: { id } });
+    });
+
+    await this.audit(deletedBy, 'BRAND_PERMANENTLY_DELETED', id, { name: brand.name }, null);
+
+    return { message: 'Brand permanently deleted' };
+  }
+
   async restore(id: string, restoredBy: string) {
     const brand = await this.prisma.brand.findFirst({
       where: { id, deletedAt: { not: null } },
