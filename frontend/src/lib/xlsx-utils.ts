@@ -5,64 +5,118 @@
 import * as XLSX from 'xlsx-js-style';
 
 export interface ProductRow {
-  productId: string | number;
   productName: string;
   brand: string;
-  sellingPrice: number;
-  quantities: Record<string, number>; // shopName -> quantity
+  variantName: string; // empty string for simple products
+  currentStock: number;
 }
 
-/**
- * Generate a slug column name from a shop name.
- * e.g. "Main Branch" -> "restock-main-branch-quantity"
- */
-function shopColumnName(shopName: string): string {
-  const slug = shopName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return `restock-${slug}-quantity`;
-}
+// Styles
+const headerStyle = {
+  font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+  fill: { fgColor: { rgb: '1a1a1a' } },
+  alignment: { horizontal: 'center' as const },
+  border: { bottom: { style: 'thin' as const, color: { rgb: '444444' } } },
+};
+
+const normalStyle = {
+  font: { sz: 10 },
+  alignment: { vertical: 'center' as const },
+};
+
+// Subtle light yellow for "Add Quantity" column — easy on the eyes
+const addQtyStyle = {
+  font: { sz: 10 },
+  fill: { fgColor: { rgb: 'FEFCE8' } }, // very light warm yellow
+  alignment: { horizontal: 'center' as const, vertical: 'center' as const },
+};
+
+// Subtle gray for alternating product groups (non-Add Quantity columns)
+const altGroupStyle = {
+  font: { sz: 10 },
+  fill: { fgColor: { rgb: 'F8F8F8' } }, // barely-there gray
+  alignment: { vertical: 'center' as const },
+};
+
+// Alt group + Add Quantity combined
+const altGroupAddQtyStyle = {
+  font: { sz: 10 },
+  fill: { fgColor: { rgb: 'FEF9E7' } }, // slightly darker warm yellow for alt rows
+  alignment: { horizontal: 'center' as const, vertical: 'center' as const },
+};
 
 /**
- * Generate a formatted .xlsx workbook for product restock.
- * - Header row frozen
- * - Auto-fitted column widths
- * - All products pre-filled with ProductId, ProductName, Brand, SellingPrice
- * - Quantity columns use the slug format (restock-{shop-slug}-quantity)
+ * Generate a formatted .xlsx file for restocking.
+ * Columns: ProductName | Brand | Flavor / Variant | Current Stock | Add Quantity
  */
 export function generateRestockXlsx(
-  products: ProductRow[],
-  shops: { id: string; name: string }[],
+  rows: ProductRow[],
   options?: { filename?: string; isTemplate?: boolean },
 ): void {
   const filename = options?.filename ?? `restock-template-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const isTemplate = options?.isTemplate ?? false;
 
-  // Build headers
-  const headers = ['ProductId', 'ProductName', 'Brand', 'SellingPrice', ...shops.map((s) => shopColumnName(s.name))];
+  const headers = ['ProductName', 'Brand', 'Flavor / Variant', 'Current Stock', 'Add Quantity'];
 
-  // Build data rows
-  const dataRows = products.map((p) => {
-    const row: (string | number)[] = [
-      p.productId,
-      p.productName,
-      p.brand,
-      p.sellingPrice,
-      ...shops.map((s) => p.quantities[s.name] ?? ''),
-    ];
-    return row;
-  });
+  // Build data rows and track product grouping for alternating colors
+  const dataRows: (string | number)[][] = [];
+  let currentProduct = '';
+  let groupIndex = 0;
+  const groupIndices: number[] = []; // track which group each row belongs to
+
+  for (const row of rows) {
+    if (row.productName !== currentProduct) {
+      currentProduct = row.productName;
+      groupIndex++;
+    }
+    groupIndices.push(groupIndex);
+    dataRows.push([
+      row.productName,
+      row.brand,
+      row.variantName,
+      isTemplate ? '' : row.currentStock,
+      '', // Add Quantity — always blank for user to fill
+    ]);
+  }
 
   // Create worksheet
   const wsData = [headers, ...dataRows];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
+  // Apply header styles
+  for (let col = 0; col < headers.length; col++) {
+    const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+    if (ws[cellRef]) ws[cellRef].s = headerStyle;
+  }
+
+  // Apply row styles
+  for (let rowIdx = 0; rowIdx < dataRows.length; rowIdx++) {
+    const isAltGroup = groupIndices[rowIdx] % 2 === 0;
+    for (let col = 0; col < headers.length; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: rowIdx + 1, c: col });
+      if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
+      if (col === 4) {
+        // Add Quantity column
+        ws[cellRef].s = isAltGroup ? altGroupAddQtyStyle : addQtyStyle;
+      } else if (isAltGroup) {
+        ws[cellRef].s = altGroupStyle;
+      } else {
+        ws[cellRef].s = normalStyle;
+      }
+    }
+  }
+
   // Set column widths
-  const colWidths = headers.map((h, i) => {
-    if (i === 0) return { wch: 10 }; // ProductId
-    if (i === 1) return { wch: 25 }; // ProductName
-    if (i === 2) return { wch: 15 }; // Brand
-    if (i === 3) return { wch: 14 }; // SellingPrice
-    return { wch: Math.max(20, h.length + 2) }; // shop columns
-  });
-  ws['!cols'] = colWidths;
+  ws['!cols'] = [
+    { wch: 22 }, // ProductName
+    { wch: 14 }, // Brand
+    { wch: 18 }, // Flavor / Variant
+    { wch: 14 }, // Current Stock
+    { wch: 14 }, // Add Quantity
+  ];
+
+  // Freeze header row
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 };
 
   // Create workbook and download
   const wb = XLSX.utils.book_new();
@@ -71,53 +125,32 @@ export function generateRestockXlsx(
 }
 
 /**
- * Parse an uploaded .xlsx file and return rows.
+ * Parse an uploaded restock .xlsx file.
+ * Looks for columns: ProductName, Flavor / Variant, Add Quantity (or Quantity)
  */
 export function parseRestockXlsx(
   buffer: ArrayBuffer,
-  _shopNames: string[],
-): { headers: string[]; rows: Record<string, string>[] } {
+): { items: { productName: string; variantName: string; quantity: number }[] } {
   const wb = XLSX.read(buffer, { type: 'array' });
   const sheetName = wb.SheetNames[0];
-  if (!sheetName) return { headers: [], rows: [] };
+  if (!sheetName) return { items: [] };
 
   const ws = wb.Sheets[sheetName];
-  const rawData: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  const rawData: Record<string, string>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
-  if (rawData.length === 0) return { headers: [], rows: [] };
+  const items: { productName: string; variantName: string; quantity: number }[] = [];
 
-  const headers = rawData[0].map((h) => String(h).trim());
-  const rows = rawData.slice(1)
-    .filter((r) => r.some((cell) => String(cell).trim() !== ''))
-    .map((r) => {
-      const obj: Record<string, string> = {};
-      headers.forEach((h, idx) => { obj[h] = String(r[idx] ?? '').trim(); });
-      return obj;
-    });
+  for (const row of rawData) {
+    // Support multiple column name variations
+    const productName = (row['ProductName'] || row['Name'] || '').toString().trim();
+    const variantName = (row['Flavor / Variant'] || row['Variant'] || row['Flavor'] || '').toString().trim();
+    const qty = Number(row['Add Quantity'] || row['Quantity'] || 0);
 
-  return { headers, rows };
-}
-
-/**
- * Map a slug column header back to a shop name.
- * e.g. "restock-main-branch-quantity" matches "Main Branch"
- */
-export function matchSlugToShopName(slug: string, shopNames: string[]): string | null {
-  // Try exact match first (plain shop name)
-  const exactMatch = shopNames.find((n) => n.toLowerCase() === slug.toLowerCase());
-  if (exactMatch) return exactMatch;
-
-  // Try slug format: strip prefix/suffix and match
-  const stripped = slug
-    .replace(/^restock-/, '')
-    .replace(/-quantity$/, '');
-
-  for (const name of shopNames) {
-    const nameSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    if (nameSlug === stripped) return name;
+    if (!productName || qty <= 0) continue;
+    items.push({ productName, variantName, quantity: qty });
   }
 
-  return null;
+  return { items };
 }
 
 /**

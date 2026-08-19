@@ -18,7 +18,7 @@ import {
 } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import { parseCsv, readFileAsText } from '@/lib/csv';
-import { generateRestockXlsx, parseRestockXlsx, matchSlugToShopName, readFileAsArrayBuffer, type ProductRow } from '@/lib/xlsx-utils';
+import { generateRestockXlsx, parseRestockXlsx, readFileAsArrayBuffer, type ProductRow } from '@/lib/xlsx-utils';
 import { fileToResizedDataUrl } from '@/lib/image';
 import { useAuthStore } from '@/lib/store';
 import type { Product, ImportResult, RestockResult } from '@/lib/types';
@@ -203,31 +203,37 @@ export default function ProductsPage() {
   }
 
   function handleExport() {
-    const targetShops = shopFilter ? branches.filter((b) => b.id === shopFilter) : branches;
-    const xlsxProducts: ProductRow[] = products.map((p, idx) => ({
-      productId: idx + 1,
-      productName: p.name,
-      brand: p.brand?.name ?? '',
-      sellingPrice: p.sellingPrice,
-      quantities: Object.fromEntries(targetShops.map((b) => [b.name, qtyForBranch(p, b.id)])),
-    }));
-    generateRestockXlsx(xlsxProducts, targetShops, {
-      filename: `products-export-${new Date().toISOString().slice(0, 10)}.xlsx`,
-    });
+    const branchId = shopFilter || (branches[0]?.id ?? '');
+    const rows: ProductRow[] = [];
+    for (const p of products) {
+      if (p.variants && p.variants.length > 0) {
+        for (const v of p.variants) {
+          const qty = v.quantities?.find((q) => q.branchId === branchId)?.quantity ?? 0;
+          rows.push({ productName: p.name, brand: p.brand?.name ?? '', variantName: v.name, currentStock: qty });
+        }
+      } else {
+        const qty = p.quantities?.find((q) => q.branchId === branchId)?.quantity ?? 0;
+        rows.push({ productName: p.name, brand: p.brand?.name ?? '', variantName: '', currentStock: qty });
+      }
+    }
+    generateRestockXlsx(rows, { filename: `products-export-${new Date().toISOString().slice(0, 10)}.xlsx` });
   }
   function handleTemplate() {
-    const targetShops = shopFilter ? branches.filter((b) => b.id === shopFilter) : branches;
-    const xlsxProducts: ProductRow[] = products.map((p, idx) => ({
-      productId: idx + 1,
-      productName: p.name,
-      brand: p.brand?.name ?? '',
-      sellingPrice: p.sellingPrice,
-      quantities: {},
-    }));
-    generateRestockXlsx(xlsxProducts, targetShops, {
-      filename: `restock-template-${new Date().toISOString().slice(0, 10)}.xlsx`,
-      isTemplate: true,
-    });
+    const branchId = shopFilter || (branches[0]?.id ?? '');
+    const rows: ProductRow[] = [];
+    for (const p of products) {
+      if (p.variants && p.variants.length > 0) {
+        for (const v of p.variants) {
+          const qty = v.quantities?.find((q) => q.branchId === branchId)?.quantity ?? 0;
+          rows.push({ productName: p.name, brand: p.brand?.name ?? '', variantName: v.name, currentStock: qty });
+        }
+      } else {
+        const qty = p.quantities?.find((q) => q.branchId === branchId)?.quantity ?? 0;
+        rows.push({ productName: p.name, brand: p.brand?.name ?? '', variantName: '', currentStock: qty });
+      }
+    }
+    generateRestockXlsx(rows, { filename: `restock-template-${new Date().toISOString().slice(0, 10)}.xlsx`, isTemplate: true });
+  }
   }
 
   return (
@@ -442,7 +448,7 @@ export default function ProductsPage() {
         </Modal>
       )}
       {showImportModal && <ImportModal branches={branches} onClose={() => setShowImportModal(false)} />}
-      {showRestockModal && <RestockModal products={products} branches={branches} onClose={() => setShowRestockModal(false)} />}
+      {showRestockModal && shopFilter && <RestockModal branchId={shopFilter} onClose={() => setShowRestockModal(false)} />}
       {historyProduct && shopFilter && <StockHistoryModal productId={historyProduct.id} productName={historyProduct.name} branchId={shopFilter} branchName={branches.find((b) => b.id === shopFilter)?.name ?? ''} onClose={() => setHistoryProduct(null)} />}
     </div>
   );
@@ -517,161 +523,6 @@ function ImportModal({ branches, onClose }: { branches: { id: string; name: stri
   );
 }
 
-interface RestockRow { productId: string; branchId: string; quantity: string; }
-
-function RestockModal({ products, branches, onClose }: { products: Product[]; branches: { id: string; name: string }[]; onClose: () => void }) {
-  const restock = useRestock();
-  const [mode, setMode] = useState<'manual' | 'csv'>('manual');
-  const [rows, setRows] = useState<RestockRow[]>([{ productId: products[0]?.id ?? '', branchId: branches[0]?.id ?? '', quantity: '' }]);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<RestockResult | null>(null);
-
-  // CSV mode state
-  const [csvItems, setCsvItems] = useState<RestockItem[]>([]);
-  const [fileName, setFileName] = useState('');
-
-  const setRow = (i: number, patch: Partial<RestockRow>) => setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-  const addRow = () => setRows((rs) => [...rs, { productId: products[0]?.id ?? '', branchId: branches[0]?.id ?? '', quantity: '' }]);
-  const removeRow = (i: number) => setRows((rs) => rs.filter((_, idx) => idx !== i));
-
-  const branchNameSet = new Set(branches.map((b) => b.name.toLowerCase()));
-  const branchNames = branches.map((b) => b.name);
-
-  async function onFile(file: File) {
-    setError(null); setResult(null); setCsvItems([]); setFileName('');
-    try {
-      let headers: string[];
-      let csvRows: Record<string, string>[];
-
-      const isXlsx = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
-      if (isXlsx) {
-        const buffer = await readFileAsArrayBuffer(file);
-        const parsed = parseRestockXlsx(buffer, branchNames);
-        headers = parsed.headers;
-        csvRows = parsed.rows;
-      } else {
-        const text = await readFileAsText(file);
-        const parsed = parseCsv(text);
-        headers = parsed.headers;
-        csvRows = parsed.rows;
-      }
-
-      // Accept both "Name" and "ProductName" as the product name column
-      const nameCol = headers.find((h) => h.toLowerCase() === 'name' || h.toLowerCase() === 'productname') ?? null;
-      if (!nameCol) {
-        setError('This file does not look like a products export (missing a "Name" or "ProductName" column).');
-        return;
-      }
-
-      // Match shop columns — support both plain names and slug format
-      const branchColMap: { header: string; shopName: string }[] = [];
-      for (const h of headers) {
-        if (['productid', 'productname', 'name', 'brand', 'sellingprice', 'quantityalert'].includes(h.toLowerCase())) continue;
-        if (branchNameSet.has(h.toLowerCase())) {
-          const match = branches.find((b) => b.name.toLowerCase() === h.toLowerCase());
-          if (match) branchColMap.push({ header: h, shopName: match.name });
-        } else {
-          const matched = matchSlugToShopName(h, branchNames);
-          if (matched) branchColMap.push({ header: h, shopName: matched });
-        }
-      }
-
-      if (branchColMap.length === 0) {
-        setError('No shop columns found in the file. Use the Export button to get the correct format.');
-        return;
-      }
-      const items: RestockItem[] = [];
-      for (const r of csvRows) {
-        const productName = (r[nameCol] ?? '').trim();
-        if (!productName) continue;
-        for (const { header, shopName } of branchColMap) {
-          const qty = Number(r[header]) || 0;
-          if (qty > 0) items.push({ productName, branchName: shopName, quantity: qty });
-        }
-      }
-      setCsvItems(items);
-      setFileName(file.name);
-    } catch {
-      setError('Could not read the file.');
-    }
-  }
-
-  async function submit() {
-    let items: RestockItem[];
-    if (mode === 'csv') {
-      items = csvItems;
-      if (items.length === 0) { setError('No stock to add. Edit the shop columns in the exported file (numbers greater than 0) and re-upload.'); return; }
-    } else {
-      items = rows
-        .filter((r) => r.productId && r.branchId && Number(r.quantity) > 0)
-        .map((r) => ({ productId: r.productId, branchId: r.branchId, quantity: Number(r.quantity) }));
-      if (items.length === 0) { setError('Add at least one row with a quantity greater than zero.'); return; }
-    }
-    setError(null);
-    try { setResult(await restock.mutateAsync(items)); }
-    catch (e) { setError(getApiErrorMessage(e)); }
-  }
-
-  return (
-    <Modal title="Restock Products" onClose={onClose}>
-      <div className="space-y-4">
-        <div className="flex gap-1 p-1 bg-white/5 rounded-lg w-fit">
-          <button onClick={() => { setMode('manual'); setError(null); setResult(null); }} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${mode === 'manual' ? 'bg-btn-primary text-btn-primary-text' : 'text-text-secondary hover:text-text-primary'}`}>Manual</button>
-          <button onClick={() => { setMode('csv'); setError(null); setResult(null); }} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${mode === 'csv' ? 'bg-btn-primary text-btn-primary-text' : 'text-text-secondary hover:text-text-primary'}`}>Upload exported CSV</button>
-        </div>
-
-        {mode === 'manual' ? (
-          <>
-            <p className="text-xs text-text-muted">Add stock to products at a shop. The quantity is <strong>added</strong> to the current stock.</p>
-            {products.length === 0 || branches.length === 0 ? (
-              <p className="text-sm text-accent-orange">You need at least one product and one shop before restocking.</p>
-            ) : (
-              <div className="space-y-2">
-                {rows.map((row, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <select value={row.productId} onChange={(e) => setRow(i, { productId: e.target.value })} className="flex-1 border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg">
-                      {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                    <select value={row.branchId} onChange={(e) => setRow(i, { branchId: e.target.value })} className="w-36 border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg">
-                      {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
-                    <input type="number" min="1" placeholder="+Qty" value={row.quantity} onChange={(e) => setRow(i, { quantity: e.target.value })} className="w-20 border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg" />
-                    <button onClick={() => removeRow(i)} className="p-1.5 text-accent-red hover:bg-red-500/10 rounded" title="Remove"><Trash2 size={15} /></button>
-                  </div>
-                ))}
-                <button onClick={addRow} className="flex items-center gap-1 text-sm text-accent-blue hover:underline"><Plus size={14} /> Add row</button>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <p className="text-xs text-text-muted">
-              <strong>Export</strong> the products first, edit the shop columns so each number is the stock you want to <strong>add</strong>, then upload the edited file here. The numbers in the shop columns are <strong>added</strong> to current stock; columns/rows with 0 (or blank) are ignored.
-            </p>
-            <input type="file" accept=".csv,text/csv,.xlsx,.xls" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg" />
-            {fileName && (
-              <p className="text-sm text-text-secondary">
-                Found <strong>{csvItems.length}</strong> stock addition(s) across {new Set(csvItems.map((c) => c.productName)).size} product(s) from {fileName}.
-              </p>
-            )}
-          </>
-        )}
-
-        {error && <p className="text-sm text-accent-red">{error}</p>}
-        {result && (
-          <div className="rounded-lg bg-accent-green/10 border border-accent-green/30 px-3 py-2 text-sm text-text-primary">
-            Restocked <strong>{result.updated}</strong> of {result.total} entries.
-            {result.warnings.length > 0 && <ul className="mt-1 list-disc list-inside text-accent-orange text-xs max-h-28 overflow-y-auto">{result.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>}
-          </div>
-        )}
-        <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="btn-secondary text-text-primary px-4 py-2 rounded text-sm font-medium">{result ? 'Done' : 'Cancel'}</button>
-          {!result && <button onClick={submit} disabled={restock.isPending || (mode === 'csv' && csvItems.length === 0)} className="btn-grad px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-60">{restock.isPending ? 'Restocking...' : 'Restock'}</button>}
-        </div>
-      </div>
-    </Modal>
-  );
-}
 
 function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, error, formName, setFormName, formBrand, setFormBrand, formPrice, setFormPrice, formCostPrice, setFormCostPrice, isOwner, formAlert, setFormAlert, formImage, setFormImage, isAdmin, formQuantities, setFormQuantities, branches, brands, variants, variantType, productId }: { title: string; onClose: () => void; onSubmit: () => void; buttonLabel: string; disabled?: boolean; error?: string | null; formName: string; setFormName: (v: string) => void; formBrand: string; setFormBrand: (v: string) => void; formPrice: string; setFormPrice: (v: string) => void; formCostPrice: string; setFormCostPrice: (v: string) => void; isOwner: boolean; formAlert: string; setFormAlert: (v: string) => void; formImage: string | null; setFormImage: (v: string | null) => void; isAdmin: boolean; formQuantities: Record<string, string>; setFormQuantities: (v: Record<string, string>) => void; branches: { id: string; name: string }[]; brands: { id: string; name: string }[]; variants?: { id: string; name: string }[]; variantType?: 'none' | 'flavor' | 'color'; productId?: string; }) {
   const [imageError, setImageError] = useState<string | null>(null);
