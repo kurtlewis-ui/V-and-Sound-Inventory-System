@@ -9,7 +9,7 @@ export interface ProductRow {
   brand: string;
   type: string;
   variantName: string;
-  cost: number;
+  sellingPrice: number;
 }
 
 const boldStyle = { font: { bold: true } };
@@ -27,11 +27,10 @@ export function generateRestockXlsx(
 ): void {
   const filename = options?.filename ?? `restock-template-${new Date().toISOString().slice(0, 10)}.xlsx`;
 
-  const baseHeaders = ['ID', 'ProductName', 'Brand', 'Type', 'Flavor/Variant', 'Cost'];
   const branchHeaders = branches.length === 1
     ? ['Add Quantity']
     : branches.map((b) => `${b.name} Add Quantity`);
-  const headers = [...baseHeaders, ...branchHeaders];
+  const headers = ['ID', 'ProductName', 'Brand', 'Type', 'Flavor/Variant', 'Selling Price', ...branchHeaders];
 
   const dataRows: (string | number)[][] = rows.map((row, idx) => [
     idx + 1,
@@ -39,7 +38,7 @@ export function generateRestockXlsx(
     row.brand,
     row.type,
     row.variantName,
-    row.cost,
+    row.sellingPrice,
     ...branches.map(() => ''),
   ]);
 
