@@ -1,7 +1,6 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { CheckCircle2, XCircle, X } from 'lucide-react';
 
 type ToastType = 'success' | 'error';
 type ToastColor = 'green' | 'blue' | 'yellow' | 'orange' | 'red';
@@ -9,9 +8,11 @@ type ToastColor = 'green' | 'blue' | 'yellow' | 'orange' | 'red';
 interface Toast {
   id: number;
   message: string;
+  title: string;
   type: ToastType;
   color: ToastColor;
   exiting?: boolean;
+  duration: number;
 }
 
 interface ToastContextType {
@@ -30,20 +31,12 @@ export function useToast() {
 
 let toastId = 0;
 
-const colorMap: Record<ToastColor, string> = {
-  green: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
-  blue: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
-  yellow: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
-  orange: 'bg-orange-500/10 border-orange-500/30 text-orange-400',
-  red: 'bg-red-500/10 border-red-500/30 text-red-400',
-};
-
-const iconColorMap: Record<ToastColor, string> = {
-  green: 'text-emerald-400',
-  blue: 'text-blue-400',
-  yellow: 'text-amber-400',
-  orange: 'text-orange-400',
-  red: 'text-red-400',
+const barColorMap: Record<ToastColor, string> = {
+  green: 'bg-emerald-400',
+  blue: 'bg-blue-400',
+  yellow: 'bg-amber-400',
+  orange: 'bg-orange-400',
+  red: 'bg-red-400',
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -56,14 +49,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const showToast = useCallback((message: string, color: ToastColor = 'green') => {
     const id = ++toastId;
-    setToasts((prev) => [...prev, { id, message, type: 'success', color }]);
-    setTimeout(() => dismiss(id), 3500);
+    const duration = 3500;
+    setToasts((prev) => [...prev, { id, message, title: 'Success!', type: 'success', color, duration }]);
+    setTimeout(() => dismiss(id), duration);
   }, [dismiss]);
 
   const showError = useCallback((message: string) => {
     const id = ++toastId;
-    setToasts((prev) => [...prev, { id, message, type: 'error', color: 'red' }]);
-    setTimeout(() => dismiss(id), 4500);
+    const duration = 4500;
+    setToasts((prev) => [...prev, { id, message, title: 'Error', type: 'error', color: 'red', duration }]);
+    setTimeout(() => dismiss(id), duration);
   }, [dismiss]);
 
   return (
@@ -73,19 +68,31 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg backdrop-blur-sm transition-all duration-300 ${colorMap[toast.color]} ${toast.exiting ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0'}`}
-            style={{ minWidth: '280px', maxWidth: '400px' }}
+            className={`pointer-events-auto rounded-lg border border-[#e0e0e0] dark:border-[#333] bg-white dark:bg-[#1a1a1a] shadow-lg transition-all duration-300 overflow-hidden ${toast.exiting ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0'}`}
+            style={{ minWidth: '260px', maxWidth: '340px' }}
           >
-            {toast.type === 'success' ? (
-              <CheckCircle2 size={18} className={iconColorMap[toast.color]} />
-            ) : (
-              <XCircle size={18} className="text-red-400" />
-            )}
-            <p className="flex-1 text-sm font-medium">{toast.message}</p>
-            <button onClick={() => dismiss(toast.id)} className="opacity-60 hover:opacity-100 transition"><X size={14} /></button>
+            <div className="flex items-start gap-3 px-4 py-3">
+              <span className="mt-0.5 text-base leading-none">{toast.type === 'success' ? '✓' : '✕'}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-[#1a1a1a] dark:text-white">{toast.title}</p>
+                <p className="text-xs text-[#666] dark:text-[#999] mt-0.5">{toast.message}</p>
+              </div>
+            </div>
+            <div className="h-[3px] w-full bg-[#f0f0f0] dark:bg-[#2a2a2a]">
+              <div
+                className={`h-full ${barColorMap[toast.color]} rounded-r`}
+                style={{ animation: `toast-drain ${toast.duration}ms linear forwards` }}
+              />
+            </div>
           </div>
         ))}
       </div>
+      <style jsx global>{`
+        @keyframes toast-drain {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+      `}</style>
     </ToastContext.Provider>
   );
 }
