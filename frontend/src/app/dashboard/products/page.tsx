@@ -234,7 +234,6 @@ export default function ProductsPage() {
     }
     generateRestockXlsx(rows, { filename: `restock-template-${new Date().toISOString().slice(0, 10)}.xlsx`, isTemplate: true });
   }
-  }
 
   return (
     <div className="space-y-6">
@@ -523,6 +522,40 @@ function ImportModal({ branches, onClose }: { branches: { id: string; name: stri
   );
 }
 
+function RestockModal({ branchId, onClose }: { branchId: string; onClose: () => void }) {
+  const restock = useRestock();
+  const [items, setItems] = useState<{ productName: string; variantName: string; quantity: number }[]>([]);
+  const [fileName, setFileName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<RestockResult | null>(null);
+
+  async function onFile(file: File) {
+    setError(null); setResult(null); setItems([]); setFileName('');
+    try { const buffer = await readFileAsArrayBuffer(file); const parsed = parseRestockXlsx(buffer); setItems(parsed.items); setFileName(file.name); } catch { setError('Could not read the file.'); }
+  }
+
+  async function submit() {
+    if (items.length === 0) { setError('No stock to add. Fill in the "Add Quantity" column and re-upload.'); return; }
+    setError(null);
+    try { const restockItems: RestockItem[] = items.map((i) => ({ productName: i.productName, variantName: i.variantName || undefined, branchId, quantity: i.quantity })); setResult(await restock.mutateAsync(restockItems)); } catch (e) { setError(getApiErrorMessage(e)); }
+  }
+
+  return (
+    <Modal title="Restock Products" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-xs text-text-muted">Upload your exported file (.xlsx) with the <strong>Add Quantity</strong> column filled in. Numbers are <strong>added</strong> to current stock.</p>
+        <input type="file" accept=".xlsx,.xls" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} className="w-full border border-input-border rounded px-3 py-2 text-sm bg-input-bg" />
+        {fileName && (<p className="text-sm text-text-secondary">Found <strong>{items.length}</strong> stock addition(s) across <strong>{new Set(items.map((i) => i.productName)).size}</strong> product(s) from {fileName}.</p>)}
+        {error && <p className="text-sm text-accent-red">{error}</p>}
+        {result && (<div className="rounded-lg bg-accent-green/10 border border-accent-green/30 px-3 py-2 text-sm text-text-primary">Restocked <strong>{result.updated}</strong> of {result.total} entries.{result.warnings.length > 0 && <ul className="mt-1 list-disc list-inside text-accent-orange text-xs max-h-28 overflow-y-auto">{result.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>}</div>)}
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="btn-secondary text-text-primary px-4 py-2 rounded text-sm font-medium">{result ? 'Done' : 'Cancel'}</button>
+          {!result && <button onClick={submit} disabled={restock.isPending || items.length === 0} className="btn-grad px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-60">{restock.isPending ? 'Restocking...' : 'Restock'}</button>}
+        </div>
+      </div>
+    </Modal>
+  );
+}
 
 function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, error, formName, setFormName, formBrand, setFormBrand, formPrice, setFormPrice, formCostPrice, setFormCostPrice, isOwner, formAlert, setFormAlert, formImage, setFormImage, isAdmin, formQuantities, setFormQuantities, branches, brands, variants, variantType, productId }: { title: string; onClose: () => void; onSubmit: () => void; buttonLabel: string; disabled?: boolean; error?: string | null; formName: string; setFormName: (v: string) => void; formBrand: string; setFormBrand: (v: string) => void; formPrice: string; setFormPrice: (v: string) => void; formCostPrice: string; setFormCostPrice: (v: string) => void; isOwner: boolean; formAlert: string; setFormAlert: (v: string) => void; formImage: string | null; setFormImage: (v: string | null) => void; isAdmin: boolean; formQuantities: Record<string, string>; setFormQuantities: (v: Record<string, string>) => void; branches: { id: string; name: string }[]; brands: { id: string; name: string }[]; variants?: { id: string; name: string }[]; variantType?: 'none' | 'flavor' | 'color'; productId?: string; }) {
   const [imageError, setImageError] = useState<string | null>(null);
