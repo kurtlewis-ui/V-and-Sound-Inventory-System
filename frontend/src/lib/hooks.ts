@@ -189,7 +189,7 @@ export interface ProductMutationInput {
   costPrice?: number;
   quantityAlert?: number;
   image?: string;
-  quantities?: { branchId: string; variantId?: string; quantity: number }[];
+  quantities?: { branchId: string; variantId?: string; variantName?: string; quantity: number }[];
 }
 
 export function useProducts(params?: { search?: string; brandId?: string; branchId?: string; page?: number; limit?: number }) {

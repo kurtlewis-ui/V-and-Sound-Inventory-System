@@ -178,40 +178,62 @@ export class ProductsService {
     await this.prisma.product.update({ where: { id }, data });
 
     // Upsert per-branch quantities when provided, and log stock movements.
-    // Uses raw SQL INSERT ... ON CONFLICT to reliably handle the nullable
-    // variantId in the compound unique constraint (product_id, variant_id, branch_id).
-    // Prisma's ORM layer has issues with findFirst/create on nullable unique fields.
+    // - Simple products (no variantId): upsert to `inventory` table
+    // - Variant products (has variantId): upsert to `variant_inventory` table
+    //   using standard Prisma upsert (clean non-nullable unique constraint)
     if (dto.quantities?.length) {
       for (const q of dto.quantities) {
         const variantId = q.variantId || null;
         const newQty = q.quantity;
 
-        // Get old quantity for stock movement logging
-        const oldInvRows = await this.prisma.$queryRawUnsafe<{ quantity: number }[]>(
-          variantId
-            ? `SELECT quantity FROM inventory WHERE product_id = $1::uuid AND variant_id = $2::uuid AND branch_id = $3::uuid LIMIT 1`
-            : `SELECT quantity FROM inventory WHERE product_id = $1::uuid AND variant_id IS NULL AND branch_id = $2::uuid LIMIT 1`,
-          ...(variantId ? [id, variantId, q.branchId] : [id, q.branchId]),
-        );
-        const oldQty = oldInvRows.length > 0 ? Number(oldInvRows[0].quantity) : 0;
-
-        // Atomic upsert — never throws a unique constraint error.
         if (variantId) {
-          // Non-null variantId: ON CONFLICT works correctly for non-null values.
-          await this.prisma.$executeRawUnsafe(
-            `INSERT INTO inventory (id, product_id, variant_id, branch_id, quantity, updated_at)
-             VALUES (gen_random_uuid(), $1::uuid, $2::uuid, $3::uuid, $4::int, NOW())
-             ON CONFLICT ON CONSTRAINT inventory_product_id_variant_id_branch_id_key
-             DO UPDATE SET quantity = $4::int, updated_at = NOW()`,
-            id, variantId, q.branchId, newQty,
-          );
+          // --- VARIANT PRODUCT: use variant_inventory table ---
+          const existing = await this.prisma.variantInventory.findUnique({
+            where: { variantId_branchId: { variantId, branchId: q.branchId } },
+          });
+          const oldQty = existing?.quantity ?? 0;
+
+          await this.prisma.variantInventory.upsert({
+            where: { variantId_branchId: { variantId, branchId: q.branchId } },
+            update: { quantity: newQty },
+            create: { variantId, branchId: q.branchId, quantity: newQty },
+          });
+
+          // Rename variant if variantName is provided and different
+          if (q.variantName) {
+            const variant = await this.prisma.productVariant.findUnique({ where: { id: variantId } });
+            if (variant && variant.name !== q.variantName.trim()) {
+              await this.prisma.productVariant.update({
+                where: { id: variantId },
+                data: { name: q.variantName.trim() },
+              });
+            }
+          }
+
+          // Log ADJUSTMENT if quantity actually changed
+          const diff = newQty - oldQty;
+          if (diff !== 0) {
+            await this.prisma.stockMovement.create({
+              data: {
+                productId: id,
+                variantId,
+                branchId: q.branchId,
+                userId: updatedBy,
+                type: 'ADJUSTMENT',
+                quantityChange: diff,
+                quantityAfter: newQty,
+                description: 'Updated quantity.',
+              },
+            });
+          }
         } else {
-          // NULL variantId: ON CONFLICT doesn't work with NULLs in PostgreSQL
-          // (NULL != NULL), so use explicit check + insert/update.
-          const existing = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
-            `SELECT id FROM inventory WHERE product_id = $1::uuid AND variant_id IS NULL AND branch_id = $2::uuid LIMIT 1`,
+          // --- SIMPLE PRODUCT: use inventory table (existing logic) ---
+          const existing = await this.prisma.$queryRawUnsafe<{ id: string; quantity: number }[]>(
+            `SELECT id, quantity FROM inventory WHERE product_id = $1::uuid AND variant_id IS NULL AND branch_id = $2::uuid LIMIT 1`,
             id, q.branchId,
           );
+          const oldQty = existing.length > 0 ? Number(existing[0].quantity) : 0;
+
           if (existing.length > 0) {
             await this.prisma.$executeRawUnsafe(
               `UPDATE inventory SET quantity = $1::int, updated_at = NOW() WHERE id = $2::uuid`,
@@ -224,23 +246,22 @@ export class ProductsService {
               id, q.branchId, newQty,
             );
           }
-        }
 
-        // Log ADJUSTMENT if quantity actually changed
-        const diff = newQty - oldQty;
-        if (diff !== 0) {
-          await this.prisma.stockMovement.create({
-            data: {
-              productId: id,
-              variantId: variantId ?? undefined,
-              branchId: q.branchId,
-              userId: updatedBy,
-              type: 'ADJUSTMENT',
-              quantityChange: diff,
-              quantityAfter: newQty,
-              description: 'Updated quantity.',
-            },
-          });
+          // Log ADJUSTMENT if quantity actually changed
+          const diff = newQty - oldQty;
+          if (diff !== 0) {
+            await this.prisma.stockMovement.create({
+              data: {
+                productId: id,
+                branchId: q.branchId,
+                userId: updatedBy,
+                type: 'ADJUSTMENT',
+                quantityChange: diff,
+                quantityAfter: newQty,
+                description: 'Updated quantity.',
+              },
+            });
+          }
         }
       }
     }
@@ -573,7 +594,7 @@ export class ProductsService {
         where: { isActive: true },
         orderBy: { name: 'asc' as const },
         include: {
-          inventory: {
+          variantInventory: {
             where: branchId ? { branchId } : undefined,
             include: { branch: { select: { id: true, name: true } } },
           },
@@ -610,7 +631,8 @@ export class ProductsService {
       quantityAlert: product.quantityAlert,
       isActive: product.isActive,
       variants: (product.variants ?? []).map((v: any) => {
-        const vQuantities = (v.inventory ?? []).map((inv: any) => ({
+        // Read from variantInventory (the new separate table)
+        const vQuantities = (v.variantInventory ?? []).map((inv: any) => ({
           branchId: inv.branchId,
           branchName: inv.branch?.name ?? null,
           quantity: inv.quantity,
