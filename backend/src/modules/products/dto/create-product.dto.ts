@@ -24,6 +24,11 @@ export class BranchQuantityDto {
   @IsUUID()
   variantId?: string;
 
+  @ApiProperty({ required: false, description: 'New name for the variant (if renaming)' })
+  @IsOptional()
+  @IsString()
+  variantName?: string;
+
   @ApiProperty({ description: 'Stock quantity at this branch', default: 0 })
   @Type(() => Number)
   @IsInt()

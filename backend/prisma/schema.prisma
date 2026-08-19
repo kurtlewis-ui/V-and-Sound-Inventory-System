@@ -112,6 +112,7 @@ model Branch {
   // Relations
   users          User[]
   inventory      Inventory[]
+  variantInventory VariantInventory[]
   sales          Sale[]
   disposals      Disposal[]
   draftOrders    DraftOrder[]
@@ -219,6 +220,7 @@ model ProductVariant {
   // Relations
   product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   inventory      Inventory[]
+  variantInventory VariantInventory[]
   saleItems      SaleItem[]
   disposals      Disposal[]
   stockMovements StockMovement[]
@@ -226,6 +228,25 @@ model ProductVariant {
   @@index([productId])
   @@index([isActive])
   @@map("product_variants")
+}
+
+// Per-branch stock level for a specific variant/flavor/color.
+// Separate from the main `inventory` table to avoid nullable compound-key issues.
+// Simple products use `inventory`; variant products use `variant_inventory`.
+model VariantInventory {
+  id        String   @id @default(uuid()) @db.Uuid
+  variantId String   @map("variant_id") @db.Uuid
+  branchId  String   @map("branch_id") @db.Uuid
+  quantity  Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  branch  Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, branchId])
+  @@index([branchId])
+  @@map("variant_inventory")
 }
 
 // Per-branch stock level for a product (or a specific variant/flavor).

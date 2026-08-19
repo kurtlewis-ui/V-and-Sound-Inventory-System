@@ -12,7 +12,6 @@ import {
   useImportProducts,
   useRestock,
   useCreateVariant,
-  useUpdateVariant,
   useDeleteVariant,
   type ImportProductRow,
   type RestockItem,
@@ -155,16 +154,14 @@ export default function ProductsPage() {
   function buildQuantitiesPayload() {
     // Only send quantities for branches shown in the form
     const targetBranches = showEditModal ? branchesForEdit : branchesForForm;
-    // Check if any key contains "__" (flavor format: branchId__variantId)
-    const hasFlavorKeys = Object.keys(formQuantities).some((k) => k.includes('__'));
+    // Check if any key contains "__" (flavor format: branchId__variantId or name__variantId)
+    const hasFlavorKeys = Object.keys(formQuantities).some((k) => k.includes('__') && !k.startsWith('name__'));
     if (hasFlavorKeys) {
-      // Send per-variant quantities individually so the backend can write
-      // each flavor's stock to its own inventory row (with variantId set).
-      // Only include entries for the single visible branch to avoid duplicates.
-      const entries: { branchId: string; variantId: string; quantity: number }[] = [];
+      // Send per-variant quantities individually with optional name changes.
+      const entries: { branchId: string; variantId: string; variantName?: string; quantity: number }[] = [];
       const seen = new Set<string>();
       for (const [key, value] of Object.entries(formQuantities)) {
-        if (!key.includes('__')) continue;
+        if (!key.includes('__') || key.startsWith('name__')) continue;
         const [branchId, variantId] = key.split('__');
         if (!branchId || !variantId) continue;
         if (!targetBranches.some((b) => b.id === branchId)) continue;
@@ -172,7 +169,10 @@ export default function ProductsPage() {
         const dedupeKey = `${branchId}__${variantId}`;
         if (seen.has(dedupeKey)) continue;
         seen.add(dedupeKey);
-        entries.push({ branchId, variantId, quantity: parseInt(value || '0') || 0 });
+        // Include variant name if it was edited
+        const nameKey = `name__${variantId}`;
+        const variantName = formQuantities[nameKey] || undefined;
+        entries.push({ branchId, variantId, variantName, quantity: parseInt(value || '0') || 0 });
       }
       return entries;
     }
@@ -688,14 +688,11 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
   productId?: string;
 }) {
   const [imageError, setImageError] = useState<string | null>(null);
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('');
   const [addingFlavor, setAddingFlavor] = useState(false);
   const [newFlavorName, setNewFlavorName] = useState('');
   const [flavorError, setFlavorError] = useState<string | null>(null);
 
   const createVariant = useCreateVariant();
-  const updateVariant = useUpdateVariant();
   const deleteVariant = useDeleteVariant();
 
   async function handleImageFile(file: File) {
@@ -708,21 +705,6 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
     }
   }
 
-  function startRename(v: { id: string; name: string }) {
-    setRenamingId(v.id);
-    setRenameValue(v.name);
-    setFlavorError(null);
-  }
-
-  async function handleRename(variantId: string) {
-    if (!renameValue.trim()) { setFlavorError('Name is required'); return; }
-    setFlavorError(null);
-    try {
-      await updateVariant.mutateAsync({ variantId, name: renameValue.trim() });
-      setRenamingId(null);
-      setRenameValue('');
-    } catch (e) { setFlavorError(getApiErrorMessage(e)); }
-  }
 
   async function handleDeleteFlavor(variantId: string) {
     if (!confirm('Archive this flavor?')) return;
@@ -807,39 +789,32 @@ function ProductFormModal({ title, onClose, onSubmit, buttonLabel, disabled, err
               </div>
             )}
 
-            {/* Flavor list with inline stock + rename/delete */}
+            {/* Flavor list — name is always editable, stock when branch selected */}
             {variants && variants.length > 0 ? (
               <div className="space-y-1.5">
                 {variants.map((v) => (
                   <div key={v.id} className="flex items-center gap-2 rounded-lg border border-card-border bg-white/5 px-3 py-2">
-                    {renamingId === v.id ? (
-                      <>
-                        <input type="text" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} className="flex-1 border border-input-border rounded px-2 py-1 text-sm bg-input-bg focus:outline-none focus:border-input-focus" autoFocus />
-                        <button onClick={() => handleRename(v.id)} disabled={updateVariant.isPending} className="text-xs font-medium text-accent-blue hover:underline disabled:opacity-60">
-                          {updateVariant.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Save'}
-                        </button>
-                        <button onClick={() => { setRenamingId(null); setFlavorError(null); }} className="text-xs text-text-muted hover:text-text-primary">Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-sm font-medium text-text-primary min-w-[90px]">{v.name}</span>
-                        {/* Show stock input only when a single branch is selected */}
-                        {branches.length === 1 && (
-                          <input
-                            type="number"
-                            min="0"
-                            placeholder="0"
-                            value={formQuantities[`${branches[0].id}__${v.id}`] ?? ''}
-                            onChange={(e) => setFormQuantities({ ...formQuantities, [`${branches[0].id}__${v.id}`]: e.target.value })}
-                            className="w-20 border border-input-border rounded px-2 py-1 text-sm text-center bg-input-bg focus:outline-none focus:border-input-focus"
-                            title={`Stock at ${branches[0].name}`}
-                          />
-                        )}
-                        <div className="flex-1" />
-                        <button onClick={() => startRename(v)} className="p-1 text-text-muted hover:text-accent-blue transition" title={`Rename ${variantLabel.toLowerCase()}`}><Pencil size={13} /></button>
-                        <button onClick={() => handleDeleteFlavor(v.id)} className="p-1 text-text-muted hover:text-accent-red transition" title={`Delete ${variantLabel.toLowerCase()}`}><Trash2 size={13} /></button>
-                      </>
+                    <input
+                      type="text"
+                      value={formQuantities[`name__${v.id}`] ?? v.name}
+                      onChange={(e) => setFormQuantities({ ...formQuantities, [`name__${v.id}`]: e.target.value })}
+                      className="w-28 border border-input-border rounded px-2 py-1 text-sm bg-input-bg focus:outline-none focus:border-input-focus"
+                      placeholder="Name"
+                    />
+                    {/* Show stock input only when a single branch is selected */}
+                    {branches.length === 1 && (
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={formQuantities[`${branches[0].id}__${v.id}`] ?? ''}
+                        onChange={(e) => setFormQuantities({ ...formQuantities, [`${branches[0].id}__${v.id}`]: e.target.value })}
+                        className="w-20 border border-input-border rounded px-2 py-1 text-sm text-center bg-input-bg focus:outline-none focus:border-input-focus"
+                        title={`Stock at ${branches[0].name}`}
+                      />
                     )}
+                    <div className="flex-1" />
+                    <button onClick={() => handleDeleteFlavor(v.id)} className="p-1 text-text-muted hover:text-accent-red transition" title={`Delete ${variantLabel.toLowerCase()}`}><Trash2 size={13} /></button>
                   </div>
                 ))}
               </div>
