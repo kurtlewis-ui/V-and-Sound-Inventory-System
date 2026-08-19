@@ -65,7 +65,6 @@ export default function ProductsPage() {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const archiveProduct = useArchiveProduct();
-  const restock = useRestock();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -193,52 +192,7 @@ export default function ProductsPage() {
     if (!formBrand) { setFormError('Please select a brand.'); return; }
     setFormError(null);
     try {
-      // 1. Update product metadata (name, brand, price, etc.) — no quantities
-      await updateProduct.mutateAsync({ id: editingProduct.id, name: formName.trim(), brandId: formBrand, sellingPrice: parseFloat(formPrice) || 0, costPrice: parseFloat(formCostPrice) || 0, quantityAlert: parseInt(formAlert) || 0, image: formImage ?? undefined });
-
-      // 2. Handle stock changes separately via the restock endpoint (which
-      //    we know correctly creates/updates per-variant inventory rows).
-      //    Compute the delta between old and new quantity for each entry.
-      //    Uses productId + variantId + branchId for precise targeting.
-      const quantitiesPayload = buildQuantitiesPayload();
-      if (quantitiesPayload.length > 0) {
-        const restockItems: RestockItem[] = [];
-        for (const q of quantitiesPayload) {
-          const newQty = q.quantity;
-          // Find the old quantity for this variant at this branch
-          let oldQty = 0;
-          const qVariantId = 'variantId' in q ? (q as { variantId: string }).variantId : undefined;
-          if (qVariantId) {
-            // Use liveVariants (fresh from React Query) not the stale editingProduct snapshot
-            const variant = liveVariants.find((v) => v.id === qVariantId);
-            oldQty = variant?.quantities?.find((vq) => vq.branchId === q.branchId)?.quantity ?? 0;
-          } else {
-            oldQty = editingProduct.quantities?.find((x) => x.branchId === q.branchId)?.quantity ?? 0;
-          }
-          const diff = newQty - oldQty;
-          if (diff !== 0) {
-            // Use productId + branchId always. For variants, also send variantId.
-            // The restock endpoint does findFirst({ productId, variantId, branchId })
-            // then increment. If the row doesn't exist yet, it creates it.
-            restockItems.push({
-              productId: editingProduct.id,
-              variantId: qVariantId,
-              branchId: q.branchId,
-              quantity: diff,
-            });
-          }
-        }
-        if (restockItems.length > 0) {
-          try {
-            await restock.mutateAsync(restockItems);
-          } catch (restockErr) {
-            // If restock fails, show error but don't roll back the metadata update
-            setFormError(getApiErrorMessage(restockErr));
-            return;
-          }
-        }
-      }
-
+      await updateProduct.mutateAsync({ id: editingProduct.id, name: formName.trim(), brandId: formBrand, sellingPrice: parseFloat(formPrice) || 0, costPrice: parseFloat(formCostPrice) || 0, quantityAlert: parseInt(formAlert) || 0, image: formImage ?? undefined, quantities: buildQuantitiesPayload() });
       setEditingProduct(null); setShowEditModal(false);
     } catch (e) { setFormError(getApiErrorMessage(e)); }
   }
