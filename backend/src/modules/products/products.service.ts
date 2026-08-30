@@ -636,10 +636,32 @@ export class ProductsService {
       branchName: inv.branch?.name ?? null,
       quantity: inv.quantity,
     }));
-    const totalQuantity = quantities.reduce(
+    const baseTotal = quantities.reduce(
       (sum: number, q: any) => sum + q.quantity,
       0,
     );
+
+    const variants = (product.variants ?? []).map((v: any) => {
+      // Read from variantInventory (the new separate table)
+      const vQuantities = (v.variantInventory ?? []).map((inv: any) => ({
+        branchId: inv.branchId,
+        branchName: inv.branch?.name ?? null,
+        quantity: inv.quantity,
+      }));
+      return {
+        id: v.id,
+        name: v.name,
+        sellingPrice: Number(v.sellingPrice),
+        quantities: vQuantities,
+        totalQuantity: vQuantities.reduce((sum: number, q: any) => sum + q.quantity, 0),
+        ...(includeOwnerFields ? { costPrice: Number(v.costPrice) } : {}),
+      };
+    });
+
+    // totalQuantity: for variant products, sum all variant stock.
+    // For simple products, use base inventory total.
+    const variantTotal = variants.reduce((sum: number, v: any) => sum + v.totalQuantity, 0);
+    const totalQuantity = variantTotal > 0 ? variantTotal : baseTotal;
 
     const result: any = {
       id: product.id,
@@ -653,22 +675,7 @@ export class ProductsService {
       sellingPrice: Number(product.sellingPrice),
       quantityAlert: product.quantityAlert,
       isActive: product.isActive,
-      variants: (product.variants ?? []).map((v: any) => {
-        // Read from variantInventory (the new separate table)
-        const vQuantities = (v.variantInventory ?? []).map((inv: any) => ({
-          branchId: inv.branchId,
-          branchName: inv.branch?.name ?? null,
-          quantity: inv.quantity,
-        }));
-        return {
-          id: v.id,
-          name: v.name,
-          sellingPrice: Number(v.sellingPrice),
-          quantities: vQuantities,
-          totalQuantity: vQuantities.reduce((sum: number, q: any) => sum + q.quantity, 0),
-          ...(includeOwnerFields ? { costPrice: Number(v.costPrice) } : {}),
-        };
-      }),
+      variants,
       quantities,
       totalQuantity,
       createdAt: product.createdAt,
