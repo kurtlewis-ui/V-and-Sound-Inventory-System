@@ -34,6 +34,19 @@ export class BranchQuantityDto {
   @IsInt()
   @Min(0)
   quantity: number;
+
+  @ApiProperty({
+    required: false,
+    example: 450,
+    description:
+      'Branch-specific selling price for the PRODUCT in PHP. Omit/null to use ' +
+      'the product default. Product-level (flavors share the product price).',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  sellingPrice?: number;
 }
 
 export class CreateProductDto {

@@ -103,6 +103,10 @@ export interface ProductBranchQuantity {
   branchId: string;
   branchName: string | null;
   quantity: number;
+  // Per-branch PRODUCT selling price override (null = use product.sellingPrice).
+  // Product-level: flavors/colors share the product's price. Only present on
+  // the product's own `quantities`, not on per-variant quantities.
+  sellingPrice?: number | null;
 }
 
 export interface ProductVariant {
@@ -124,6 +128,7 @@ export interface Product {
   sellingPrice: number;
   costPrice?: number; // Owner-only, confidential
   quantityAlert: number;
+  sortOrder: number; // manual display order (lower = higher up)
   isActive: boolean;
   variants: ProductVariant[];
   quantities: ProductBranchQuantity[];

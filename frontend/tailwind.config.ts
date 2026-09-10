@@ -48,6 +48,28 @@ const config: Config = {
         'input-border': 'var(--content-input-border, #333333)',
         'input-focus': 'var(--content-input-focus, #ffffff)',
       },
+      fontFamily: {
+        // Geist Sans for UI text, Geist Mono for numeric/tabular data. The
+        // CSS variables are defined in the root layout via the `geist` package.
+        // System fonts are kept as fallbacks so text still renders before the
+        // font loads (and if it ever fails).
+        sans: [
+          'var(--font-geist-sans)',
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'Segoe UI',
+          'Roboto',
+          'sans-serif',
+        ],
+        mono: [
+          'var(--font-geist-mono)',
+          'ui-monospace',
+          'SFMono-Regular',
+          'Menlo',
+          'monospace',
+        ],
+      },
       borderRadius: {
         xl: '12px',
         '2xl': '16px',

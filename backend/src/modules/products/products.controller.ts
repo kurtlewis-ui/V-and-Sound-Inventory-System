@@ -17,6 +17,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
 import { ImportProductsDto } from './dto/import-products.dto';
 import { RestockDto } from './dto/restock.dto';
+import { ReorderProductsDto } from './dto/reorder-products.dto';
 import { CreateVariantDto, UpdateVariantDto } from './dto/variant.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -58,6 +59,14 @@ export class ProductsController {
   @ApiOperation({ summary: 'Add stock to products at branches' })
   async restock(@Body() dto: RestockDto, @CurrentUser() user: RequestUser) {
     const data = await this.productsService.restock(dto.items, user.userId);
+    return { success: true, data };
+  }
+
+  @Patch('reorder')
+  @Roles('Owner', 'Admin')
+  @ApiOperation({ summary: 'Persist a manual product display order' })
+  async reorder(@Body() dto: ReorderProductsDto, @CurrentUser() user: RequestUser) {
+    const data = await this.productsService.reorder(dto.orderedIds, user.userId);
     return { success: true, data };
   }
 
