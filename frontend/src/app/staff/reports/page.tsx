@@ -13,6 +13,7 @@ import {
 import { useAuthStore } from '@/lib/store';
 import { getApiErrorMessage } from '@/lib/api';
 import { TableSkeleton } from '@/components/Skeleton';
+import { Select } from '@/components/Select';
 
 function peso(n: number) {
   return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -140,14 +141,16 @@ export default function StaffDailyReportPage() {
       </div>
 
       <div className="mb-3 max-w-xs">
-        <select
+        <Select
           value={view}
-          onChange={(e) => setView(e.target.value as ViewMode)}
-          className="w-full rounded-lg border border-input-border bg-input-bg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-input-focus"
-        >
-          <option value="sale">View by Sale</option>
-          <option value="product">View by Product</option>
-        </select>
+          onChange={(v) => setView(v as ViewMode)}
+          options={[
+            { value: 'sale', label: 'View by Sale' },
+            { value: 'product', label: 'View by Product' },
+          ]}
+          className="w-full"
+          ariaLabel="View mode"
+        />
       </div>
 
       <div className="mb-4 flex max-w-2xl items-center gap-2">

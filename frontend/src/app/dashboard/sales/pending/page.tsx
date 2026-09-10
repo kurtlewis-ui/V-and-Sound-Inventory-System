@@ -24,6 +24,7 @@ import {
 import { getApiErrorMessage } from '@/lib/api';
 import type { Sale, PaymentMethod, PaymentSplit } from '@/lib/types';
 import { useToast } from '@/components/Toast';
+import { Select } from '@/components/Select';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -208,10 +209,12 @@ export default function SalesPendingPage() {
       {/* Filters */}
       <div className="bg-card-bg rounded-xl border border-card-border shadow-sm mb-4">
         <div className="p-4 flex flex-wrap items-center gap-3">
-          <select value={selectedShop} onChange={(e) => setSelectedShop(e.target.value)} className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus">
-            {branches.length === 0 && <option value="">No shops yet</option>}
-            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          <Select
+            value={selectedShop}
+            onChange={(v) => setSelectedShop(v)}
+            options={branches.length === 0 ? [{ value: '', label: 'No shops yet' }] : branches.map((b) => ({ value: b.id, label: b.name }))}
+            ariaLabel="Shop"
+          />
         </div>
       </div>
 
@@ -709,11 +712,13 @@ function EditSaleModal({
             {rows.length === 0 && <p className="text-xs text-text-muted">No items. Add at least one.</p>}
             {rows.map((row, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <select value={row.productId} onChange={(e) => setRow(idx, { productId: e.target.value })} className="flex-1 border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg focus:outline-none focus:border-input-focus">
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}{p.brand ? ` (${p.brand.name})` : ''} — {peso(p.sellingPrice)}</option>
-                  ))}
-                </select>
+                <Select
+                  value={row.productId}
+                  onChange={(v) => setRow(idx, { productId: v })}
+                  options={products.map((p) => ({ value: p.id, label: `${p.name}${p.brand ? ` (${p.brand.name})` : ''} — ${peso(p.sellingPrice)}` }))}
+                  className="flex-1"
+                  ariaLabel="Product"
+                />
                 <input type="number" min="1" value={row.quantity} onChange={(e) => setRow(idx, { quantity: parseInt(e.target.value) || 1 })} className="w-16 border border-input-border rounded px-2 py-1.5 text-sm bg-input-bg focus:outline-none focus:border-input-focus" />
                 <span className="w-20 text-right text-sm text-text-secondary">{peso(priceOf(row.productId) * row.quantity - (row.discount ?? 0))}</span>
                 <span className="w-24 truncate text-xs text-text-muted" title={row.paymentMethod}>{row.paymentMethod}</span>
