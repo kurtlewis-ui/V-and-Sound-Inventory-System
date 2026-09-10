@@ -189,7 +189,9 @@ export interface ProductMutationInput {
   costPrice?: number;
   quantityAlert?: number;
   image?: string;
-  quantities?: { branchId: string; variantId?: string; variantName?: string; quantity: number }[];
+  // `sellingPrice` on a quantity is the per-branch PRODUCT price (product-level;
+  // flavors share it). Only sent when the form is scoped to a single shop.
+  quantities?: { branchId: string; variantId?: string; variantName?: string; quantity: number; sellingPrice?: number }[];
 }
 
 export function useProducts(params?: { search?: string; brandId?: string; branchId?: string; page?: number; limit?: number }) {
@@ -287,6 +289,16 @@ export function useRestoreProduct() {
     mutationFn: (id: string) =>
       api.post(`/products/${id}/restore`).then((r) => r.data.data),
     onSuccess: () => invalidate(['products'], ['stats']),
+  });
+}
+
+/** Persist a manual product display order (admin drag-to-reorder). */
+export function useReorderProducts() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (orderedIds: string[]) =>
+      api.patch('/products/reorder', { orderedIds }).then((r) => r.data.data),
+    onSuccess: () => invalidate(['products']),
   });
 }
 

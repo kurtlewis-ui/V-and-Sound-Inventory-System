@@ -5,6 +5,7 @@ import { Search, Loader2 } from 'lucide-react';
 import { useSalesRecords, useBranches, useBranchSummary } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import type { PaymentMethod } from '@/lib/types';
+import { Select } from '@/components/Select';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -81,10 +82,12 @@ export default function SalesRecordsPage() {
       {/* Filters */}
       <div className="bg-card-bg rounded-xl border border-card-border shadow-sm mb-4">
         <div className="p-4 flex flex-wrap items-center gap-3">
-          <select value={selectedShop} onChange={(e) => setSelectedShop(e.target.value)} className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus">
-            <option value="">All Shops</option>
-            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          <Select
+            value={selectedShop}
+            onChange={(v) => setSelectedShop(v)}
+            options={[{ value: '', label: 'All Shops' }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
+            ariaLabel="Shops"
+          />
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus" />
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus" />
         </div>

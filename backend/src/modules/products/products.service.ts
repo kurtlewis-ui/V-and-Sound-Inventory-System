@@ -26,6 +26,33 @@ export class ProductsService {
 
     await this.assertBranchesExist(dto.quantities);
 
+    // Append new products at the end of the manual order (max + 1) so a newly
+    // added product shows up last in the list — matching "newest at the bottom".
+    const maxOrder = await this.prisma.product.aggregate({
+      _max: { sortOrder: true },
+    });
+    const nextSortOrder = (maxOrder._max.sortOrder ?? -1) + 1;
+
+    // Split incoming quantities into simple (no variant) vs variant entries.
+    // The Add-product form sends brand-new flavors with a temporary variantId
+    // like "new_<timestamp>" plus a variantName; those aren't real UUIDs yet,
+    // so we create the variant here and route its stock to variant_inventory.
+    const allQuantities = dto.quantities ?? [];
+    const simpleQuantities = allQuantities.filter((q) => !q.variantId);
+    const variantQuantities = allQuantities.filter((q) => q.variantId);
+
+    // Every branch that appears anywhere gets a variant_id = NULL inventory row
+    // that carries the branch price (prices are product-level; flavors share
+    // it). Simple products also store their stock on this row; variant products
+    // keep stock in variant_inventory, so their NULL row stays quantity 0.
+    const branchPriceMap = new Map<string, { quantity: number; sellingPrice: number }>();
+    for (const q of allQuantities) {
+      const existing = branchPriceMap.get(q.branchId);
+      const price = q.sellingPrice ?? existing?.sellingPrice ?? dto.sellingPrice;
+      const qty = q.variantId ? existing?.quantity ?? 0 : q.quantity;
+      branchPriceMap.set(q.branchId, { quantity: qty, sellingPrice: price });
+    }
+
     const product = await this.prisma.product.create({
       data: {
         name: dto.name.trim(),
@@ -36,11 +63,13 @@ export class ProductsService {
         sellingPrice: dto.sellingPrice,
         costPrice: dto.costPrice ?? 0,
         quantityAlert: dto.quantityAlert ?? 0,
-        inventory: dto.quantities?.length
+        sortOrder: nextSortOrder,
+        inventory: branchPriceMap.size
           ? {
-              create: dto.quantities.map((q) => ({
-                branchId: q.branchId,
-                quantity: q.quantity,
+              create: [...branchPriceMap.entries()].map(([branchId, v]) => ({
+                branchId,
+                quantity: v.quantity,
+                sellingPrice: v.sellingPrice,
               })),
             }
           : undefined,
@@ -48,31 +77,81 @@ export class ProductsService {
       include: this.includeFull(),
     });
 
-    // Log stock movements for initial quantities
-    if (dto.quantities?.length) {
-      for (const q of dto.quantities) {
-        if (q.quantity > 0) {
-          await this.prisma.stockMovement.create({
-            data: {
-              productId: product.id,
-              branchId: q.branchId,
-              userId: createdBy,
-              type: 'RESTOCK',
-              quantityChange: q.quantity,
-              quantityAfter: q.quantity,
-              description: 'Initial stock on product creation.',
-            },
-          });
+    // Create brand-new flavors/variants and their per-branch stock. Group the
+    // incoming variant rows by their temp variantId so each distinct flavor is
+    // created once, then attach its branch quantities to variant_inventory.
+    if (variantQuantities.length) {
+      const byTempId = new Map<string, { name: string; rows: typeof variantQuantities }>();
+      for (const q of variantQuantities) {
+        const key = q.variantId as string;
+        const entry = byTempId.get(key);
+        if (entry) {
+          entry.rows.push(q);
+          if (q.variantName) entry.name = q.variantName.trim();
+        } else {
+          byTempId.set(key, { name: (q.variantName || 'Unnamed').trim(), rows: [q] });
+        }
+      }
+      for (const { name, rows } of byTempId.values()) {
+        const variant = await this.prisma.productVariant.create({
+          data: {
+            productId: product.id,
+            name,
+            sellingPrice: 0,
+            costPrice: 0,
+          },
+        });
+        for (const r of rows) {
+          if (r.quantity > 0) {
+            await this.prisma.variantInventory.create({
+              data: { variantId: variant.id, branchId: r.branchId, quantity: r.quantity },
+            });
+            await this.prisma.stockMovement.create({
+              data: {
+                productId: product.id,
+                variantId: variant.id,
+                branchId: r.branchId,
+                userId: createdBy,
+                type: 'RESTOCK',
+                quantityChange: r.quantity,
+                quantityAfter: r.quantity,
+                description: 'Initial stock on product creation.',
+              },
+            });
+          }
         }
       }
     }
+
+    // Log stock movements for initial simple-product quantities.
+    for (const q of simpleQuantities) {
+      if (q.quantity > 0) {
+        await this.prisma.stockMovement.create({
+          data: {
+            productId: product.id,
+            branchId: q.branchId,
+            userId: createdBy,
+            type: 'RESTOCK',
+            quantityChange: q.quantity,
+            quantityAfter: q.quantity,
+            description: 'Initial stock on product creation.',
+          },
+        });
+      }
+    }
+
+    // Re-fetch so the response includes the freshly created variants + stock.
+    const createdProduct = await this.prisma.product.findUnique({
+      where: { id: product.id },
+      include: this.includeFull(),
+    });
 
     await this.audit(createdBy, 'PRODUCT_CREATED', product.id, null, {
       name: product.name,
       brand: brand.name,
     });
 
-    return this.serialize(product);
+    return this.serialize(createdProduct ?? product, true);
   }
 
   async findAll(query: QueryProductDto, role?: string) {
@@ -93,7 +172,7 @@ export class ProductsService {
       this.prisma.product.findMany({
         where,
         include: this.includeFull(branchId),
-        orderBy: { name: 'asc' },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         skip,
         take: limit,
       }),
@@ -188,6 +267,13 @@ export class ProductsService {
 
         if (variantId) {
           // --- VARIANT PRODUCT: use variant_inventory table ---
+          // Prices are product-level, so a per-branch price sent alongside a
+          // variant row is stored on that branch's variant_id = NULL inventory
+          // row (creating it if needed) rather than on the variant.
+          if (q.sellingPrice !== undefined && q.sellingPrice !== null) {
+            await this.upsertBranchPrice(id, q.branchId, q.sellingPrice);
+          }
+
           const existing = await this.prisma.variantInventory.findUnique({
             where: { variantId_branchId: { variantId, branchId: q.branchId } },
           });
@@ -228,6 +314,10 @@ export class ProductsService {
           }
         } else {
           // --- SIMPLE PRODUCT: use inventory table (existing logic) ---
+          // The variant_id = NULL row also carries the per-branch product price
+          // (prices are product-level). `q.sellingPrice` is only sent when the
+          // form is scoped to a single shop; undefined means "leave price as-is".
+          const branchPrice = q.sellingPrice;
           const existing = await this.prisma.$queryRawUnsafe<{ id: string; quantity: number }[]>(
             `SELECT id, quantity FROM inventory WHERE product_id = $1::uuid AND variant_id IS NULL AND branch_id = $2::uuid LIMIT 1`,
             id, q.branchId,
@@ -235,15 +325,22 @@ export class ProductsService {
           const oldQty = existing.length > 0 ? Number(existing[0].quantity) : 0;
 
           if (existing.length > 0) {
-            await this.prisma.$executeRawUnsafe(
-              `UPDATE inventory SET quantity = $1::int, updated_at = NOW() WHERE id = $2::uuid`,
-              newQty, existing[0].id,
-            );
+            if (branchPrice !== undefined && branchPrice !== null) {
+              await this.prisma.$executeRawUnsafe(
+                `UPDATE inventory SET quantity = $1::int, selling_price = $2::numeric, updated_at = NOW() WHERE id = $3::uuid`,
+                newQty, branchPrice, existing[0].id,
+              );
+            } else {
+              await this.prisma.$executeRawUnsafe(
+                `UPDATE inventory SET quantity = $1::int, updated_at = NOW() WHERE id = $2::uuid`,
+                newQty, existing[0].id,
+              );
+            }
           } else {
             await this.prisma.$executeRawUnsafe(
-              `INSERT INTO inventory (id, product_id, variant_id, branch_id, quantity, updated_at)
-               VALUES (gen_random_uuid(), $1::uuid, NULL, $2::uuid, $3::int, NOW())`,
-              id, q.branchId, newQty,
+              `INSERT INTO inventory (id, product_id, variant_id, branch_id, quantity, selling_price, updated_at)
+               VALUES (gen_random_uuid(), $1::uuid, NULL, $2::uuid, $3::int, $4::numeric, NOW())`,
+              id, q.branchId, newQty, branchPrice ?? null,
             );
           }
 
@@ -599,6 +696,65 @@ export class ProductsService {
     return { updated, total: items.length, warnings };
   }
 
+  /**
+   * Persist a per-branch PRODUCT selling price on the variant_id = NULL
+   * inventory row for the branch, creating that row (quantity 0) if it doesn't
+   * exist yet. Used by variant products, whose stock lives in variant_inventory
+   * but whose price is still product-level.
+   */
+  private async upsertBranchPrice(productId: string, branchId: string, price: number) {
+    const existing = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
+      `SELECT id FROM inventory WHERE product_id = $1::uuid AND variant_id IS NULL AND branch_id = $2::uuid LIMIT 1`,
+      productId, branchId,
+    );
+    if (existing.length > 0) {
+      await this.prisma.$executeRawUnsafe(
+        `UPDATE inventory SET selling_price = $1::numeric, updated_at = NOW() WHERE id = $2::uuid`,
+        price, existing[0].id,
+      );
+    } else {
+      await this.prisma.$executeRawUnsafe(
+        `INSERT INTO inventory (id, product_id, variant_id, branch_id, quantity, selling_price, updated_at)
+         VALUES (gen_random_uuid(), $1::uuid, NULL, $2::uuid, 0, $3::numeric, NOW())`,
+        productId, branchId, price,
+      );
+    }
+  }
+
+  /**
+   * Persist a manual product display order. Positions come from `orderedIds`
+   * (index 0 = top). Unknown/archived IDs are ignored so a stale client can't
+   * error the whole call.
+   */
+  async reorder(orderedIds: string[], userId: string) {
+    // Keep only IDs that map to real, non-archived products (preserving order).
+    const existing = await this.prisma.product.findMany({
+      where: { id: { in: orderedIds }, deletedAt: null },
+      select: { id: true },
+    });
+    const validIdSet = new Set(existing.map((p) => p.id));
+    const ids = orderedIds.filter((id) => validIdSet.has(id));
+
+    if (ids.length === 0) {
+      throw new BadRequestException('No valid products to reorder.');
+    }
+
+    await this.prisma.$transaction(
+      ids.map((id, index) =>
+        this.prisma.product.update({
+          where: { id },
+          data: { sortOrder: index },
+        }),
+      ),
+    );
+
+    await this.audit(userId, 'PRODUCT_REORDERED', ids[0], null, {
+      count: ids.length,
+    });
+
+    return { success: true, count: ids.length };
+  }
+
   private async assertBranchesExist(quantities?: BranchQuantityDto[]) {
     if (!quantities?.length) return;
     const ids = [...new Set(quantities.map((q) => q.branchId))];
@@ -635,6 +791,8 @@ export class ProductsService {
       branchId: inv.branchId,
       branchName: inv.branch?.name ?? null,
       quantity: inv.quantity,
+      // Per-branch product price override (null = use product default).
+      sellingPrice: inv.sellingPrice != null ? Number(inv.sellingPrice) : null,
     }));
     const baseTotal = quantities.reduce(
       (sum: number, q: any) => sum + q.quantity,
@@ -674,6 +832,7 @@ export class ProductsService {
       variantType: product.variantType ?? 'none',
       sellingPrice: Number(product.sellingPrice),
       quantityAlert: product.quantityAlert,
+      sortOrder: product.sortOrder ?? 0,
       isActive: product.isActive,
       variants,
       quantities,

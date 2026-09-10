@@ -15,6 +15,7 @@ import { getApiErrorMessage } from '@/lib/api';
 import { useToast } from '@/components/Toast';
 import { fileToResizedDataUrl } from '@/lib/image';
 import { useAuthStore } from '@/lib/store';
+import { Select } from '@/components/Select';
 import type { FullUser } from '@/lib/types';
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -267,27 +268,36 @@ export default function UsersPage() {
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1">Status</label>
-          <select value={formData.isActive ? 'Active' : 'Disabled'} onChange={(e) => setFormData({ ...formData, isActive: e.target.value === 'Active' })} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus text-sm">
-            <option value="Active">Active</option>
-            <option value="Disabled">Disabled</option>
-          </select>
+          <Select
+            value={formData.isActive ? 'Active' : 'Disabled'}
+            onChange={(v) => setFormData({ ...formData, isActive: v === 'Active' })}
+            options={[{ value: 'Active', label: 'Active' }, { value: 'Disabled', label: 'Disabled' }]}
+            className="w-full"
+            ariaLabel="Status"
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1">Role</label>
-          <select value={formData.roleId} onChange={(e) => setFormData({ ...formData, roleId: e.target.value })} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus text-sm">
-            <option value="">Select role</option>
-            {availableRoles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
+          <Select
+            value={formData.roleId}
+            onChange={(v) => setFormData({ ...formData, roleId: v })}
+            options={[{ value: '', label: 'Select role' }, ...availableRoles.map((r) => ({ value: r.id, label: r.name }))]}
+            className="w-full"
+            ariaLabel="Role"
+          />
         </div>
       </div>
 
       {isStaffRole && (
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1">Shop</label>
-          <select value={formData.branchId} onChange={(e) => setFormData({ ...formData, branchId: e.target.value })} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus text-sm">
-            <option value="">Select shop</option>
-            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          <Select
+            value={formData.branchId}
+            onChange={(v) => setFormData({ ...formData, branchId: v })}
+            options={[{ value: '', label: 'Select shop' }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
+            className="w-full"
+            ariaLabel="Shop"
+          />
         </div>
       )}
 
@@ -347,10 +357,12 @@ export default function UsersPage() {
         <div className="p-4 flex items-center justify-between border-b border-card-border">
           <div className="flex items-center gap-2">
             <label className="text-sm text-text-secondary">Show</label>
-            <select value={entriesPerPage} onChange={(e) => { setEntriesPerPage(e.target.value === 'All' ? 'All' : Number(e.target.value)); setCurrentPage(1); }} className="px-2 py-1 border border-input-border rounded text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus">
-              {[5, 10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-              <option value="All">All</option>
-            </select>
+            <Select
+              value={entriesPerPage.toString()}
+              onChange={(v) => { setEntriesPerPage(v === 'All' ? 'All' : Number(v)); setCurrentPage(1); }}
+              options={[...[5, 10, 25, 50, 100].map((n) => ({ value: n.toString(), label: n.toString() })), { value: 'All', label: 'All' }]}
+              ariaLabel="Entries per page"
+            />
             <span className="text-sm text-text-secondary">entries</span>
           </div>
           <div className="relative">

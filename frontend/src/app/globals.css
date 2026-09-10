@@ -228,3 +228,136 @@ select optgroup {
     @apply h-1.5 w-1.5 rounded-full;
   }
 }
+
+
+/* ======================================================================
+   DESIGN FOUNDATION — glass, motion, elevation
+   Reusable primitives for the "elite SaaS" polish. Built entirely from the
+   EXISTING theme tokens (var(--content-*)), so nothing here recolors the app
+   or changes the theme; it only adds depth, glass, and motion. Restrained on
+   purpose ("not overkill") — legibility first.
+   ====================================================================== */
+
+/* --- Spring / tactile motion -----------------------------------------
+   A single elastic bezier for hover / active / tap states so interactive
+   elements feel physical. Apply `.spring` to opt in. */
+.spring {
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    box-shadow 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    background-color 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
+}
+
+.spring:active {
+  transform: scale(0.97);
+}
+
+/* --- Restrained glassmorphism ----------------------------------------
+   For CHROME (modals, dropdowns, headers, panels) — never for solid data
+   cards. Uses a translucent tint of the theme's own card background plus a
+   hairline border, so it stays monochrome and on-brand in both dark and light.
+   Kept MOSTLY SOLID with only a gentle blur so text stays crisp over busy,
+   data-dense pages.
+
+   .glass        — nearly-solid surface for modals/dialogs + dropdown lists.
+   .glass-strong — for true floating chrome only (a touch more translucent). */
+.glass {
+  background-color: color-mix(in srgb, var(--content-card-bg, #1a1a1a) 92%, transparent);
+  backdrop-filter: blur(6px) saturate(110%);
+  -webkit-backdrop-filter: blur(6px) saturate(110%);
+  border: 1px solid color-mix(in srgb, var(--content-card-border, #2a2a2a) 80%, transparent);
+}
+
+.glass-strong {
+  background-color: color-mix(in srgb, var(--content-card-bg, #1a1a1a) 88%, transparent);
+  backdrop-filter: blur(10px) saturate(115%);
+  -webkit-backdrop-filter: blur(10px) saturate(115%);
+  border: 1px solid color-mix(in srgb, var(--content-card-border, #2a2a2a) 80%, transparent);
+}
+
+/* Graceful fallback: if a browser can't do backdrop-filter, fall back to a
+   near-opaque solid so text stays readable. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass-strong {
+    background-color: color-mix(in srgb, var(--content-card-bg, #1a1a1a) 96%, transparent);
+  }
+}
+
+/* --- Glass select (custom dropdown trigger) --------------------------
+   Premium translucent look for the CLOSED select control. Built from existing
+   input tokens so it stays black-and-white in both themes. The OPEN option
+   list is a portal-rendered .glass list (see Select.tsx). */
+.glass-select {
+  background-color: color-mix(in srgb, var(--content-input-bg, #1a1a1a) 92%, transparent);
+  backdrop-filter: blur(4px) saturate(110%);
+  -webkit-backdrop-filter: blur(4px) saturate(110%);
+  border: 1px solid color-mix(in srgb, var(--content-input-border, #333333) 85%, transparent);
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  line-height: 1.4;
+}
+
+.glass-select:hover {
+  border-color: color-mix(in srgb, var(--content-input-focus, #ffffff) 45%, transparent);
+}
+
+.glass-select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--content-input-focus, #ffffff) 65%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--content-input-focus, #ffffff) 18%, transparent);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-select {
+    background-color: color-mix(in srgb, var(--content-input-bg, #1a1a1a) 92%, transparent);
+  }
+}
+
+/* Custom dropdown (Select.tsx) open-list pop-in. Fade only (no transform) so
+   it never fights the upward-open translateY positioning set inline. */
+.dropdown-pop {
+  animation: dropdown-pop-kf 0.14s ease-out;
+}
+
+@keyframes dropdown-pop-kf {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* --- Elevation / dimensional depth -----------------------------------
+   Soft, layered shadow so surfaces read as floating above the page rather
+   than flat. Neutral (black) shadow — no color. */
+.elevate {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 8px 24px -8px rgba(0, 0, 0, 0.45);
+}
+
+.elevate-lg {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 0 18px 40px -12px rgba(0, 0, 0, 0.55);
+}
+
+/* --- Bento grid ------------------------------------------------------
+   Asymmetrical metrics grid. `.bento-grid` is the container; children use
+   `.bento-2` / `.bento-3` / `.bento-4` to span more columns at md+ (they stay
+   full-width and stack on mobile). */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .bento-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .bento-2 { grid-column: span 2 / span 2; }
+  .bento-3 { grid-column: span 3 / span 3; }
+  .bento-4 { grid-column: span 4 / span 4; }
+}
+
+/* Honor reduced-motion for the foundation animations. */
+@media (prefers-reduced-motion: reduce) {
+  .spring,
+  .dropdown-pop {
+    animation: none !important;
+    transition: none !important;
+  }
+}

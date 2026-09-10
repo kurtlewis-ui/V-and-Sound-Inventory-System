@@ -17,9 +17,10 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { useDashboardStats, useSalesOverview, useTopProducts, useBranches, useDisposals, useExpenses } from '@/lib/hooks';
+import { useDashboardStats, useSalesOverview, useTopProducts, useBranches, useDisposals } from '@/lib/hooks';
 import { useThemeStore } from '@/lib/theme';
-import { OwnerProfitSection } from '@/components/OwnerProfitSection';
+import { FinancialOverview } from '@/components/FinancialOverview';
+import { Select } from '@/components/Select';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -43,9 +44,6 @@ export default function DashboardPage() {
   const [showAllSelling, setShowAllSelling] = useState(false);
   const [showAllDisposed, setShowAllDisposed] = useState(false);
 
-  // Revenue date filter
-  const [revenueStartDate, setRevenueStartDate] = useState('');
-  const [revenueEndDate, setRevenueEndDate] = useState('');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState('');
@@ -56,16 +54,6 @@ export default function DashboardPage() {
   // Disposals data for "Most Disposed Products" chart
   const { data: disposalsData } = useDisposals({ branchId: disposalShop || undefined });
   const disposals = (Array.isArray(disposalsData?.data) ? disposalsData.data : []).filter((d) => d.status === 'APPROVED');
-
-  // Expenses data for the Revenue card
-  const { data: expensesData } = useExpenses({ startDate: revenueStartDate || undefined, endDate: revenueEndDate || undefined });
-  const approvedExpenses = (Array.isArray(expensesData?.data) ? expensesData.data : []).filter((e) => e.status === 'APPROVED');
-  const totalExpenses = approvedExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-
-  // Disposals data for the Revenue card (all shops, date-filtered, approved only)
-  const { data: revenueDisposalsData } = useDisposals({ startDate: revenueStartDate || undefined, endDate: revenueEndDate || undefined });
-  const revenueDisposals = (Array.isArray(revenueDisposalsData?.data) ? revenueDisposalsData.data : []).filter((d) => d.status === 'APPROVED');
-  const totalDisposals = revenueDisposals.reduce((sum, d) => sum + Number(d.value), 0);
 
   // Compute top disposed products (group by product name, sum quantity)
   const disposedProducts = useMemo(() => {
@@ -78,29 +66,6 @@ export default function DashboardPage() {
     }
     return [...map.values()].sort((a, b) => b.quantity - a.quantity);
   }, [disposals]);
-
-  // Revenue filtered by date (uses sales records summary if dates are set)
-  const { data: revData } = useSalesOverview('daily', undefined);
-  const filteredRevenue = useMemo(() => {
-    if (!revenueStartDate && !revenueEndDate) {
-      return { total: stats?.approvedSalesTotal ?? 0, label: 'All-Time' };
-    }
-    // Filter overview data by date range.
-    // p.date is an ISO timestamp from the backend (e.g. "2026-07-01T00:00:00.000Z")
-    // while revenueStartDate/revenueEndDate are plain "YYYY-MM-DD" from <input type="date">.
-    // Normalize p.date to YYYY-MM-DD before comparing so both sides match.
-    const filtered = (revData ?? []).filter((p) => {
-      const dateStr = new Date(p.date).toISOString().slice(0, 10);
-      if (revenueStartDate && dateStr < revenueStartDate) return false;
-      if (revenueEndDate && dateStr > revenueEndDate) return false;
-      return true;
-    });
-    const total = filtered.reduce((sum, p) => sum + p.total, 0);
-    const label = revenueStartDate && revenueEndDate
-      ? `${revenueStartDate} to ${revenueEndDate}`
-      : revenueStartDate ? `From ${revenueStartDate}` : `Until ${revenueEndDate}`;
-    return { total, label };
-  }, [revenueStartDate, revenueEndDate, revData, stats]);
 
   const v = (n?: number) => (isLoading || n === undefined ? '—' : n.toLocaleString());
 
@@ -138,7 +103,7 @@ export default function DashboardPage() {
             }
           }}
           disabled={exporting}
-          className="flex items-center gap-2 bg-btn-primary text-btn-primary-text px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-60"
+          className="btn-grad flex items-center gap-2 px-4 py-2 rounded-lg text-sm disabled:opacity-60"
         >
           <Download size={16} /> {exporting ? exportStatus || 'Exporting...' : 'Export All Data'}
         </button>
@@ -154,57 +119,35 @@ export default function DashboardPage() {
         <StatsCard href="/dashboard/users" icon={<Users size={24} />} value={v(stats?.staff)} label="Staff" subtitle={`${v(stats?.admins)} Admins`} accentColor="#a78bfa" />
       </div>
 
-      {/* Owner-only Profit & Loss section */}
-      <OwnerProfitSection />
-
-      {/* Revenue Summary with date picker */}
-      <div className="bg-card-bg border border-card-border rounded-xl p-5 shadow-sm shadow-black/20">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-          <p className="text-xs text-text-muted font-medium uppercase tracking-wider">Revenue ({filteredRevenue.label})</p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <input type="date" value={revenueStartDate} onChange={(e) => setRevenueStartDate(e.target.value)} className="px-2 py-1 border border-input-border rounded text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus" />
-            <span className="text-xs text-text-muted">to</span>
-            <input type="date" value={revenueEndDate} onChange={(e) => setRevenueEndDate(e.target.value)} className="px-2 py-1 border border-input-border rounded text-sm bg-input-bg focus:outline-none focus:ring-2 focus:ring-input-focus" />
-            {(revenueStartDate || revenueEndDate) && (
-              <button onClick={() => { setRevenueStartDate(''); setRevenueEndDate(''); }} className="px-2 py-1 text-xs text-text-secondary border border-input-border rounded hover:opacity-80">Clear</button>
-            )}
-          </div>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-          <div>
-            <p className="text-xs text-text-secondary">Total Sales</p>
-            <p className="text-2xl font-bold text-accent-green">{peso(filteredRevenue.total)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-text-secondary">Total Expenses</p>
-            <p className="text-2xl font-bold text-accent-red">{peso(totalExpenses)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-text-secondary">Disposal Losses</p>
-            <p className="text-2xl font-bold text-accent-orange">{peso(totalDisposals)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-text-secondary">Net Revenue</p>
-            <p className="text-2xl font-bold text-text-primary">{peso(filteredRevenue.total - totalExpenses - totalDisposals)}</p>
-          </div>
-        </div>
-      </div>
+      {/* Merged financial section (Revenue + Profit & Loss) with a single
+          shared date range + shop filter. Owner sees full P&L; Admin sees the
+          revenue rollup. */}
+      <FinancialOverview />
 
       {/* Sales Overview */}
-      <div className="bg-card-bg border border-card-border rounded-xl p-6 shadow-sm shadow-black/20">
+      <div className="glass rounded-2xl p-6 elevate">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-lg font-bold text-text-primary">Sales Overview</h2>
           <div className="flex flex-wrap items-center gap-2">
-            <select value={period} onChange={(e) => setPeriod(e.target.value)} className="border border-input-border rounded px-3 py-1.5 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus">
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
-            <select value={overviewShop} onChange={(e) => setOverviewShop(e.target.value)} className="border border-input-border rounded px-3 py-1.5 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus">
-              <option value="">All Shops</option>
-              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+            <Select
+              value={period}
+              onChange={setPeriod}
+              options={[
+                { value: 'daily', label: 'Daily' },
+                { value: 'weekly', label: 'Weekly' },
+                { value: 'monthly', label: 'Monthly' },
+                { value: 'yearly', label: 'Yearly' },
+              ]}
+              className="min-w-[120px]"
+              ariaLabel="Period"
+            />
+            <Select
+              value={overviewShop}
+              onChange={setOverviewShop}
+              options={[{ value: '', label: 'All Shops' }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
+              className="min-w-[150px]"
+              ariaLabel="Shop"
+            />
           </div>
         </div>
         {ovLoading ? (
@@ -232,13 +175,16 @@ export default function DashboardPage() {
       </div>
 
       {/* Top Selling Products */}
-      <div className="bg-card-bg border border-card-border rounded-xl p-6 shadow-sm shadow-black/20">
+      <div className="glass rounded-2xl p-6 elevate">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-lg font-bold text-text-primary">Top Selling Products</h2>
-          <select value={topShop} onChange={(e) => setTopShop(e.target.value)} className="border border-input-border rounded px-3 py-1.5 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus">
-            <option value="">All Shops</option>
-            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          <Select
+            value={topShop}
+            onChange={setTopShop}
+            options={[{ value: '', label: 'All Shops' }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
+            className="min-w-[150px]"
+            ariaLabel="Shop"
+          />
         </div>
         {tpLoading ? (
           <ChartPlaceholder message="Loading..." />
@@ -328,13 +274,16 @@ export default function DashboardPage() {
       </div>
 
       {/* Most Disposed Products */}
-      <div className="bg-card-bg border border-card-border rounded-xl p-6 shadow-sm shadow-black/20">
+      <div className="glass rounded-2xl p-6 elevate">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-lg font-bold text-text-primary flex items-center gap-2"><Recycle size={20} /> Most Disposed Products</h2>
-          <select value={disposalShop} onChange={(e) => setDisposalShop(e.target.value)} className="border border-input-border rounded px-3 py-1.5 text-sm text-text-primary bg-input-bg focus:outline-none focus:border-input-focus">
-            <option value="">All Shops</option>
-            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          <Select
+            value={disposalShop}
+            onChange={setDisposalShop}
+            options={[{ value: '', label: 'All Shops' }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
+            className="min-w-[150px]"
+            ariaLabel="Shop"
+          />
         </div>
         {disposedProducts.length === 0 ? (
           <ChartPlaceholder message="No approved disposals yet" />

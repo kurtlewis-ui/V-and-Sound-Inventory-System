@@ -8,6 +8,7 @@ import { useAuthStore } from '@/lib/store';
 import { useDraftStore } from '@/lib/draft';
 import { getApiErrorMessage } from '@/lib/api';
 import { GridSkeleton } from '@/components/Skeleton';
+import { Select } from '@/components/Select';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -366,17 +367,19 @@ function AddPurchaseModal({
 
         <div className="mb-4 space-y-2 rounded-lg border border-card-border p-3">
           <label className="block text-xs font-semibold uppercase tracking-wide text-text-muted">Payment (if selling)</label>
-          <select
+          <Select
             value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value as ItemPaymentMethod)}
-            className="w-full rounded border border-input-border bg-input-bg px-2 py-1.5 text-sm"
-          >
-            <option value="Cash">Cash</option>
-            <option value="Gcash">Gcash</option>
-            <option value="BankTransfer">Bank Transfer</option>
-            <option value="Cashless">Cashless (other)</option>
-            <option value="Split">Split Payment</option>
-          </select>
+            onChange={(v) => setPaymentMethod(v as ItemPaymentMethod)}
+            options={[
+              { value: 'Cash', label: 'Cash' },
+              { value: 'Gcash', label: 'Gcash' },
+              { value: 'BankTransfer', label: 'Bank Transfer' },
+              { value: 'Cashless', label: 'Cashless (other)' },
+              { value: 'Split', label: 'Split Payment' },
+            ]}
+            className="w-full"
+            ariaLabel="Payment method"
+          />
 
           {(paymentMethod === 'BankTransfer' || paymentMethod === 'Split') && (
             <input
@@ -423,19 +426,21 @@ function AddPurchaseModal({
 
         <div className="mb-4">
           <label className="block text-sm font-medium text-text-primary mb-1">Disposal Reason (if disposing)</label>
-          <select
+          <Select
             value={disposalReason}
-            onChange={(e) => setDisposalReason(e.target.value)}
-            className="w-full rounded border border-input-border bg-input-bg px-3 py-2 text-sm focus:outline-none focus:border-input-focus"
-          >
-            <option value="">Select reason...</option>
-            <option value="Leak">Leak</option>
-            <option value="Damage">Damage</option>
-            <option value="Crack">Crack</option>
-            <option value="Expired">Expired</option>
-            <option value="Burned">Burned</option>
-            <option value="Not Working">Not Working</option>
-          </select>
+            onChange={(v) => setDisposalReason(v)}
+            options={[
+              { value: '', label: 'Select reason...' },
+              { value: 'Leak', label: 'Leak' },
+              { value: 'Damage', label: 'Damage' },
+              { value: 'Crack', label: 'Crack' },
+              { value: 'Expired', label: 'Expired' },
+              { value: 'Burned', label: 'Burned' },
+              { value: 'Not Working', label: 'Not Working' },
+            ]}
+            className="w-full"
+            ariaLabel="Disposal reason"
+          />
           <input
             type="text"
             value={disposalNote}

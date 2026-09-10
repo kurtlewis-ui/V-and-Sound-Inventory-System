@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { useBrands, useProducts } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/store';
 import { getApiErrorMessage } from '@/lib/api';
+import { Select } from '@/components/Select';
 
 function peso(n: number) {
   return `\u20B1${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -45,34 +46,28 @@ export default function StaffProductsPage() {
       <h1 className="text-2xl font-bold text-text-primary mb-4">Products</h1>
 
       <div className="mb-4 max-w-sm">
-        <select
+        <Select
           value={brandId}
-          onChange={(e) => { setBrandId(e.target.value); setPage(1); }}
-          className="w-full rounded-lg border border-input-border bg-input-bg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-input-focus"
-        >
-          <option value="">All Brands</option>
-          {brands.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}</option>
-          ))}
-        </select>
+          onChange={(v) => { setBrandId(v); setPage(1); }}
+          options={[{ value: '', label: 'All Brands' }, ...brands.map((b) => ({ value: b.id, label: b.name }))]}
+          className="w-full"
+          ariaLabel="Brands"
+        />
       </div>
 
       <div className="rounded-xl border border-card-border bg-card-bg shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 p-4">
           <label className="flex items-center gap-2 text-sm text-text-secondary">
             Show
-            <select
+            <Select
               value={String(pageSize)}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value) as PageSize);
+              onChange={(v) => {
+                setPageSize(Number(v) as PageSize);
                 setPage(1);
               }}
-              className="rounded-lg border border-input-border bg-input-bg px-2 py-1 text-sm focus:outline-none"
-            >
-              {PAGE_SIZES.map((s) => (
-                <option key={s} value={String(s)}>{s}</option>
-              ))}
-            </select>
+              options={PAGE_SIZES.map((s) => ({ value: String(s), label: String(s) }))}
+              ariaLabel="Entries per page"
+            />
             entries
           </label>
           <input

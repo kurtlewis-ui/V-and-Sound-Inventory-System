@@ -8,6 +8,7 @@ import { useDraftStore, type DraftItem } from '@/lib/draft';
 import { useThemeStore } from '@/lib/theme';
 import { useSaveDraft, useClearDraftSync, useSaveMyDraft, useMyDraftExists } from '@/lib/hooks';
 import { getApiErrorMessage } from '@/lib/api';
+import { Select } from '@/components/Select';
 import type { PaymentMethod, PaymentSplit } from '@/lib/types';
 import {
   Home,
@@ -866,13 +867,19 @@ function EditPaymentInline({
 
   return (
     <div className="mt-2 rounded border border-card-border bg-white/5 p-2 space-y-2">
-      <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full rounded border border-input-border bg-input-bg px-2 py-1 text-xs">
-        <option value="Cash">Cash</option>
-        <option value="Gcash">Gcash</option>
-        <option value="BankTransfer">Bank Transfer</option>
-        <option value="Cashless">Cashless</option>
-        <option value="Split">Split Payment</option>
-      </select>
+      <Select
+        value={method}
+        onChange={(v) => setMethod(v as PaymentMethod)}
+        options={[
+          { value: 'Cash', label: 'Cash' },
+          { value: 'Gcash', label: 'Gcash' },
+          { value: 'BankTransfer', label: 'Bank Transfer' },
+          { value: 'Cashless', label: 'Cashless' },
+          { value: 'Split', label: 'Split Payment' },
+        ]}
+        className="w-full"
+        ariaLabel="Payment method"
+      />
       {(method === 'BankTransfer' || method === 'Split') && (
         <input type="text" value={bankNote} onChange={(e) => setBankNote(e.target.value)} placeholder="Which bank?" className="w-full rounded border border-input-border bg-input-bg px-2 py-1 text-xs" />
       )}
