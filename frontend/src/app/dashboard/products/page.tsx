@@ -1,3 +1,4 @@
+'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2, X, Loader2, Upload, Download, RefreshCw, FileDown, ClipboardList, ChevronDown, Archive, GripVertical, ArrowUpDown, Check } from 'lucide-react';
