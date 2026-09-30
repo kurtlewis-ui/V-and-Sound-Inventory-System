@@ -8,12 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Runtime queries go through Supabase's transaction pooler (PgBouncer,
-  // port 6543, ?pgbouncer=true).
   url      = env("DATABASE_URL")
-  // Migrations (`prisma migrate deploy`) can't run through the transaction
-  // pooler, so they use a direct/session-pooler connection (port 5432).
-  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // ============================================================================

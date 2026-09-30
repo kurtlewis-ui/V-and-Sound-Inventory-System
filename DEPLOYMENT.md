@@ -1,175 +1,182 @@
-# Deployment Guide — Vercel + Supabase
+# Deployment Guide — Render + Vercel + Neon + UptimeRobot
 
-This guide deploys the Vape & Sounds Inventory System on **Vercel + Supabase only**
-(no Render, no separate always-on server):
+This guide deploys the Vape & Sounds Inventory System for **free** (except domain):
 
 | Component | Service | Cost |
 |-----------|---------|------|
-| Frontend (Next.js) | Vercel | Free (Hobby) |
-| Backend API (NestJS) | Vercel (Serverless Function) | Free (Hobby) |
-| Database (PostgreSQL) | Supabase | Free (500MB) |
+| Frontend (Next.js) | Vercel | Free |
+| Backend (NestJS) | Render | Free |
+| Database (PostgreSQL) | Neon | Free |
+| Keep-Alive Ping | UptimeRobot | Free |
 | Domain (.com) | Namecheap/Porkbun | ~₱500/year |
 
-> **Architecture.** The frontend and the backend are deployed as **two separate
-> Vercel projects** from the same repo (different Root Directories). The NestJS
-> backend runs as a **serverless function** (`backend/api/index.ts`) — there is
-> no long-running server to keep awake, so no Render and no UptimeRobot ping is
-> needed. Prisma talks to Supabase through the transaction pooler.
+---
+
+## Step 1: Set Up the Database (Neon)
+
+1. Go to [neon.tech](https://neon.tech) and sign up (use GitHub login)
+2. Click **"Create Project"**
+3. Name it: `vape-shop-db`
+4. Region: **Singapore** (closest to Philippines)
+5. Once created, copy the **connection string** — it looks like:
+   ```
+   postgresql://username:password@ep-something.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+   ```
+6. **Save this** — you'll need it for Render.
 
 ---
 
-## Step 1: Set Up the Database (Supabase)
+## Step 2: Deploy the Backend (Render)
 
-1. Go to [supabase.com](https://supabase.com) and sign up (use GitHub login)
-2. Click **"New Project"**
-3. Name it `vape-shop-db`, set a strong **database password** (save it), and
-   choose **Region: Singapore** (closest to the Philippines)
-4. Wait for the project to finish provisioning (~2 minutes)
-5. Go to **Project Settings → Database → Connection string** and copy **two**
-   connection strings (Prisma needs both):
-
-   **`DATABASE_URL`** — Transaction pooler (PgBouncer), **port 6543**, add
-   `?pgbouncer=true`. Used by the app at runtime (required for serverless):
-   ```
-   postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true
-   ```
-
-   **`DIRECT_DATABASE_URL`** — Session pooler / direct connection, **port 5432**.
-   Used ONLY for migrations:
-   ```
-   postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
-   ```
-6. **Save both.**
-
-> **Migrating from Neon?** Copy your data over before switching:
-> ```bash
-> pg_dump "postgresql://...neon.tech/neondb?sslmode=require" \
->   --no-owner --no-privileges -Fc -f neon_backup.dump
-> pg_restore --no-owner --no-privileges --clean --if-exists \
->   -d "postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres" \
->   neon_backup.dump
-> ```
-
----
-
-## Step 2: Apply the Database Schema (Migrations)
-
-Migrations are run **from your machine** against the Supabase **direct**
-connection — not inside a Vercel build (serverless builds shouldn't run
-migrations). Do this once now, and again whenever you add migrations.
-
-```bash
-cd backend
-npm install
-
-# Point Prisma at Supabase. Locally you can export the two URLs for this shell:
-export DATABASE_URL="postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true"
-export DIRECT_DATABASE_URL="postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres"
-
-npm run migrate:prod     # prisma migrate deploy (uses DIRECT_DATABASE_URL)
-npm run prisma:seed      # creates the default admin account (first time only)
-```
-
----
-
-## Step 3: Deploy the Backend API (Vercel)
-
-1. Go to [vercel.com](https://vercel.com) → **"Add New… → Project"**
-2. Import the repo: `kurtlewis-ui/V-and-Sound-Inventory-System`
-3. Configure:
+1. Go to [render.com](https://render.com) and sign up with GitHub
+2. Click **"New" → "Web Service"**
+3. Connect your GitHub repo: `kurtlewis-ui/V-and-Sound-Inventory-System`
+4. Configure the service:
 
    | Setting | Value |
    |---------|-------|
-   | **Project Name** | `vape-shop-api` |
+   | **Name** | `vape-shop-api` |
+   | **Region** | Singapore |
    | **Root Directory** | `backend` |
-   | **Framework Preset** | Other |
+   | **Runtime** | Node |
+   | **Build Command** | `npm install && npx prisma generate && npm run build` |
+   | **Start Command** | `npm run start:prod` |
+   | **Plan** | Free |
 
-   Vercel reads `backend/vercel.json`, builds the serverless function at
-   `api/index.ts`, and routes all requests to it.
-
-4. Add **Environment Variables**:
+5. Add **Environment Variables** (click "Advanced" → "Add Environment Variable"):
 
    | Key | Value |
    |-----|-------|
    | `NODE_ENV` | `production` |
-   | `DATABASE_URL` | *(Supabase transaction pooler — port 6543, ends with `?pgbouncer=true`)* |
-   | `DIRECT_DATABASE_URL` | *(Supabase direct connection — port 5432)* |
-   | `JWT_SECRET` | *(random 32+ char string)* |
-   | `JWT_REFRESH_SECRET` | *(another random 32+ char string)* |
+   | `PORT` | `4000` |
+   | `DATABASE_URL` | *(paste your Neon connection string from Step 1)* |
+   | `JWT_SECRET` | *(generate a random 32+ char string, e.g. use [randomkeygen.com](https://randomkeygen.com))* |
+   | `JWT_REFRESH_SECRET` | *(another random 32+ char string, different from above)* |
    | `JWT_EXPIRATION` | `15m` |
    | `JWT_REFRESH_EXPIRATION` | `7d` |
-   | `CORS_ORIGIN` | *(leave blank for now — fill after the frontend deploy)* |
+   | `CORS_ORIGIN` | *(leave blank for now — fill after Vercel deploy)* |
    | `BCRYPT_ROUNDS` | `12` |
    | `SESSION_TIMEOUT` | `900` |
    | `RATE_LIMIT_TTL` | `60` |
    | `RATE_LIMIT_MAX` | `100` |
    | `BODY_LIMIT` | `15mb` |
-   | `API_PREFIX` | `api/v1` |
 
-5. Click **Deploy**. You'll get a URL like `https://vape-shop-api.vercel.app`.
-6. Test it: visit `https://vape-shop-api.vercel.app/health` — should return OK.
+6. Click **"Create Web Service"** — wait for build to complete (~3-5 minutes)
+7. Once deployed, you'll get a URL like: `https://vape-shop-api-xxxx.onrender.com`
+8. Test it: visit `https://vape-shop-api-xxxx.onrender.com/health` — should show OK
 
-> **Note (Hobby plan):** serverless functions are capped at **10s** execution
-> (`maxDuration` in `backend/vercel.json`). On **Pro** you can raise it to 60s —
-> bump `maxDuration` if you hit timeouts on heavy operations (e.g. bulk import).
+---
+
+## Step 3: Run Database Migration
+
+After the backend is deployed, you need to seed the database:
+
+1. In Render dashboard, go to your service → **"Shell"** tab
+2. Run these commands:
+   ```bash
+   npx prisma migrate deploy
+   npx prisma db seed
+   ```
+   This creates all tables and the default admin account.
 
 ---
 
 ## Step 4: Deploy the Frontend (Vercel)
 
-1. In Vercel → **"Add New… → Project"**, import the **same repo** again
-2. Configure:
+1. Go to [vercel.com](https://vercel.com) and sign up with GitHub
+2. Click **"Add New..." → "Project"**
+3. Import your GitHub repo: `kurtlewis-ui/V-and-Sound-Inventory-System`
+4. Configure:
 
    | Setting | Value |
    |---------|-------|
-   | **Project Name** | `vape-shop-web` |
-   | **Root Directory** | `frontend` |
    | **Framework Preset** | Next.js |
+   | **Root Directory** | `frontend` |
 
-3. Add **Environment Variable**:
+5. Add **Environment Variable**:
 
    | Key | Value |
    |-----|-------|
-   | `NEXT_PUBLIC_API_URL` | `https://vape-shop-api.vercel.app/api/v1` *(your backend URL from Step 3)* |
+   | `NEXT_PUBLIC_API_URL` | `https://vape-shop-api-xxxx.onrender.com/api/v1` *(your Render URL from Step 2)* |
 
-4. Click **Deploy**. You'll get a URL like `https://vape-shop-web.vercel.app`.
-
----
-
-## Step 5: Set the Backend CORS Origin
-
-Go back to the **backend** Vercel project → **Settings → Environment Variables**:
-
-1. Set `CORS_ORIGIN` to your frontend URL:
-   ```
-   https://vape-shop-web.vercel.app
-   ```
-   (For a custom domain later, make it comma-separated:)
-   ```
-   https://vape-shop-web.vercel.app,https://www.yourdomain.com
-   ```
-2. **Redeploy** the backend so the change takes effect.
+6. Click **"Deploy"** — wait for build (~2-3 minutes)
+7. You'll get a URL like: `https://your-app.vercel.app`
 
 ---
 
-## Step 6: Connect Custom Domains (Optional)
+## Step 5: Update CORS on Render
 
-- **Frontend** (`www.vapeandsounds.com`): backend project not required — add the
-  domain to the **frontend** Vercel project (Settings → Domains) and set the DNS
-  record Vercel shows.
-- **Backend** (`api.vapeandsounds.com`): add it to the **backend** Vercel project,
-  set the DNS record, then update `NEXT_PUBLIC_API_URL` (frontend) to
-  `https://api.vapeandsounds.com/api/v1` and add the frontend domain to
-  `CORS_ORIGIN` (backend).
+Now go back to Render:
+
+1. Go to your backend service → **"Environment"** tab
+2. Update `CORS_ORIGIN` to your Vercel URL:
+   ```
+   https://your-app.vercel.app
+   ```
+   (If you also have a custom domain later, make it comma-separated:)
+   ```
+   https://your-app.vercel.app,https://www.yourdomain.com
+   ```
+3. Click **"Save Changes"** — Render will auto-redeploy
+
+---
+
+## Step 6: Set Up UptimeRobot (Keep Backend Awake)
+
+1. Go to [uptimerobot.com](https://uptimerobot.com) and sign up (free)
+2. Click **"Add New Monitor"**
+3. Configure:
+
+   | Setting | Value |
+   |---------|-------|
+   | **Monitor Type** | HTTP(s) |
+   | **Friendly Name** | `Vape Shop API` |
+   | **URL** | `https://vape-shop-api-xxxx.onrender.com/health` |
+   | **Monitoring Interval** | `5 minutes` |
+
+4. Click **"Create Monitor"**
+
+This pings your backend every 5 minutes so Render never puts it to sleep.
+
+---
+
+## Step 7: Connect Custom Domain (Optional)
+
+### Frontend domain (e.g. www.vapeandsounds.com):
+1. In Vercel → your project → **"Settings" → "Domains"**
+2. Add your domain: `www.vapeandsounds.com`
+3. Vercel shows you DNS records (usually a CNAME)
+4. Go to your domain registrar (Namecheap/Porkbun) → DNS settings
+5. Add the CNAME record Vercel provided
+6. Wait ~5 minutes for propagation
+
+### Backend domain (optional, e.g. api.vapeandsounds.com):
+1. In Render → your service → **"Settings" → "Custom Domains"**
+2. Add `api.vapeandsounds.com`
+3. Add the CNAME record Render provides to your DNS
+
+### Update CORS after domain setup:
+Update `CORS_ORIGIN` on Render to include your custom domain:
+```
+https://www.vapeandsounds.com,https://vapeandsounds.com
+```
+
+### Update frontend env:
+If you set up `api.vapeandsounds.com`, update `NEXT_PUBLIC_API_URL` on Vercel to:
+```
+https://api.vapeandsounds.com/api/v1
+```
 
 ---
 
 ## Done! 🎉
 
-- **Frontend:** `https://vape-shop-web.vercel.app` (or your custom domain)
-- **Backend API:** `https://vape-shop-api.vercel.app`
+Your app is now live at:
+- **Frontend:** `https://your-app.vercel.app` (or your custom domain)
+- **Backend API:** `https://vape-shop-api-xxxx.onrender.com`
+- **API Docs:** `https://vape-shop-api-xxxx.onrender.com/api/docs`
 
-### Default Login
+### Default Login:
 | Email | Password |
 |-------|----------|
 | admin@vapeshop.com | ChangeMe123! |
@@ -182,13 +189,12 @@ Go back to the **backend** Vercel project → **Settings → Environment Variabl
 
 | Problem | Solution |
 |---------|----------|
-| Frontend shows "Network Error" | Check `NEXT_PUBLIC_API_URL` (frontend) matches the backend Vercel URL and ends with `/api/v1` |
-| Backend returns CORS error | Set `CORS_ORIGIN` (backend) to the exact frontend URL (include `https://`) and redeploy |
-| Login works but refresh fails | `CORS_ORIGIN` must match exactly; cookies require `credentials` + HTTPS |
-| Database connection fails | `DATABASE_URL` must be the Supabase transaction pooler (port 6543, `?pgbouncer=true`) |
-| Migrations fail (`P1001`/pooler error) | Run `npm run migrate:prod` locally with `DIRECT_DATABASE_URL` = Supabase **direct** connection (port 5432) |
-| Function timeout on heavy request | Hobby caps at 10s; raise `maxDuration` in `backend/vercel.json` on the Pro plan |
-| First request after idle is slow | Serverless cold start — normal for an internal tool; the next requests are fast |
+| Frontend shows "Network Error" | Check `NEXT_PUBLIC_API_URL` on Vercel matches your Render URL |
+| Backend returns CORS error | Update `CORS_ORIGIN` on Render to include your frontend URL |
+| Login works but refresh fails | Make sure `CORS_ORIGIN` matches exactly (include `https://`) |
+| Database connection fails | Check `DATABASE_URL` on Render — must include `?sslmode=require` for Neon |
+| Build fails on Render | Check "Logs" tab — usually a missing env var |
+| Backend sleeps despite UptimeRobot | Verify the monitor is active and URL is correct in UptimeRobot |
 
 ---
 
@@ -196,7 +202,11 @@ Go back to the **backend** Vercel project → **Settings → Environment Variabl
 
 | Service | Cost |
 |---------|------|
-| Vercel (frontend + backend) | Free (Hobby) |
-| Supabase (database) | Free (500MB) |
+| Vercel (frontend) | Free |
+| Render (backend) | Free |
+| Neon (database) | Free (500MB) |
+| UptimeRobot | Free |
 | Domain (optional) | ~₱500/year |
 | **Total** | **₱0/month** (+ ₱500/year for domain) |
+
+If you ever need guaranteed uptime (no sleep risk), upgrade Render to Starter plan ($7/mo = ~₱350/mo).
