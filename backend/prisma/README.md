@@ -12,11 +12,28 @@ npm install
 
 ### 2. Configure Database
 
-Create a `.env` file in the backend directory:
+Create a `.env` file in the backend directory.
+
+For **local development** both URLs can point at your local Postgres:
 
 ```env
 DATABASE_URL="postgresql://postgres:password@localhost:5432/vape_shop_db?schema=public"
+DIRECT_DATABASE_URL="postgresql://postgres:password@localhost:5432/vape_shop_db?schema=public"
 ```
+
+For **production (Supabase)**, use the two connection strings from
+Supabase → Project Settings → Database → Connection string:
+
+```env
+# App runtime — transaction pooler (PgBouncer), port 6543
+DATABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true"
+# Migrations only — session pooler / direct connection, port 5432
+DIRECT_DATABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+```
+
+> Prisma reads `DATABASE_URL` for queries and `DIRECT_DATABASE_URL` (the
+> schema's `directUrl`) for migrations, because `prisma migrate deploy`
+> cannot run through Supabase's transaction pooler.
 
 ### 3. Generate Prisma Client
 

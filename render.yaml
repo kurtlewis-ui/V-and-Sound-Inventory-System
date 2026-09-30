@@ -17,8 +17,15 @@ services:
         value: production
       - key: PORT
         value: 4000
+      # Supabase transaction pooler (PgBouncer), port 6543, add ?pgbouncer=true.
+      # Used by the app at runtime. Set manually in the Render dashboard.
       - key: DATABASE_URL
-        sync: false  # Set manually in Render dashboard (Neon connection string)
+        sync: false
+      # Supabase session pooler / direct connection, port 5432. Used ONLY for
+      # `prisma migrate deploy` (migrations can't run through the transaction
+      # pooler). Set manually in the Render dashboard.
+      - key: DIRECT_DATABASE_URL
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
