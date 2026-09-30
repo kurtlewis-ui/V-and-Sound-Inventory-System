@@ -94,9 +94,11 @@ cd backend
 cp .env.example .env
 ```
 
-Edit `backend/.env`:
+Edit `backend/.env` (locally both URLs can point at your local Postgres; in
+production they are the two Supabase connection strings — see `DEPLOYMENT.md`):
 ```env
 DATABASE_URL="postgresql://postgres:password@localhost:5432/vape_shop_db"
+DIRECT_DATABASE_URL="postgresql://postgres:password@localhost:5432/vape_shop_db"
 REDIS_HOST=localhost
 REDIS_PORT=6379
 JWT_SECRET=your-super-secret-key-change-this

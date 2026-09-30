@@ -1,4 +1,4 @@
-# Deployment Guide — Render + Vercel + Neon + UptimeRobot
+# Deployment Guide — Render + Vercel + Supabase + UptimeRobot
 
 This guide deploys the Vape & Sounds Inventory System for **free** (except domain):
 
@@ -6,23 +6,53 @@ This guide deploys the Vape & Sounds Inventory System for **free** (except domai
 |-----------|---------|------|
 | Frontend (Next.js) | Vercel | Free |
 | Backend (NestJS) | Render | Free |
-| Database (PostgreSQL) | Neon | Free |
+| Database (PostgreSQL) | Supabase | Free |
 | Keep-Alive Ping | UptimeRobot | Free |
 | Domain (.com) | Namecheap/Porkbun | ~₱500/year |
 
 ---
 
-## Step 1: Set Up the Database (Neon)
+## Step 1: Set Up the Database (Supabase)
 
-1. Go to [neon.tech](https://neon.tech) and sign up (use GitHub login)
-2. Click **"Create Project"**
-3. Name it: `vape-shop-db`
-4. Region: **Singapore** (closest to Philippines)
-5. Once created, copy the **connection string** — it looks like:
+1. Go to [supabase.com](https://supabase.com) and sign up (use GitHub login)
+2. Click **"New Project"**
+3. Name it: `vape-shop-db`, set a strong **database password** (save it), and
+   choose **Region: Singapore** (closest to the Philippines)
+4. Wait for the project to finish provisioning (~2 minutes)
+5. Go to **Project Settings → Database → Connection string** and copy **two**
+   connection strings (Supabase needs both — see the note below):
+
+   **`DATABASE_URL`** — Transaction pooler (PgBouncer), **port 6543**, and add
+   `?pgbouncer=true`. This is what the app uses at runtime:
    ```
-   postgresql://username:password@ep-something.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+   postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true
    ```
-6. **Save this** — you'll need it for Render.
+
+   **`DIRECT_DATABASE_URL`** — Session pooler / direct connection, **port 5432**.
+   This is used ONLY for running migrations:
+   ```
+   postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+   ```
+6. **Save both** — you'll paste them into Render in Step 2.
+
+> **Why two URLs?** Prisma runs app queries through the transaction pooler
+> (fast, connection-pooled) but `prisma migrate deploy` **cannot** run through
+> the transaction pooler, so it uses the direct connection (`directUrl` in
+> `schema.prisma`). Setting only one will make either the app or the
+> migrations fail.
+
+> **Migrating from Neon?** After creating the Supabase project, copy your
+> existing data over before switching Render's env vars:
+> ```bash
+> # Dump from Neon (use its direct connection string)
+> pg_dump "postgresql://...neon.tech/neondb?sslmode=require" \
+>   --no-owner --no-privileges -Fc -f neon_backup.dump
+> # Restore into Supabase (use the DIRECT_DATABASE_URL, port 5432)
+> pg_restore --no-owner --no-privileges --clean --if-exists \
+>   -d "postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres" \
+>   neon_backup.dump
+> ```
+> Run this with `pg_dump`/`pg_restore` from a matching PostgreSQL version.
 
 ---
 
@@ -49,7 +79,8 @@ This guide deploys the Vape & Sounds Inventory System for **free** (except domai
    |-----|-------|
    | `NODE_ENV` | `production` |
    | `PORT` | `4000` |
-   | `DATABASE_URL` | *(paste your Neon connection string from Step 1)* |
+   | `DATABASE_URL` | *(paste your Supabase transaction-pooler string from Step 1 — port 6543, ends with `?pgbouncer=true`)* |
+   | `DIRECT_DATABASE_URL` | *(paste your Supabase session-pooler / direct string from Step 1 — port 5432)* |
    | `JWT_SECRET` | *(generate a random 32+ char string, e.g. use [randomkeygen.com](https://randomkeygen.com))* |
    | `JWT_REFRESH_SECRET` | *(another random 32+ char string, different from above)* |
    | `JWT_EXPIRATION` | `15m` |
@@ -192,7 +223,8 @@ Your app is now live at:
 | Frontend shows "Network Error" | Check `NEXT_PUBLIC_API_URL` on Vercel matches your Render URL |
 | Backend returns CORS error | Update `CORS_ORIGIN` on Render to include your frontend URL |
 | Login works but refresh fails | Make sure `CORS_ORIGIN` matches exactly (include `https://`) |
-| Database connection fails | Check `DATABASE_URL` on Render — must include `?sslmode=require` for Neon |
+| Database connection fails | Check `DATABASE_URL` on Render — Supabase transaction pooler, port 6543, must end with `?pgbouncer=true` |
+| Migrations fail (`P1001`/pooler error) | `DIRECT_DATABASE_URL` must be the Supabase **direct/session** connection on **port 5432**, not the 6543 pooler |
 | Build fails on Render | Check "Logs" tab — usually a missing env var |
 | Backend sleeps despite UptimeRobot | Verify the monitor is active and URL is correct in UptimeRobot |
 
@@ -204,7 +236,7 @@ Your app is now live at:
 |---------|------|
 | Vercel (frontend) | Free |
 | Render (backend) | Free |
-| Neon (database) | Free (500MB) |
+| Supabase (database) | Free (500MB) |
 | UptimeRobot | Free |
 | Domain (optional) | ~₱500/year |
 | **Total** | **₱0/month** (+ ₱500/year for domain) |
